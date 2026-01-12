@@ -2,29 +2,32 @@
 
 ## 1. Environment Diagnostics
 ```yaml
-Time: 2026-01-12 16:42:38
+Time: 2026-01-12T17:55:36+08:00
 User: steam
 Host: VM-8-2-ubuntu (Linux 6.8.0-49-generic)
+Platform: Linux-6.8.0-49-generic-x86_64-with-glibc2.39
 Python: 3.13.11 (/home/steam/miniconda3/bin/python3)
+Conda Env: base
 Rich Ver: Installed (ver unknown)
 --------------------
 Branch: main [DIRTY]
-Commit: 9b711b1
-Message: Feat: Add Deep Analyzer to Explorer and fix Wiki regex
+Commit: aba36ed
+Message: v2: registry single source, docs/SOP, boot fixes, analyzer/wiki/explorer updates
+Changes: modified=2, untracked=1
+---
+devtools/snapshot.py | 618 +++++++++++++++++++++++++++++++++++++++++++--------
+ project_context.txt  |   9 +-
+ 2 files changed, 529 insertions(+), 98 deletions(-)
 ```
 
 ## 2. Project Structure
 ```text
-├── .gitignore
-├── PROJECT_STATUS.json
-├── README.md
 ├── bin
-│   ├── .dst_tool.sh.swp
-│   ├── Wagstaff-Lab
 │   ├── boot.sh
 │   ├── dst_tool.sh
 │   ├── pm
-│   └── wagstaff
+│   ├── wagstaff
+│   └── Wagstaff-Lab
 ├── conf
 │   └── settings.ini
 ├── data
@@ -36,7 +39,6 @@ Message: Feat: Add Deep Analyzer to Explorer and fix Wiki regex
 │   ├── pm.py
 │   ├── reporter.py
 │   └── snapshot.py
-├── setup.sh
 ├── src
 │   ├── analyzer.py
 │   ├── engine.py
@@ -45,17 +47,27 @@ Message: Feat: Add Deep Analyzer to Explorer and fix Wiki regex
 │   ├── registry.py
 │   ├── utils.py
 │   └── wiki.py
-└── tests
-    └── test_recipes.py
-
+├── tests
+│   └── test_recipes.py
+├── .gitignore
+├── PROJECT_STATUS.json
+├── README.md
+└── setup.sh
 ```
 
 ## 3. Source Code
 
-### File: bin/boot.sh
-```sh
-#!/bin/bashif reci$CLUSTER_NAME
+### File: bin/Wagstaff-Lab
+> size=65B, sha256=f7752ace0a59
+```bash
+#!/bin/bash
+python3 "/home/steam/Wagstaff-Lab/src/guide.py" "$@"
+```
 
+### File: bin/boot.sh
+> size=2250B, sha256=524c5d2d4996
+```bash
+#!/bin/bash
 # =========================================================
 # Wagstaff-Lab Bootloader (启动引导程序)
 # 职责: 设置环境库(LD_LIBRARY_PATH)并启动 DST 二进制文件
@@ -114,11 +126,11 @@ screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -clu
 echo "✅ [Boot] 洞穴服务器 (Caves) 已启动"
 
 echo "✨ 启动序列完成。"
-
 ```
 
 ### File: bin/dst_tool.sh
-```sh
+> size=10271B, sha256=0238acff2a56
+```bash
 #!/bin/bash
 
 # =========================================================
@@ -425,11 +437,1087 @@ while true; do
         *) echo "无效"; sleep 0.5 ;;
     esac
 done
+```
 
+### File: bin/pm
+> size=67B, sha256=c6931064b944
+```bash
+#!/bin/bash
+python3 "/home/steam/Wagstaff-Lab/devtools/pm.py" "$@"
+```
+
+### File: bin/wagstaff
+> size=519B, sha256=8e9639860ee9
+```bash
+#!/bin/bash
+TOOL=$1
+shift
+case "$TOOL" in
+  wiki) python3 "/home/steam/Wagstaff-Lab/src/wiki.py" "$@" ;;
+  exp) python3 "/home/steam/Wagstaff-Lab/src/explorer.py" "$@" ;;
+  pm) python3 "/home/steam/Wagstaff-Lab/devtools/pm.py" "$@" ;;
+  report) python3 "/home/steam/Wagstaff-Lab/devtools/reporter.py" "$@" ;;
+  snap) python3 "/home/steam/Wagstaff-Lab/devtools/snapshot.py" "$@" ;;
+  install) python3 "/home/steam/Wagstaff-Lab/devtools/installer.py" "$@" ;;
+  *) "/home/steam/Wagstaff-Lab/bin/Wagstaff-Lab" "$@" ;;
+esac
+```
+
+### File: conf/settings.ini
+> size=353B, sha256=15952c921af7
+```toml
+[PATHS]
+# 游戏安装目录
+DST_ROOT = ~/dontstarvetogether_dedicated_server
+# SteamCMD 目录
+STEAMCMD_DIR = ~/steamcmd
+# 备份存放目录
+BACKUP_DIR = ~/dst_backups
+
+[SERVER]
+# 你的存档文件夹名 (Cluster Name)
+CLUSTER_NAME = MyDediServer
+# Klei 存档根目录 (通常是 ~/.klei/DoNotStarveTogether)
+KLEI_HOME = ~/.klei/DoNotStarveTogether
+```
+
+### File: data/reports/asset_registry.md
+> size=2096B, sha256=45c762a51673
+```markdown
+# Wagstaff Asset Registry
+
+| Category | Total Definitions | Top File |
+|----------|-------------------|----------|
+| Prefabs | 2381 | `scripts/prefabs/meats.lua` |
+| Widgets | 2096 | `scripts/widgets/controls.lua` |
+| LootTables | 183 | `scripts/prefabs/deciduoustrees.lua` |
+| Brains | 103 | `scripts/prefabs/pigman.lua` |
+| STRINGS | 45 | `scripts/strings.lua` |
+
+## Detailed Breakdown
+
+### Prefabs
+- `scripts/prefabs/meats.lua`: 30
+- `scripts/prefabs/boat.lua`: 19
+- `scripts/prefabs/rocks.lua`: 13
+- `scripts/prefabs/archive_props.lua`: 13
+- `scripts/prefabs/explode_small.lua`: 10
+- `scripts/prefabs/staff.lua`: 9
+- `scripts/prefabs/planted_tree.lua`: 8
+- `scripts/prefabs/hound.lua`: 8
+- `scripts/prefabs/wagstaff_npc.lua`: 8
+- `scripts/prefabs/spider.lua`: 8
+
+### Widgets
+- `scripts/widgets/controls.lua`: 35
+- `scripts/screens/playerhud.lua`: 32
+- `scripts/screens/lobbyscreen.lua`: 16
+- `scripts/screens/multiplayermainscreen.lua`: 15
+- `scripts/widgets/redux/templates.lua`: 14
+- `scripts/widgets/statusdisplays.lua`: 14
+- `scripts/screens/serverlistingscreen.lua`: 14
+- `scripts/screens/redux/multiplayermainscreen.lua`: 14
+- `scripts/screens/servercreationscreen.lua`: 14
+- `scripts/screens/modconfigurationscreen.lua`: 13
+
+### LootTables
+- `scripts/prefabs/deciduoustrees.lua`: 7
+- `scripts/prefabs/evergreens.lua`: 7
+- `scripts/prefabs/moon_altar.lua`: 6
+- `scripts/prefabs/farm_plants.lua`: 5
+- `scripts/prefabs/merm.lua`: 4
+- `scripts/prefabs/veggies.lua`: 4
+- `scripts/prefabs/perdshrine.lua`: 4
+- `scripts/prefabs/pigman.lua`: 4
+- `scripts/prefabs/monkey.lua`: 4
+- `scripts/prefabs/oceantree.lua`: 4
+
+### Brains
+- `scripts/prefabs/pigman.lua`: 4
+- `scripts/prefabs/merm.lua`: 2
+- `scripts/prefabs/wobster.lua`: 2
+- `scripts/brains/wobysmallbrain.lua`: 2
+- `scripts/prefabs/ghost.lua`: 2
+- `scripts/prefabs/slurtle.lua`: 2
+- `scripts/prefabs/spider.lua`: 2
+- `scripts/prefabs/monkey.lua`: 2
+- `scripts/brains/catcoonbrain.lua`: 1
+- `scripts/brains/pigbrain.lua`: 1
+
+### STRINGS
+- `scripts/strings.lua`: 37
+- `scripts/skin_strings.lua`: 7
+- `scripts/strings_pretranslated.lua`: 1
+```
+
+### File: data/reports/recipe_distribution.md
+> size=1655B, sha256=e177df3496c5
+```markdown
+# Wagstaff Recipe Distribution
+
+## Function Usage
+- **Recipe2**: 881
+- **DeconstructRecipe**: 111
+- **Recipe**: 56
+- **DoRecipeClick**: 11
+- **AddCookerRecipe**: 9
+- **SetRecipeUnlocked**: 4
+- **ClearAllUnlockedRecipes**: 3
+- **UpdateRecipes**: 2
+- **OnRecipeDirty**: 2
+- **SetRecipe**: 2
+- **SetupRecipeIngredientDetails**: 1
+- **AddRecipeCard**: 1
+- **TestRecipes**: 1
+- **RemoveAllRecipes**: 1
+- **CanBlueprintRandomRecipe**: 1
+- **CleanupDupRecipes**: 1
+- **IsRecipeValidForFilter**: 1
+- **IsRecipeValidForStation**: 1
+- **DeclareLimitedCraftingRecipe**: 1
+- **ShouldHintRecipe**: 1
+- **PickRandomRecipe**: 1
+
+## File Hotspots (Top 20)
+- `scripts/recipes.lua`: 997 recipes
+- `scripts/prefabs/quagmire.lua`: 52 recipes
+- `scripts/cooking.lua`: 10 recipes
+- `scripts/prefabs/hermithouse.lua`: 7 recipes
+- `scripts/widgets/redux/craftingmenu_widget.lua`: 3 recipes
+- `scripts/prefabs/cookingrecipecard.lua`: 3 recipes
+- `scripts/prefabs/hermitcrab_teashop.lua`: 2 recipes
+- `scripts/widgets/recipepopup.lua`: 2 recipes
+- `scripts/widgets/redux/craftingmenu_pinslot.lua`: 2 recipes
+- `scripts/widgets/redux/quagmire_recipebook.lua`: 1 recipes
+- `scripts/widgets/controllercrafting_singletab.lua`: 1 recipes
+- `scripts/components/quagmire_recipeprices.lua`: 1 recipes
+- `scripts/modutil.lua`: 1 recipes
+- `scripts/widgets/ingredientui.lua`: 1 recipes
+- `scripts/components/quagmire_recipebook.lua`: 1 recipes
+- `scripts/prefabs/blueprint.lua`: 1 recipes
+- `scripts/widgets/controllercrafting.lua`: 1 recipes
+- `scripts/widgets/craftslot.lua`: 1 recipes
+- `scripts/quagmire_recipebook.lua`: 1 recipes
+- `scripts/widgets/quagmire_recipepopup.lua`: 1 recipes
+```
+
+### File: devtools/installer.py
+> size=3119B, sha256=be480b415f6a
+```python
+#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+from rich.console import Console
+
+# 引入注册表
+sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+from registry import get_tools
+
+console = Console()
+
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parent.parent
+BIN_DIR = PROJECT_ROOT / "bin"
+SRC_DIR = PROJECT_ROOT / "src"
+DEV_DIR = PROJECT_ROOT / "devtools"
+
+def get_shell_config():
+    home = Path.home()
+    shell = os.environ.get("SHELL", "")
+    if "zsh" in shell: return home / ".zshrc"
+    elif "bash" in shell: return home / ".bashrc"
+    else: return home / ".profile"
+
+def create_wrappers():
+    # 1. 创建 'Wagstaff-Lab' 主入口
+    main_wrapper = BIN_DIR / "Wagstaff-Lab"
+    with open(main_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write(f'python3 "{SRC_DIR}/guide.py" "$@"\n')
+    os.chmod(main_wrapper, 0o755)
+    
+    # 2. 创建 'pm' 快捷指令
+    pm_wrapper = BIN_DIR / "pm"
+    with open(pm_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write(f'python3 "{DEV_DIR}/pm.py" "$@"\n')
+    os.chmod(pm_wrapper, 0o755)
+
+    # 3. 动态创建 'wagstaff' 工具箱 (基于 Registry)
+    ws_wrapper = BIN_DIR / "wagstaff"
+    with open(ws_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write('TOOL=$1\nshift\n')
+        f.write('case "$TOOL" in\n')
+        
+        # --- 动态生成 Case 分支 ---
+        tools = get_tools()
+        registered_aliases = []
+        
+        for tool in tools:
+            alias = tool.get('alias')
+            if not alias: continue # 跳过没有别名的工具
+            
+            folder = tool.get('folder', 'src')
+            # 转换 folder 为绝对路径变量
+            if folder == 'src': abs_path = SRC_DIR
+            elif folder == 'devtools': abs_path = DEV_DIR
+            else: abs_path = PROJECT_ROOT / folder
+            
+            f.write(f'  {alias}) python3 "{abs_path}/{tool["file"]}" "$@" ;;\n')
+            registered_aliases.append(f"{alias} ({tool['desc']})")
+        # ------------------------
+
+        f.write(f'  *) "{main_wrapper}" "$@" ;;\n') 
+        f.write('esac\n')
+    os.chmod(ws_wrapper, 0o755)
+    
+    console.print(f"[green]✅ 指令注册成功 (Registry Driven)[/green]")
+    console.print(f"   已自动注册 {len(registered_aliases)} 个子命令到 'wagstaff'")
+
+def register_to_path():
+    rc_file = get_shell_config()
+    bin_path_str = str(BIN_DIR)
+    
+    if not rc_file.exists(): return
+
+    content = rc_file.read_text()
+    if f'export PATH="{bin_path_str}:$PATH"' in content:
+        console.print("[dim]⚡ 环境变量已就绪[/dim]")
+    else:
+        try:
+            with open(rc_file, 'a') as f:
+                f.write(f'\n# Wagstaff-Lab Environment\nexport PATH="{bin_path_str}:$PATH"\n')
+            console.print(f"[green]✅ PATH 已更新[/green]")
+        except Exception:
+            pass
+
+def main():
+    console.print("[bold blue]🔧 Wagstaff-Lab 自动化注册中心[/bold blue]")
+    create_wrappers()
+    register_to_path()
+
+if __name__ == "__main__":
+    main()
+```
+
+### File: devtools/pm.py
+> size=4465B, sha256=001089e58693
+```python
+#!/usr/bin/env python3
+import os
+import json
+import sys
+from datetime import datetime
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.prompt import Prompt, IntPrompt
+
+console = Console()
+STATUS_FILE = "PROJECT_STATUS.json"
+
+class ProjectManager:
+    def __init__(self):
+        self.data = self._load()
+
+    def _load(self):
+        if os.path.exists(STATUS_FILE):
+            with open(STATUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {"objective": "Unset", "tasks": [], "logs": [], "guidelines": []}
+
+    def _save(self):
+        with open(STATUS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f, indent=2, ensure_ascii=False)
+
+    def set_objective(self, obj):
+        self.data["objective"] = obj
+        self._save()
+        console.print(f"[green]✅ 目标更新:[/green] {obj}")
+
+    def add_task(self, task):
+        self.data["tasks"].append({"desc": task, "status": "todo", "time": str(datetime.now())})
+        self._save()
+        console.print(f"[green]✅ 任务+1:[/green] {task}")
+    
+    def add_rule(self, rule):
+        if "guidelines" not in self.data: self.data["guidelines"] = []
+        self.data["guidelines"].append(rule)
+        self._save()
+        console.print(f"[bold magenta]📜 宗旨录入:[/bold magenta] {rule}")
+
+    def complete_task(self, index):
+        if 0 <= index < len(self.data["tasks"]):
+            self.data["tasks"][index]["status"] = "done"
+            self._save()
+            console.print(f"[green]🎉 完成:[/green] {self.data['tasks'][index]['desc']}")
+        else:
+            console.print("[red]❌ 索引无效[/red]")
+
+    def log_entry(self, msg):
+        self.data["logs"].append(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
+        if len(self.data["logs"]) > 10: self.data["logs"].pop(0)
+        self._save()
+        console.print("[green]📝 日志已记录[/green]")
+
+    def show_status(self):
+        console.clear()
+        console.print(Panel(f"[bold blue]🎯 目标: {self.data.get('objective', 'Unset')}[/bold blue]"))
+        
+        t_table = Table(title="任务清单", box=None)
+        t_table.add_column("ID", style="dim"); t_table.add_column("状态"); t_table.add_column("内容")
+        for i, t in enumerate(self.data["tasks"]):
+            status = "✅" if t["status"] == "done" else "⬜"
+            style = "dim strike" if t["status"] == "done" else "bold"
+            t_table.add_row(str(i), status, f"[{style}]{t['desc']}[/{style}]")
+        console.print(t_table)
+        
+        if self.data.get("logs"):
+            console.print("\n[dim]📜 最近日志:[/dim]")
+            for l in self.data["logs"][-3:]:
+                console.print(f"  {l}")
+
+    def interactive_mode(self):
+        while True:
+            self.show_status()
+            console.print("\n[bold cyan]操作菜单:[/bold cyan]")
+            console.print("1. [green]✅ 完成任务[/]  2. [blue]➕ 新增任务[/]  3. [magenta]📝 写日志[/]  4. [yellow]🎯 改目标[/]  0. [red]退出[/]")
+            
+            choice = Prompt.ask("选择操作", choices=["0", "1", "2", "3", "4"], default="0")
+            
+            if choice == "0": break
+            elif choice == "1":
+                idx = IntPrompt.ask("输入任务ID")
+                self.complete_task(idx)
+            elif choice == "2":
+                desc = Prompt.ask("输入任务描述")
+                self.add_task(desc)
+            elif choice == "3":
+                log = Prompt.ask("输入日志内容")
+                self.log_entry(log)
+            elif choice == "4":
+                obj = Prompt.ask("输入新目标")
+                self.set_objective(obj)
+            
+            if choice != "0":
+                input("\n按回车继续...")
+
+def main():
+    pm = ProjectManager()
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        content = " ".join(sys.argv[2:])
+        if cmd == "obj": pm.set_objective(content)
+        elif cmd == "add": pm.add_task(content)
+        elif cmd == "rule": pm.add_rule(content)
+        elif cmd == "done": pm.complete_task(int(sys.argv[2]))
+        elif cmd == "log": pm.log_entry(content)
+        elif cmd == "ui": pm.interactive_mode() # 新增入口
+        else: pm.show_status()
+    else:
+        # 默认直接进入交互模式，更省事
+        pm.interactive_mode()
+
+if __name__ == "__main__":
+    main()
+```
+
+### File: devtools/reporter.py
+> size=4763B, sha256=915b1577a0aa
+```python
+#!/usr/bin/env python3
+import os
+import sys
+import re
+from collections import Counter, defaultdict
+from rich.console import Console
+from rich.progress import track
+
+# 挂载 src 并引入引擎
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+from engine import WagstaffEngine
+
+console = Console()
+
+# === [修复] 动态定位项目路径 ===
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+REPORT_DIR = os.path.join(PROJECT_ROOT, "data", "reports")
+
+class WagstaffReporter:
+    def __init__(self):
+        # 启动引擎，不需要加载数据库(我们只做正则扫描)
+        self.engine = WagstaffEngine(load_db=False, silent=True)
+        self._ensure_report_dir()
+
+    def _ensure_report_dir(self):
+        if not os.path.exists(REPORT_DIR):
+            os.makedirs(REPORT_DIR)
+            console.print(f"[green]📁 创建报告目录: {REPORT_DIR}[/green]")
+
+    def generate_asset_report(self):
+        """扫描全服资产分布"""
+        console.print("[bold blue]📡 正在生成资产分布报告...[/bold blue]")
+        
+        TARGETS = {
+            "STRINGS": re.compile(r'STRINGS\.[A-Z0-9_]+\s*='),
+            "Prefabs": re.compile(r'\bPrefab\s*\('),
+            "LootTables": re.compile(r'\bSetLoot\s*\(|\bSetChanceLoot\s*\('),
+            "Brains": re.compile(r'require\s*[\("\']brains/'),
+            "Widgets": re.compile(r'require\s*[\("\']widgets/'),
+        }
+        
+        stats = defaultdict(Counter)
+        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
+        
+        for fname in track(lua_files, description="Scanning Assets..."):
+            content = self.engine.read_file(fname)
+            if not content: continue
+            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
+            
+            for cat, pattern in TARGETS.items():
+                matches = pattern.findall(clean)
+                if matches:
+                    stats[cat][fname] += len(matches)
+
+        out_path = os.path.join(REPORT_DIR, "asset_registry.md")
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write("# Wagstaff Asset Registry\n\n")
+            f.write("| Category | Total Definitions | Top File |\n")
+            f.write("|----------|-------------------|----------|\n")
+            for cat, file_counts in stats.items():
+                total = sum(file_counts.values())
+                top_file = file_counts.most_common(1)[0][0]
+                f.write(f"| {cat} | {total} | `{top_file}` |\n")
+            
+            f.write("\n## Detailed Breakdown\n")
+            for cat, file_counts in stats.items():
+                f.write(f"\n### {cat}\n")
+                for fname, count in file_counts.most_common(10):
+                    f.write(f"- `{fname}`: {count}\n")
+        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
+
+    def generate_recipe_report(self):
+        """扫描配方分布"""
+        console.print("[bold blue]🍳 正在生成配方分布报告...[/bold blue]")
+        
+        pattern = re.compile(r'^\s*([a-zA-Z0-9_]*Recipe[a-zA-Z0-9_]*)\s*\(', re.MULTILINE)
+        stats = Counter()
+        file_stats = defaultdict(int)
+        
+        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
+        
+        for fname in track(lua_files, description="Scanning Recipes..."):
+            content = self.engine.read_file(fname)
+            if not content: continue
+            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
+            
+            matches = pattern.findall(clean)
+            for m in matches:
+                if "Get" in m or "Find" in m: continue
+                stats[m] += 1
+                file_stats[fname] += 1
+
+        out_path = os.path.join(REPORT_DIR, "recipe_distribution.md")
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write("# Wagstaff Recipe Distribution\n\n")
+            f.write("## Function Usage\n")
+            for func, count in stats.most_common():
+                f.write(f"- **{func}**: {count}\n")
+            f.write("\n## File Hotspots (Top 20)\n")
+            for fname, count in sorted(file_stats.items(), key=lambda x:x[1], reverse=True)[:20]:
+                f.write(f"- `{fname}`: {count} recipes\n")
+
+        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python reporter.py [assets|recipes|all]")
+        sys.exit(1)
+    reporter = WagstaffReporter()
+    cmd = sys.argv[1]
+    if cmd == "assets" or cmd == "all": reporter.generate_asset_report()
+    if cmd == "recipes" or cmd == "all": reporter.generate_recipe_report()
+```
+
+### File: devtools/snapshot.py
+> size=15636B, sha256=26822b9c509a
+```python
+#!/usr/bin/env python3
+"""
+Wagstaff-Lab Snapshot Generator (v3)
+
+Key upgrades:
+- Path-safe: works no matter where you run it from
+- Recursive scan via include/ignore globs
+- Skip binary & guard against huge files (head/tail truncation)
+- Basic secret redaction (KEY=..., KEY: ...)
+- Per-file metadata: size + sha256 prefix
+- Output summary + robust PROJECT_STATUS.json loading
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path, PurePosixPath
+from typing import Iterable, List, Optional, Sequence
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_OUTPUT = PROJECT_ROOT / "project_context.txt"
+
+
+# What to include (relative to PROJECT_ROOT)
+DEFAULT_INCLUDE_GLOBS: List[str] = [
+    "README.md",
+    "setup.sh",
+    "PROJECT_STATUS.json",
+    ".gitignore",
+    "conf/**/*.ini",
+    "src/**/*.py",
+    "devtools/**/*.py",
+    "tests/**/*.py",
+    "bin/**/*.sh",
+    # wrapper scripts (no ext)
+    "bin/Wagstaff-Lab",
+    "bin/wagstaff",
+    "bin/pm",
+    # auto-generated reports (useful; can be disabled via --no-reports)
+    "data/reports/**/*.md",
+    # root docs
+    "*.md",
+    "*.txt",
+]
+
+IGNORE_DIRS = {
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "logs",
+    "env",
+    "venv",
+    ".venv",
+    ".idea",
+    ".vscode",
+    "dist",
+    "build",
+}
+
+# Exact filenames to ignore
+DEFAULT_IGNORE_FILES = {
+    "project_context.txt",
+    ".DS_Store",
+    "id_rsa",
+    "id_ed25519",
+    "known_hosts",
+}
+
+# Glob patterns (relative to PROJECT_ROOT) to ignore
+DEFAULT_IGNORE_GLOBS: List[str] = [
+    "**/*.swp",
+    "**/*.swo",
+    "**/*.tmp",
+    "**/*.bak",
+    "**/*.log",
+    "**/*.zip",
+    "**/*.tar",
+    "**/*.tar.gz",
+    "**/*.gz",
+    "**/*.7z",
+    "**/*.rar",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.webp",
+    "**/*.pdf",
+    "**/*.mp4",
+    "**/*.mov",
+    "**/*.sqlite",
+    "**/*.db",
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+]
+
+# Basic secret-like keys to redact if they appear as KEY=... or KEY: ...
+REDACT_KEYS = (
+    "PASSWORD",
+    "PASSWD",
+    "PWD",
+    "SECRET",
+    "TOKEN",
+    "API_KEY",
+    "ACCESS_KEY",
+    "PRIVATE_KEY",
+    "OPENAI_API_KEY",
+)
+
+
+@dataclass(frozen=True)
+class ReadResult:
+    text: str
+    truncated: bool
+    size_bytes: int
+    sha256_12: str
+
+
+def _run_cmd(args: Sequence[str]) -> str:
+    try:
+        return subprocess.check_output(
+            list(args),
+            cwd=PROJECT_ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "Unknown"
+
+
+def _is_git_repo() -> bool:
+    return (PROJECT_ROOT / ".git").exists()
+
+
+def get_system_fingerprint() -> str:
+    info: List[str] = []
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    info.append(f"Time: {now}")
+    info.append(f"User: {os.getenv('USER') or os.getenv('USERNAME') or 'Unknown'}")
+    info.append(f"Host: {platform.node()} ({platform.system()} {platform.release()})")
+    info.append(f"Platform: {platform.platform()}")
+    info.append(f"Python: {platform.python_version()} ({sys.executable})")
+    info.append(f"Conda Env: {os.getenv('CONDA_DEFAULT_ENV', 'None')}")
+    try:
+        import rich  # type: ignore
+        ver = getattr(rich, "__version__", "Installed (ver unknown)")
+        info.append(f"Rich Ver: {ver}")
+    except Exception:
+        info.append("Rich Ver: Not Installed")
+    return "\n".join(info)
+
+
+def get_git_status() -> str:
+    if not _is_git_repo():
+        return "Git: Not a repository"
+
+    branch = _run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    commit = _run_cmd(["git", "rev-parse", "--short", "HEAD"])
+    last_msg = _run_cmd(["git", "log", "-1", "--pretty=%B"]).replace("\n", " ").strip()
+
+    porcelain = _run_cmd(["git", "status", "--porcelain"])
+    is_dirty = porcelain not in ("", "Unknown")
+    dirty_mark = " [DIRTY]" if is_dirty else " [CLEAN]"
+
+    modified = 0
+    untracked = 0
+    if porcelain not in ("", "Unknown"):
+        for line in porcelain.splitlines():
+            if line.startswith("??"):
+                untracked += 1
+            else:
+                modified += 1
+
+    out = [
+        f"Branch: {branch}{dirty_mark}",
+        f"Commit: {commit}",
+        f"Message: {last_msg}",
+        f"Changes: modified={modified}, untracked={untracked}",
+    ]
+
+    diff_stat = _run_cmd(["git", "diff", "--stat"])
+    if diff_stat not in ("", "Unknown"):
+        lines = diff_stat.splitlines()
+        if len(lines) > 20:
+            lines = lines[:20] + ["... (diff --stat truncated)"]
+        out.append("---")
+        out.extend(lines)
+
+    return "\n".join(out)
+
+
+def _to_rel_posix(p: Path) -> PurePosixPath:
+    rel = p.relative_to(PROJECT_ROOT)
+    return PurePosixPath(rel.as_posix())
+
+
+def _match_any(rel_posix: PurePosixPath, patterns: Iterable[str]) -> bool:
+    for pat in patterns:
+        if rel_posix.match(pat):
+            return True
+    return False
+
+
+def should_ignore(path: Path, ignore_files: set[str], ignore_globs: Sequence[str]) -> bool:
+    try:
+        rel = _to_rel_posix(path)
+    except Exception:
+        return True
+
+    if any(part in IGNORE_DIRS for part in rel.parts):
+        return True
+
+    if path.name in ignore_files:
+        return True
+
+    if _match_any(rel, ignore_globs):
+        return True
+
+    return False
+
+
+def collect_files(
+    include_globs: Sequence[str],
+    ignore_files: set[str],
+    ignore_globs: Sequence[str],
+    include_reports: bool,
+    output_file: Path,
+) -> List[Path]:
+    files: set[Path] = set()
+
+    for pat in include_globs:
+        if (not include_reports) and pat.startswith("data/reports/"):
+            continue
+        for p in PROJECT_ROOT.glob(pat):
+            if p.is_file():
+                files.add(p)
+
+    files.discard(output_file)
+
+    out = [p for p in files if not should_ignore(p, ignore_files, ignore_globs)]
+    out.sort(key=lambda x: _to_rel_posix(x).as_posix())
+    return out
+
+
+def _looks_binary(sample: bytes) -> bool:
+    if b"\x00" in sample:
+        return True
+    if not sample:
+        return False
+    text_chars = b"\t\n\r\b" + bytes(range(32, 127))
+    nontext = sum(1 for b in sample if b not in text_chars)
+    return (nontext / max(1, len(sample))) > 0.30
+
+
+def _sha256_12(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()[:12]
+
+
+def _redact(text: str) -> str:
+    out_lines: List[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        upper = stripped.upper()
+
+        # KEY=... or KEY: ...
+        replaced = False
+        for k in REDACT_KEYS:
+            if upper.startswith(k + "=") or upper.startswith(k + ":"):
+                sep = "=" if "=" in stripped else ":"
+                prefix = stripped.split(sep, 1)[0]
+                out_lines.append(f"{prefix}{sep} ***REDACTED***")
+                replaced = True
+                break
+        if replaced:
+            continue
+
+        # obvious key blocks
+***REDACTED PRIVATE KEY BLOCK***
+            out_lines.append("***REDACTED PRIVATE KEY BLOCK***")
+            continue
+
+        out_lines.append(line)
+
+    return "\n".join(out_lines)
+
+
+def read_file_snippet(
+    path: Path,
+    max_file_bytes: int,
+    redact: bool,
+) -> Optional[ReadResult]:
+    try:
+        size = path.stat().st_size
+    except Exception:
+        return None
+
+    # binary guard
+    try:
+        with path.open("rb") as f:
+            head = f.read(min(4096, size))
+            if _looks_binary(head):
+                return None
+    except Exception:
+        return None
+
+    # hash (helps diff between snapshots)
+    try:
+        sha12 = _sha256_12(path)
+    except Exception:
+        sha12 = "Unknown"
+
+    truncated = False
+    try:
+        if size <= max_file_bytes:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        else:
+            truncated = True
+            head_bytes = max_file_bytes
+            tail_bytes = max_file_bytes
+
+            with path.open("rb") as f:
+                head_chunk = f.read(head_bytes)
+
+                if size > tail_bytes:
+                    f.seek(-tail_bytes, os.SEEK_END)
+                tail_chunk = f.read(tail_bytes)
+
+            text = (
+                head_chunk.decode("utf-8", errors="replace")
+                + "\n\n... [TRUNCATED: middle omitted] ...\n\n"
+                + tail_chunk.decode("utf-8", errors="replace")
+            )
+    except Exception:
+        return None
+
+    if redact:
+        text = _redact(text)
+
+    return ReadResult(text=text, truncated=truncated, size_bytes=size, sha256_12=sha12)
+
+
+def detect_lang(path: Path) -> str:
+    ext = path.suffix.lower()
+    if ext == ".py":
+        return "python"
+    if ext == ".sh":
+        return "bash"
+    if ext in (".md", ".markdown"):
+        return "markdown"
+    if ext == ".ini":
+        # your settings.ini is TOML-like; keep toml fence for readability
+        return "toml"
+    if ext == ".json":
+        return "json"
+    if ext in (".yml", ".yaml"):
+        return "yaml"
+
+    # no/unknown ext: try shebang
+    try:
+        first = path.open("r", encoding="utf-8", errors="replace").readline()
+    except Exception:
+        return ""
+    if first.startswith("#!"):
+        if "python" in first:
+            return "python"
+        if "bash" in first or "sh" in first:
+            return "bash"
+    return ""
+
+
+def generate_tree(
+    root: Path,
+    ignore_files: set[str],
+    ignore_globs: Sequence[str],
+) -> str:
+    lines: List[str] = []
+
+    def walk(dir_path: Path, prefix: str = "") -> None:
+        try:
+            entries = sorted(dir_path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            lines.append(f"{prefix}└── [Permission Denied]")
+            return
+
+        filtered: List[Path] = []
+        for p in entries:
+            if p.name in IGNORE_DIRS:
+                continue
+            if should_ignore(p, ignore_files, ignore_globs):
+                continue
+            filtered.append(p)
+
+        for i, p in enumerate(filtered):
+            pointer = "└── " if i == len(filtered) - 1 else "├── "
+            lines.append(f"{prefix}{pointer}{p.name}")
+            if p.is_dir():
+                extension = "    " if pointer == "└── " else "│   "
+                walk(p, prefix + extension)
+
+    walk(root, "")
+    return "\n".join(lines)
+
+
+def render_project_status(status_path: Path) -> str:
+    if not status_path.exists():
+        return "No project status file found."
+
+    try:
+        data = json.loads(status_path.read_text(encoding="utf-8"))
+    except Exception:
+        return "Error reading project status."
+
+    out: List[str] = []
+
+    guidelines = data.get("guidelines") or []
+    if guidelines:
+        out.append("DEV MANIFESTO:")
+        for rule in guidelines:
+            out.append(f"* {rule}")
+        out.append("-" * 20)
+
+    objective = data.get("objective")
+    if objective is not None:
+        out.append(f"OBJECTIVE: {objective}")
+
+    tasks = data.get("tasks") or []
+    if tasks:
+        done = sum(1 for t in tasks if t.get("status") == "done")
+        out.append(f"\nTASKS: ({done}/{len(tasks)} done)")
+        for i, t in enumerate(tasks, start=1):
+            status = t.get("status", "todo")
+            mark = "[x]" if status == "done" else "[ ]"
+            desc = t.get("desc", "")
+            out.append(f"{i}. {mark} {desc}")
+
+    return "\n".join(out).rstrip()
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Generate Wagstaff-Lab project snapshot.")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=str(DEFAULT_OUTPUT),
+        help="Output file path (absolute or relative to project root). Default: project_context.txt",
+    )
+    parser.add_argument(
+        "--max-file-bytes",
+        type=int,
+        default=200_000,
+        help="Max bytes to include per file. Larger files are head/tail truncated.",
+    )
+    parser.add_argument(
+        "--max-total-bytes",
+        type=int,
+        default=2_000_000,
+        help="Soft cap for total embedded source bytes (prevents exploding snapshots).",
+    )
+    parser.add_argument(
+        "--no-redact",
+        action="store_true",
+        help="Disable basic secret redaction (NOT recommended).",
+    )
+    parser.add_argument(
+        "--no-reports",
+        action="store_true",
+        help="Exclude data/reports/**/* from snapshot.",
+    )
+    args = parser.parse_args(list(argv) if argv is not None else None)
+
+    output_path = Path(args.output)
+    if not output_path.is_absolute():
+        output_path = PROJECT_ROOT / output_path
+
+    ignore_files = set(DEFAULT_IGNORE_FILES) | {output_path.name}
+    ignore_globs = list(DEFAULT_IGNORE_GLOBS)
+    include_globs = list(DEFAULT_INCLUDE_GLOBS)
+
+    print("📸 Generating Wagstaff-Lab snapshot...")
+
+    report: List[str] = []
+    report.append("# Wagstaff-Lab Project Snapshot")
+
+    report.append("\n## 1. Environment Diagnostics")
+    report.append("```yaml")
+    report.append(get_system_fingerprint())
+    report.append("-" * 20)
+    report.append(get_git_status())
+    report.append("```")
+
+    report.append("\n## 2. Project Structure")
+    report.append("```text")
+    report.append(generate_tree(PROJECT_ROOT, ignore_files=ignore_files, ignore_globs=ignore_globs))
+    report.append("```")
+
+    report.append("\n## 3. Source Code")
+    files = collect_files(
+        include_globs=include_globs,
+        ignore_files=ignore_files,
+        ignore_globs=ignore_globs,
+        include_reports=not args.no_reports,
+        output_file=output_path,
+    )
+
+    total_embedded = 0
+    included = 0
+    truncated = 0
+    skipped = 0
+
+    for p in files:
+        rr = read_file_snippet(p, max_file_bytes=args.max_file_bytes, redact=not args.no_redact)
+        if rr is None:
+            skipped += 1
+            continue
+
+        payload_bytes = len(rr.text.encode("utf-8", errors="replace"))
+        if total_embedded + payload_bytes > args.max_total_bytes:
+            report.append("\n> [SNAPSHOT LIMIT] Reached --max-total-bytes; remaining files skipped.")
+            break
+
+        rel = p.relative_to(PROJECT_ROOT).as_posix()
+        report.append(f"\n### File: {rel}")
+        report.append(f"> size={rr.size_bytes}B, sha256={rr.sha256_12}" + (" (TRUNCATED)" if rr.truncated else ""))
+        lang = detect_lang(p)
+        report.append(f"```{lang}".rstrip())
+        report.append(rr.text)
+        report.append("```")
+
+        included += 1
+        if rr.truncated:
+            truncated += 1
+        total_embedded += payload_bytes
+
+    report.append("\n## 4. Snapshot Summary")
+    report.append("```text")
+    report.append(f"Included files: {included}")
+    report.append(f"Truncated files: {truncated}")
+    report.append(f"Skipped (binary/unreadable): {skipped}")
+    report.append(f"Embedded text bytes: {total_embedded}")
+    report.append("```")
+
+    report.append("\n## 5. Project Context (Auto-Generated)")
+    report.append("```text")
+    report.append(render_project_status(PROJECT_ROOT / "PROJECT_STATUS.json"))
+    report.append("```")
+
+    output_path.write_text("\n".join(report), encoding="utf-8")
+    print(f"✅ Snapshot written to: {output_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 ```
 
 ### File: src/analyzer.py
-```py
+> size=8478B, sha256=11cf46350ea3
+```python
 #!/usr/bin/env python3
 import re
 
@@ -645,7 +1733,8 @@ class RecipeAnalyzer:
 ```
 
 ### File: src/engine.py
-```py
+> size=4409B, sha256=3b06776239e6
+```python
 #!/usr/bin/env python3
 import os
 import zipfile
@@ -753,11 +1842,11 @@ class WagstaffEngine:
                 comp['methods'] = [self.tuning.enrich(m) for m in comp['methods']]
         
         return data
-
 ```
 
 ### File: src/explorer.py
-```py
+> size=7609B, sha256=97e6d35c205e
+```python
 #!/usr/bin/env python3
 import os
 import sys
@@ -933,11 +2022,11 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-
 ```
 
 ### File: src/guide.py
-```py
+> size=1548B, sha256=b69213e54f5e
+```python
 #!/usr/bin/env python3
 import os
 import sys
@@ -988,11 +2077,11 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 ```
 
 ### File: src/registry.py
-```py
+> size=1679B, sha256=235f02d2c09d
+```python
 #!/usr/bin/env python3
 """
 Wagstaff-Lab 工具注册中心 (v2.2)
@@ -1060,11 +2149,11 @@ TOOLS = [
 
 def get_tools():
     return TOOLS
-
 ```
 
 ### File: src/utils.py
-```py
+> size=1040B, sha256=ffc01cb3d8f3
+```python
 import configparser
 import os
 from pathlib import Path
@@ -1095,11 +2184,11 @@ wagstaff_config = ConfigLoader()
 if __name__ == "__main__":
     print(f"Project Root: {wagstaff_config.project_root}")
     print(f"DST Path: {wagstaff_config.get('PATHS', 'DST_ROOT')}")
-
 ```
 
 ### File: src/wiki.py
-```py
+> size=3621B, sha256=c89d8994a6b4
+```python
 #!/usr/bin/env python3
 import sys
 from rich.console import Console
@@ -1198,519 +2287,67 @@ if __name__ == "__main__":
     main()
 ```
 
-### File: conf/settings.ini
-```toml
-[PATHS]
-# 游戏安装目录
-DST_ROOT = ~/dontstarvetogether_dedicated_server
-# SteamCMD 目录
-STEAMCMD_DIR = ~/steamcmd
-# 备份存放目录
-BACKUP_DIR = ~/dst_backups
-
-[SERVER]
-# 你的存档文件夹名 (Cluster Name)
-CLUSTER_NAME = MyDediServer
-# Klei 存档根目录 (通常是 ~/.klei/DoNotStarveTogether)
-KLEI_HOME = ~/.klei/DoNotStarveTogether
-
-```
-
-### File: devtools/installer.py
-```py
+### File: tests/test_recipes.py
+> size=1479B, sha256=89bad0a5e326
+```python
 #!/usr/bin/env python3
-import os
 import sys
-from pathlib import Path
-from rich.console import Console
-
-# 引入注册表
-sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
-from registry import get_tools
-
-console = Console()
-
-CURRENT_FILE = Path(__file__).resolve()
-PROJECT_ROOT = CURRENT_FILE.parent.parent
-BIN_DIR = PROJECT_ROOT / "bin"
-SRC_DIR = PROJECT_ROOT / "src"
-DEV_DIR = PROJECT_ROOT / "devtools"
-
-def get_shell_config():
-    home = Path.home()
-    shell = os.environ.get("SHELL", "")
-    if "zsh" in shell: return home / ".zshrc"
-    elif "bash" in shell: return home / ".bashrc"
-    else: return home / ".profile"
-
-def create_wrappers():
-    # 1. 创建 'Wagstaff-Lab' 主入口
-    main_wrapper = BIN_DIR / "Wagstaff-Lab"
-    with open(main_wrapper, 'w') as f:
-        f.write('#!/bin/bash\n')
-        f.write(f'python3 "{SRC_DIR}/guide.py" "$@"\n')
-    os.chmod(main_wrapper, 0o755)
-    
-    # 2. 创建 'pm' 快捷指令
-    pm_wrapper = BIN_DIR / "pm"
-    with open(pm_wrapper, 'w') as f:
-        f.write('#!/bin/bash\n')
-        f.write(f'python3 "{DEV_DIR}/pm.py" "$@"\n')
-    os.chmod(pm_wrapper, 0o755)
-
-    # 3. 动态创建 'wagstaff' 工具箱 (基于 Registry)
-    ws_wrapper = BIN_DIR / "wagstaff"
-    with open(ws_wrapper, 'w') as f:
-        f.write('#!/bin/bash\n')
-        f.write('TOOL=$1\nshift\n')
-        f.write('case "$TOOL" in\n')
-        
-        # --- 动态生成 Case 分支 ---
-        tools = get_tools()
-        registered_aliases = []
-        
-        for tool in tools:
-            alias = tool.get('alias')
-            if not alias: continue # 跳过没有别名的工具
-            
-            folder = tool.get('folder', 'src')
-            # 转换 folder 为绝对路径变量
-            if folder == 'src': abs_path = SRC_DIR
-            elif folder == 'devtools': abs_path = DEV_DIR
-            else: abs_path = PROJECT_ROOT / folder
-            
-            f.write(f'  {alias}) python3 "{abs_path}/{tool["file"]}" "$@" ;;\n')
-            registered_aliases.append(f"{alias} ({tool['desc']})")
-        # ------------------------
-
-        f.write(f'  *) "{main_wrapper}" "$@" ;;\n') 
-        f.write('esac\n')
-    os.chmod(ws_wrapper, 0o755)
-    
-    console.print(f"[green]✅ 指令注册成功 (Registry Driven)[/green]")
-    console.print(f"   已自动注册 {len(registered_aliases)} 个子命令到 'wagstaff'")
-
-def register_to_path():
-    rc_file = get_shell_config()
-    bin_path_str = str(BIN_DIR)
-    
-    if not rc_file.exists(): return
-
-    content = rc_file.read_text()
-    if f'export PATH="{bin_path_str}:$PATH"' in content:
-        console.print("[dim]⚡ 环境变量已就绪[/dim]")
-    else:
-        try:
-            with open(rc_file, 'a') as f:
-                f.write(f'\n# Wagstaff-Lab Environment\nexport PATH="{bin_path_str}:$PATH"\n')
-            console.print(f"[green]✅ PATH 已更新[/green]")
-        except Exception:
-            pass
-
-def main():
-    console.print("[bold blue]🔧 Wagstaff-Lab 自动化注册中心[/bold blue]")
-    create_wrappers()
-    register_to_path()
-
-if __name__ == "__main__":
-    main()
-
-```
-
-### File: devtools/pm.py
-```py
-#!/usr/bin/env python3
-import os
-import json
-import sys
-from datetime import datetime
+import time
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-from rich.prompt import Prompt, IntPrompt
-
-console = Console()
-STATUS_FILE = "PROJECT_STATUS.json"
-
-class ProjectManager:
-    def __init__(self):
-        self.data = self._load()
-
-    def _load(self):
-        if os.path.exists(STATUS_FILE):
-            with open(STATUS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {"objective": "Unset", "tasks": [], "logs": [], "guidelines": []}
-
-    def _save(self):
-        with open(STATUS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(self.data, f, indent=2, ensure_ascii=False)
-
-    def set_objective(self, obj):
-        self.data["objective"] = obj
-        self._save()
-        console.print(f"[green]✅ 目标更新:[/green] {obj}")
-
-    def add_task(self, task):
-        self.data["tasks"].append({"desc": task, "status": "todo", "time": str(datetime.now())})
-        self._save()
-        console.print(f"[green]✅ 任务+1:[/green] {task}")
-    
-    def add_rule(self, rule):
-        if "guidelines" not in self.data: self.data["guidelines"] = []
-        self.data["guidelines"].append(rule)
-        self._save()
-        console.print(f"[bold magenta]📜 宗旨录入:[/bold magenta] {rule}")
-
-    def complete_task(self, index):
-        if 0 <= index < len(self.data["tasks"]):
-            self.data["tasks"][index]["status"] = "done"
-            self._save()
-            console.print(f"[green]🎉 完成:[/green] {self.data['tasks'][index]['desc']}")
-        else:
-            console.print("[red]❌ 索引无效[/red]")
-
-    def log_entry(self, msg):
-        self.data["logs"].append(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
-        if len(self.data["logs"]) > 10: self.data["logs"].pop(0)
-        self._save()
-        console.print("[green]📝 日志已记录[/green]")
-
-    def show_status(self):
-        console.clear()
-        console.print(Panel(f"[bold blue]🎯 目标: {self.data.get('objective', 'Unset')}[/bold blue]"))
-        
-        t_table = Table(title="任务清单", box=None)
-        t_table.add_column("ID", style="dim"); t_table.add_column("状态"); t_table.add_column("内容")
-        for i, t in enumerate(self.data["tasks"]):
-            status = "✅" if t["status"] == "done" else "⬜"
-            style = "dim strike" if t["status"] == "done" else "bold"
-            t_table.add_row(str(i), status, f"[{style}]{t['desc']}[/{style}]")
-        console.print(t_table)
-        
-        if self.data.get("logs"):
-            console.print("\n[dim]📜 最近日志:[/dim]")
-            for l in self.data["logs"][-3:]:
-                console.print(f"  {l}")
-
-    def interactive_mode(self):
-        while True:
-            self.show_status()
-            console.print("\n[bold cyan]操作菜单:[/bold cyan]")
-            console.print("1. [green]✅ 完成任务[/]  2. [blue]➕ 新增任务[/]  3. [magenta]📝 写日志[/]  4. [yellow]🎯 改目标[/]  0. [red]退出[/]")
-            
-            choice = Prompt.ask("选择操作", choices=["0", "1", "2", "3", "4"], default="0")
-            
-            if choice == "0": break
-            elif choice == "1":
-                idx = IntPrompt.ask("输入任务ID")
-                self.complete_task(idx)
-            elif choice == "2":
-                desc = Prompt.ask("输入任务描述")
-                self.add_task(desc)
-            elif choice == "3":
-                log = Prompt.ask("输入日志内容")
-                self.log_entry(log)
-            elif choice == "4":
-                obj = Prompt.ask("输入新目标")
-                self.set_objective(obj)
-            
-            if choice != "0":
-                input("\n按回车继续...")
-
-def main():
-    pm = ProjectManager()
-    if len(sys.argv) > 1:
-        cmd = sys.argv[1]
-        content = " ".join(sys.argv[2:])
-        if cmd == "obj": pm.set_objective(content)
-        elif cmd == "add": pm.add_task(content)
-        elif cmd == "rule": pm.add_rule(content)
-        elif cmd == "done": pm.complete_task(int(sys.argv[2]))
-        elif cmd == "log": pm.log_entry(content)
-        elif cmd == "ui": pm.interactive_mode() # 新增入口
-        else: pm.show_status()
-    else:
-        # 默认直接进入交互模式，更省事
-        pm.interactive_mode()
-
-if __name__ == "__main__":
-    main()
-
-```
-
-### File: devtools/reporter.py
-```py
-#!/usr/bin/env python3
-import os
-import sys
-import re
-from collections import Counter, defaultdict
-from rich.console import Console
-from rich.progress import track
-
-# 挂载 src 并引入引擎
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 from engine import WagstaffEngine
 
 console = Console()
 
-# === [修复] 动态定位项目路径 ===
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
-REPORT_DIR = os.path.join(PROJECT_ROOT, "data", "reports")
-
-class WagstaffReporter:
-    def __init__(self):
-        # 启动引擎，不需要加载数据库(我们只做正则扫描)
-        self.engine = WagstaffEngine(load_db=False, silent=True)
-        self._ensure_report_dir()
-
-    def _ensure_report_dir(self):
-        if not os.path.exists(REPORT_DIR):
-            os.makedirs(REPORT_DIR)
-            console.print(f"[green]📁 创建报告目录: {REPORT_DIR}[/green]")
-
-    def generate_asset_report(self):
-        """扫描全服资产分布"""
-        console.print("[bold blue]📡 正在生成资产分布报告...[/bold blue]")
-        
-        TARGETS = {
-            "STRINGS": re.compile(r'STRINGS\.[A-Z0-9_]+\s*='),
-            "Prefabs": re.compile(r'\bPrefab\s*\('),
-            "LootTables": re.compile(r'\bSetLoot\s*\(|\bSetChanceLoot\s*\('),
-            "Brains": re.compile(r'require\s*[\("\']brains/'),
-            "Widgets": re.compile(r'require\s*[\("\']widgets/'),
-        }
-        
-        stats = defaultdict(Counter)
-        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
-        
-        for fname in track(lua_files, description="Scanning Assets..."):
-            content = self.engine.read_file(fname)
-            if not content: continue
-            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
-            
-            for cat, pattern in TARGETS.items():
-                matches = pattern.findall(clean)
-                if matches:
-                    stats[cat][fname] += len(matches)
-
-        out_path = os.path.join(REPORT_DIR, "asset_registry.md")
-        with open(out_path, 'w', encoding='utf-8') as f:
-            f.write("# Wagstaff Asset Registry\n\n")
-            f.write("| Category | Total Definitions | Top File |\n")
-            f.write("|----------|-------------------|----------|\n")
-            for cat, file_counts in stats.items():
-                total = sum(file_counts.values())
-                top_file = file_counts.most_common(1)[0][0]
-                f.write(f"| {cat} | {total} | `{top_file}` |\n")
-            
-            f.write("\n## Detailed Breakdown\n")
-            for cat, file_counts in stats.items():
-                f.write(f"\n### {cat}\n")
-                for fname, count in file_counts.most_common(10):
-                    f.write(f"- `{fname}`: {count}\n")
-        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
-
-    def generate_recipe_report(self):
-        """扫描配方分布"""
-        console.print("[bold blue]🍳 正在生成配方分布报告...[/bold blue]")
-        
-        pattern = re.compile(r'^\s*([a-zA-Z0-9_]*Recipe[a-zA-Z0-9_]*)\s*\(', re.MULTILINE)
-        stats = Counter()
-        file_stats = defaultdict(int)
-        
-        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
-        
-        for fname in track(lua_files, description="Scanning Recipes..."):
-            content = self.engine.read_file(fname)
-            if not content: continue
-            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
-            
-            matches = pattern.findall(clean)
-            for m in matches:
-                if "Get" in m or "Find" in m: continue
-                stats[m] += 1
-                file_stats[fname] += 1
-
-        out_path = os.path.join(REPORT_DIR, "recipe_distribution.md")
-        with open(out_path, 'w', encoding='utf-8') as f:
-            f.write("# Wagstaff Recipe Distribution\n\n")
-            f.write("## Function Usage\n")
-            for func, count in stats.most_common():
-                f.write(f"- **{func}**: {count}\n")
-            f.write("\n## File Hotspots (Top 20)\n")
-            for fname, count in sorted(file_stats.items(), key=lambda x:x[1], reverse=True)[:20]:
-                f.write(f"- `{fname}`: {count} recipes\n")
-
-        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python reporter.py [assets|recipes|all]")
-        sys.exit(1)
-    reporter = WagstaffReporter()
-    cmd = sys.argv[1]
-    if cmd == "assets" or cmd == "all": reporter.generate_asset_report()
-    if cmd == "recipes" or cmd == "all": reporter.generate_recipe_report()
-
-```
-
-### File: devtools/snapshot.py
-```py
-#!/usr/bin/env python3
-import os
-import platform
-import subprocess
-import shutil
-import sys
-import json
-from pathlib import Path
-from datetime import datetime
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_FILE = PROJECT_ROOT / "project_context.txt"
-
-SCAN_RULES = [
-    {"dir": "bin", "ext": ".sh"},
-    {"dir": "src", "ext": ".py"},
-    {"dir": "conf", "ext": ".ini"},
-    {"dir": "devtools", "ext": ".py"},
-    {"dir": ".", "ext": ".md"},
-    {"dir": ".", "ext": ".txt"},
-]
-
-IGNORE_DIRS = {".git", "__pycache__", "logs", "env", "venv", ".idea", ".vscode"}
-IGNORE_FILES = {"project_context.txt", ".DS_Store", "id_rsa", "known_hosts"}
-
-def run_cmd(cmd):
-    try:
-        return subprocess.check_output(cmd, shell=True, text=True, cwd=PROJECT_ROOT, stderr=subprocess.DEVNULL).strip()
-    except Exception:
-        return "Unknown"
-
-def get_system_fingerprint():
-    info = []
-    info.append(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    info.append(f"User: {os.getenv('USER', 'Unknown')}")
-    info.append(f"Host: {platform.node()} ({platform.system()} {platform.release()})")
-    info.append(f"Python: {platform.python_version()} ({sys.executable})")
-    try:
-        import rich
-        ver = getattr(rich, '__version__', 'Installed (ver unknown)')
-        info.append(f"Rich Ver: {ver}")
-    except:
-        info.append("Rich Ver: Not Installed")
-    return "\n".join(info)
-
-def get_git_status():
-    if not (PROJECT_ROOT / ".git").exists(): return "Git: Not a repository"
-    branch = run_cmd("git rev-parse --abbrev-ref HEAD")
-    commit = run_cmd("git rev-parse --short HEAD")
-    last_msg = run_cmd("git log -1 --pretty=%B")
-    is_dirty = run_cmd("git status --porcelain") != ""
-    dirty_mark = " [DIRTY]" if is_dirty else " [CLEAN]"
-    return f"Branch: {branch}{dirty_mark}\nCommit: {commit}\nMessage: {last_msg}"
-
-def generate_tree(dir_path, prefix=""):
-    tree_str = ""
-    try:
-        contents = sorted([p for p in dir_path.iterdir() if p.name not in IGNORE_DIRS])
-    except PermissionError:
-        return f"{prefix}└── [Permission Denied]\n"
-    pointers = [("├── " if i < len(contents) - 1 else "└── ") for i in range(len(contents))]
-    for pointer, path in zip(pointers, contents):
-        if path.name in IGNORE_FILES: continue
-        tree_str += f"{prefix}{pointer}{path.name}\n"
-        if path.is_dir():
-            extension = "│   " if pointer == "├── " else "    "
-            tree_str += generate_tree(path, prefix=prefix + extension)
-    return tree_str
-
 def main():
-    print(f"📸 正在生成 Wagstaff-Lab 全息快照...")
-    report = []
-    report.append("# Wagstaff-Lab Project Snapshot")
+    console.print("[bold blue]🧪 配方解析器验收测试 (基于 Wagstaff Engine)[/bold blue]")
     
-    report.append("\n## 1. Environment Diagnostics")
-    report.append("```yaml")
-    report.append(get_system_fingerprint())
-    report.append("-" * 20)
-    report.append(get_git_status())
-    report.append("```")
-
-    report.append("\n## 2. Project Structure")
-    report.append("```text")
-    report.append(generate_tree(PROJECT_ROOT))
-    report.append("```")
-
-    report.append("\n## 3. Source Code")
-    file_count = 0
-    for rule in SCAN_RULES:
-        search_dir = PROJECT_ROOT / rule["dir"]
-        if rule["dir"] == ".": search_dir = PROJECT_ROOT
-        if not search_dir.exists(): continue
-        for file_path in sorted(search_dir.glob(f"*{rule['ext']}")):
-            if file_path.name in IGNORE_FILES: continue
-            rel_path = file_path.relative_to(PROJECT_ROOT)
-            report.append(f"\n### File: {rel_path}")
-            lang = rule['ext'].replace('.', '')
-            if lang == 'ini': lang = 'toml'
-            report.append(f"```{lang}")
-            try:
-                report.append(file_path.read_text(encoding='utf-8'))
-                file_count += 1
-            except:
-                report.append("Error reading file")
-            report.append("```")
+    # 1. 启动引擎
+    try:
+        start_t = time.time()
+        engine = WagstaffEngine(load_db=True)
+        duration = (time.time() - start_t) * 1000
+    except Exception as e:
+        console.print(f"[red]引擎启动失败: {e}[/red]")
+        return
     
-    # Section 4: Project Context (Auto-Generated)
-    report.append("\n## 4. Project Context (Auto-Generated)")
-    report.append("```text")
-    if os.path.exists("PROJECT_STATUS.json"):
-        try:
-            with open("PROJECT_STATUS.json", 'r') as f:
-                data = json.load(f)
-                if data.get("guidelines"):
-                    report.append("DEV MANIFESTO:")
-                    for rule in data["guidelines"]:
-                        report.append(f"* {rule}")
-                    report.append("-" * 20)
-                report.append(f"OBJECTIVE: {data.get('objective')}")
-                report.append("\nTASKS:")
-                for i, t in enumerate(data.get('tasks', [])):
-                    mark = "[x]" if t['status'] == 'done' else "[ ]"
-                    report.append(f"{i}. {mark} {t['desc']}")
-        except:
-            report.append("Error reading project status.")
-    else:
-        report.append("No project status file found.")
-    report.append("```")
-
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(report))
+    # 2. 统计
+    count = len(engine.recipes.recipes)
+    count_style = "green" if count > 500 else "red"
     
-    print(f"✅ 快照生成完毕: {OUTPUT_FILE}")
+    console.print(f"加载耗时: [bold]{duration:.2f} ms[/bold]")
+    console.print(f"发现配方: [{count_style}]{count}[/{count_style}]")
+
+    # 3. 抽查
+    check_list = ["spear", "armorwood", "hambat", "firestaff"]
+    table = Table(title="关键物品验证", border_style="blue")
+    table.add_column("Key", style="cyan")
+    table.add_column("Name", style="dim")
+    table.add_column("Ingredients", style="white")
+    
+    for item in check_list:
+        real_name, data = engine.recipes.get(item)
+        if data:
+            ing_str = ", ".join([f"{i['item']}x{i['amount']}" for i in data['ingredients']])
+            table.add_row(item, real_name, ing_str)
+        else:
+            table.add_row(item, "-", "[red]Not Found[/red]")
+        
+    console.print(table)
 
 if __name__ == "__main__":
     main()
-
 ```
 
-### File: README.md
-```md
-🧪 Wagstaff-Lab (v2.2)Wagstaff-Lab 是一个专为《饥荒联机版》(Don't Starve Together) 设计的服务器运维、源码分析与项目管理工具集 。它采用“注册表驱动”架构，实现了从底层数据解析到高层 UI 展示的全自动化管理 。🌟 核心理念 (Manifesto)本项目的开发严格遵循以下宗旨 ：架构分层：Engine 负责底层 I/O 与数据解析，Tool 负责业务逻辑与交互，严禁 UI 代码混入底层 。单文件可用：每个脚本必须保持原子化，能够独立运行 。路径自适应：禁止硬编码绝对路径，所有路径均通过 __file__ 动态推算 。数据持久化：所有扫描结果与日志必须落盘保存 。稳健降级：优先读取 scripts.zip，失败时自动降级为文件夹读取模式 。🚀 快速开始1. 环境准备确保你的系统已安装 Conda，并创建了名为 dst_lab 的 Python 3.10+ 环境 。2. 初始化项目在拉取代码后，运行一键初始化脚本 ：Bash./setup.sh
-该脚本会自动：修复脚本执行权限 。自动激活 dst_lab 环境。将项目工具路径注册到你的系统环境变量（.bashrc 或 .profile） 。3. 生效配置Bashsource ~/.bashrc
-🛠️ 工具箱说明书你可以通过输入 Wagstaff-Lab 呼出主控制面板查看实时工具列表 。命令别名功能描述Wagstaff-Lab-主入口：查看项目概况与工具清单pm-项目管理：交互式管理任务进度与开发日志 wagstaff wikiwiki百科查询：快速查阅物品配方、组件与数值 wagstaff expexp源码透视：深度分析 Prefab 结构与逻辑 wagstaff reportreport情报生成：生成资产分布与配方统计报告 wagstaff snapsnap全息快照：生成用于 AI 协作的项目全息快照 🏗️ 新工具开发 SOP (v2.2 标准)若要在实验室中纳入新工具，请遵循以下流程：开发 (Develop)：在 src/ 或 devtools/ 目录下编写你的 Python 脚本 。注册 (Register)：在 src/registry.py 的 TOOLS 列表中添加该工具的元数据（包含 file, alias, desc, usage 等字段）。同步 (Apply)：运行 wagstaff install (或 python3 devtools/installer.py) 自动生成命令行包装器。记录 (Log)：使用 pm ui 记录你的开发日志 。📁 目录结构Plaintext├── bin/                # 自动化生成的命令行包装器 
-├── src/                # 业务核心代码 (Engine, Wiki, Explorer) 
-├── devtools/           # 开发运维工具 (PM, Snap, Reporter) 
-├── conf/               # 配置文件 (settings.ini)
-├── data/               # 持久化数据与报告 
-└── PROJECT_STATUS.json # 项目进度与宗旨数据库
+## 4. Snapshot Summary
+```text
+Included files: 20
+Truncated files: 0
+Skipped (binary/unreadable): 4
+Embedded text bytes: 75081
 ```
 
-## 4. Project Context (Auto-Generated)
+## 5. Project Context (Auto-Generated)
 ```text
 DEV MANIFESTO:
 * 架构分层：Engine负责底层I/O，Tool负责交互，禁止UI混入底层
@@ -1721,11 +2358,11 @@ DEV MANIFESTO:
 --------------------
 OBJECTIVE: Wagstaff Lab v2.0 架构升级与情报持久化
 
-TASKS:
-0. [x] 重构 Wiki 和 Explorer 使用 Engine
-1. [x] 实现情报扫描结果保存到 data/reports/
-2. [x] 创建 src/guide.py 项目概况面板
-3. [x] 创建 devtools/installer.py 并封装 bin/wagstaff 命令
-4. [ ] 文档化：在 README.md 中记录新工具接入 SOP
-5. [ ] 重构工具注册逻辑：引入 src/registry.py 实现单一数据源
+TASKS: (4/6 done)
+1. [x] 重构 Wiki 和 Explorer 使用 Engine
+2. [x] 实现情报扫描结果保存到 data/reports/
+3. [x] 创建 src/guide.py 项目概况面板
+4. [x] 创建 devtools/installer.py 并封装 bin/wagstaff 命令
+5. [ ] 文档化：在 README.md 中记录新工具接入 SOP
+6. [ ] 重构工具注册逻辑：引入 src/registry.py 实现单一数据源
 ```
