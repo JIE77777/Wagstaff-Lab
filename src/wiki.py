@@ -43,42 +43,51 @@ class DSTWiki:
 
     def read_file(self, internal_path):
         """读取文件内容的通用适配器"""
-        # 统一路径前缀
         if not internal_path.startswith("scripts/"):
             internal_path = f"scripts/{internal_path}"
             
         try:
             if self.mode == 'zip':
-                # ZIP 中需要去除开头的 scripts/ 如果 ZIP 结构不同，视情况调整
-                # 根据之前的 Explorer 探测，ZIP 内确实有 scripts/ 前缀
                 with self.source.open(internal_path) as f:
                     return f.read().decode('utf-8', errors='replace')
             else:
-                # 文件夹模式，去除 scripts/ 前缀来拼接路径
                 real_path = os.path.join(self.source, internal_path.replace("scripts/", ""))
                 if os.path.exists(real_path):
                     with open(real_path, 'r', encoding='utf-8') as f:
                         return f.read()
         except KeyError:
-            return None # 文件在 Zip 中不存在
+            return None 
         except FileNotFoundError:
             return None
         return None
 
     def load_tuning_db(self):
-        """核心逻辑：解析 tuning.lua 构建数值字典"""
+        """核心逻辑：解析 tuning.lua 构建数值字典 (宽容模式)"""
         console.print("[dim]⚡ 正在构建 Tuning 数值库...[/dim]")
         content = self.read_file("tuning.lua")
         if not content:
             console.print("[red]⚠️ 警告: 无法读取 tuning.lua[/red]")
             return
 
-        # 正则提取: SPEAR_DAMAGE = 34
-        # 兼容浮点数、整数、负数
-        pattern = re.compile(r'([A-Z0-9_]+)\s*=\s*([-]?[\d\.]+)')
-        for name, value in pattern.findall(content):
+        # [升级版正则] 
+        # 不再只匹配数字，而是匹配等号后面直到逗号或换行的所有内容
+        # group(1): 变量名
+        # group(2): 值 (可能是数字、公式、字符串)
+        pattern = re.compile(r'([A-Z0-9_]+)\s*=\s*([^,\r\n]+)')
+        
+        count = 0
+        for name, raw_value in pattern.findall(content):
             key = f"TUNING.{name}"
-            self.tuning_data[key] = float(value)
+            # 清理注释 (例如: 34 --damage)
+            clean_val = raw_value.split('--')[0].strip()
+            
+            # 尝试转数字，转不了就存字符串
+            try:
+                self.tuning_data[key] = float(clean_val)
+            except ValueError:
+                self.tuning_data[key] = clean_val # 存原始文本 (如 "34 * 1")
+            
+            count += 1
         
         console.print(f"[green]✅ 索引完成: {len(self.tuning_data)} 条常量[/green]")
 
@@ -93,7 +102,11 @@ class DSTWiki:
         
         # 查表
         if val_str in self.tuning_data:
-            return f"[bold cyan]{self.tuning_data[val_str]}[/bold cyan] [dim]({val_str})[/dim]"
+            val = self.tuning_data[val_str]
+            # 如果是数字，显示青色；如果是文本(公式)，显示黄色
+            color = "bold cyan" if isinstance(val, float) else "yellow"
+            return f"[{color}]{val}[/{color}] [dim]({val_str})[/dim]"
+            
         return f"{val_str} [dim](?)[/dim]"
 
     def search_recipe(self, item):
@@ -101,14 +114,11 @@ class DSTWiki:
         content = self.read_file("recipes.lua")
         if not content: return None
 
-        # 简化版正则匹配: Recipe("name", {Ingredient("a", 1), ...})
-        # 注意：这里只匹配标准格式，复杂格式可能需要更强的 Parser
         pattern = re.compile(r'Recipe\s*\(\s*["\']' + re.escape(item) + r'["\']\s*,\s*\{(.*?)\}', re.DOTALL)
         match = pattern.search(content)
         
         if match:
             raw_ing = match.group(1)
-            # 提取材料: Ingredient("log", 2)
             ings = re.findall(r'Ingredient\s*\(\s*["\'](.*?)["\']\s*,\s*([0-9\.]+)', raw_ing)
             return ings
         return None
@@ -121,20 +131,16 @@ class DSTWiki:
         info = {}
 
         # 1. ⚔️ 武器组件
-        # inst.components.weapon:SetDamage(TUNING.SPEAR_DAMAGE)
         dmg = re.search(r'components\.weapon:SetDamage\s*\((.*?)\)', content)
         if dmg: info['⚔️ 攻击力'] = self.resolve_val(dmg.group(1))
 
         # 2. 🛡️ 护甲组件
-        # inst.components.armor:InitCondition(TUNING.ARMORWOOD, TUNING.ARMORWOOD_ABSORPTION)
-        # 参数1=耐久, 参数2=减伤
         armor = re.search(r'components\.armor:InitCondition\s*\((.*?),\s*(.*?)\)', content)
         if armor:
             info['🛡️ 耐久度'] = self.resolve_val(armor.group(1))
             info['🛡️ 减伤率'] = self.resolve_val(armor.group(2))
 
         # 3. 🍖 食物组件
-        # inst.components.edible.healthvalue = 0
         if "components.edible" in content:
             hv = re.search(r'edible\.healthvalue\s*=\s*(.*)', content)
             hung = re.search(r'edible\.hungervalue\s*=\s*(.*)', content)
@@ -188,10 +194,7 @@ def main():
         st.add_column("数值", style="yellow")
         for k, v in stats.items():
             st.add_row(k, v)
-        grid.add_row("", st) # 放在第二行或第二列均可，这里做简单的流式布局
-        # 如果你想左右并排，可以用 rich.columns 或 Layout，Grid 这里会换行显示
-        # 修正：Grid add_row 接受多个参数对应列。
-        # 为了简单，我们直接打印两个表格，不用 Grid 复杂布局，除非内容很短。
+        grid.add_row("", st)
     
     if stats:
         console.print(st)

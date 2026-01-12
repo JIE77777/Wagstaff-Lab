@@ -14,6 +14,8 @@ from rich import box
 # 将 src 目录加入路径，以便导入 utils
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils import wagstaff_config
+# === 引入 Lua 分析器 ===
+from analyzer import LuaAnalyzer
 
 # 初始化 Rich
 console = Console()
@@ -33,7 +35,7 @@ class DSTExplorer:
         self.init_source()
 
     def init_source(self):
-        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v2.1[/bold cyan]\n目标源: {self.base_dir}", border_style="blue"))
+        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v2.2[/bold cyan]\n目标源: {self.base_dir}", border_style="blue"))
 
         if os.path.exists(self.zip_path):
             self.mode = 'zip'
@@ -97,6 +99,61 @@ class DSTExplorer:
             console.print(f"[red]Error: {e}[/red]")
             return None
 
+    def analyze_content(self, filename, content):
+        """调用分析器并展示结果"""
+        try:
+            analyzer = LuaAnalyzer(content)
+            data = analyzer.get_report()
+        except Exception as e:
+            console.print(f"[red]解析失败: {e}[/red]")
+            return
+        
+        tree = Tree(f"🧬 [bold green]深度解析: {filename}[/bold green]")
+        
+        # 1. 资源 (Assets)
+        if data['assets']:
+            asset_branch = tree.add(f"📦 资源引用 ({len(data['assets'])})")
+            for a in data['assets']:
+                asset_branch.add(f"[cyan]{a['type']}[/cyan]: {a['path']}")
+
+        # 2. 核心逻辑 (Brain/SG)
+        logic_branch = tree.add("🧠 核心逻辑")
+        has_logic = False
+        if data['brain']: 
+            logic_branch.add(f"AI: [magenta]{data['brain']}[/magenta]")
+            has_logic = True
+        if data['stategraph']: 
+            logic_branch.add(f"SG: [magenta]{data['stategraph']}[/magenta]")
+            has_logic = True
+        if data['tags']: 
+            tag_str = ", ".join([f"[dim]{t}[/dim]" for t in data['tags'][:5]])
+            logic_branch.add(f"Tags: {tag_str}...")
+            has_logic = True
+        
+        if not has_logic:
+            logic_branch.label = "[dim]🧠 核心逻辑 (无)[/dim]"
+
+        # 3. 组件 (Components)
+        if data['components']:
+            comp_branch = tree.add(f"⚙️ 功能组件 ({len(data['components'])})")
+            for comp in data['components']:
+                # 组件节点
+                node = comp_branch.add(f"[bold yellow]{comp['name']}[/bold yellow]")
+                # 组件下的配置调用
+                for cfg in comp['configs']:
+                    node.add(f"[dim]↳ {cfg}[/dim]")
+        else:
+            tree.add("[dim]⚙️ 功能组件 (无)[/dim]")
+
+        # 4. 事件监听
+        if data['events']:
+            evt_branch = tree.add(f"🔔 监听事件 ({len(data['events'])})")
+            for evt in data['events']:
+                evt_branch.add(evt)
+
+        console.print(Panel(tree, border_style="green"))
+        input("按回车返回...")
+
     def preview_file(self):
         target = Prompt.ask("[bold green]👀 文件名[/bold green]")
         candidates = [f for f in self.file_list if target.lower() in f.lower()]
@@ -107,9 +164,16 @@ class DSTExplorer:
         
         content = self.read_content(target_file)
         if content:
+            # 展示源码前 50 行
             syntax = Syntax("\n".join(content.splitlines()[:50]), "lua", theme="monokai", line_numbers=True)
             console.print(Panel(syntax, title=f"{target_file} (Top 50 lines)", border_style="blue"))
-            input("按回车继续...")
+            
+            # 询问下一步操作
+            action = Prompt.ask("[bold cyan]下一步[/bold cyan]", choices=["q", "a"], default="q")
+            if action == "a": # Analyze
+                self.analyze_content(target_file, content)
+            else:
+                return
 
     def show_tuning(self):
         path = f"{self.root_prefix}tuning.lua"

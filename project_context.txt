@@ -1,9 +1,25 @@
-# Project Context Snapshot
-Project Root: /home/steam/Wagstaff-Lab
+# Wagstaff-Lab Project Snapshot
 
-## 1. Directory Structure
+## 1. Environment Diagnostics
+```yaml
+Time: 2026-01-12 12:29:57
+User: steam
+Host: VM-8-2-ubuntu (Linux 6.8.0-49-generic)
+Python: 3.10.19 (/home/steam/miniconda3/envs/dst_lab/bin/python)
+Conda Env: dst_lab
+Rich Ver: Installed (ver unknown)
+Disk: 87GB free / 117GB total (22.0% used)
+--------------------
+Branch: main [DIRTY]
+Commit: 1484bb0
+Message: Feat: Implement Wiki module and centralized config architecture
+```
+
+## 2. Project Structure
 ```text
+├── .gitignore
 ├── bin
+│   ├── .dst_tool.sh.swp
 │   ├── boot.sh
 │   └── dst_tool.sh
 ├── conf
@@ -11,14 +27,80 @@ Project Root: /home/steam/Wagstaff-Lab
 ├── data
 ├── devtools
 │   └── snapshot.py
-├── project_context.txt
 └── src
     ├── explorer.py
-    └── utils.py
+    ├── utils.py
+    └── wiki.py
 
 ```
 
-## 2. Key File Contents
+## 3. Source Code
+
+### File: bin/boot.sh
+```bash
+#!/bin/bash
+
+# =========================================================
+# Wagstaff-Lab Bootloader (启动引导程序)
+# 职责: 设置环境库(LD_LIBRARY_PATH)并启动 DST 二进制文件
+# =========================================================
+
+# --- 1. 定位配置 ---
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CONFIG_FILE="$PROJECT_ROOT/conf/settings.ini"
+
+# --- 2. 简易配置读取器 ---
+read_config() {
+    local section=$1
+    local key=$2
+    local val=$(awk -F ' = ' -v section="[$section]" -v key="$key" '
+        $0 == section { in_section=1; next }
+        /^\[/ { in_section=0 }
+        in_section && $1 == key { print $2; exit }
+    ' "$CONFIG_FILE")
+    echo "${val/\~/$HOME}"
+}
+
+# --- 3. 加载核心变量 ---
+INSTALL_DIR=$(read_config "PATHS" "DST_ROOT")
+CLUSTER_NAME=$(read_config "SERVER" "CLUSTER_NAME")
+
+# --- 4. 环境检查 ---
+if [ -z "$INSTALL_DIR" ] || [ -z "$CLUSTER_NAME" ]; then
+    echo "❌ [Boot] 错误: 无法读取配置，请检查 conf/settings.ini"
+    exit 1
+fi
+
+BIN_DIR="$INSTALL_DIR/bin"
+
+# --- 5. 设置依赖库 (关键步骤) ---
+# 这是让 Linux 能运行 DST 的核心魔法
+export LD_LIBRARY_PATH="$BIN_DIR/lib32:$BIN_DIR:$LD_LIBRARY_PATH"
+
+# --- 6. 进入执行目录 ---
+# 必须进入 bin 目录，否则游戏找不到 data
+cd "$BIN_DIR" || { echo "❌ [Boot] 找不到目录: $BIN_DIR"; exit 1; }
+
+echo "⚡ [Boot] 正在初始化 Wagstaff 引擎..."
+echo "   - 游戏根目录: $INSTALL_DIR"
+echo "   - 存档簇名称: $CLUSTER_NAME"
+
+# --- 7. 启动进程 (Master) ---
+# 使用 -dmS 让它在后台 Screen 运行
+screen -dmS "DST_Master" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Master
+echo "✅ [Boot] 地面服务器 (Master) 已启动"
+
+# --- 8. 启动进程 (Caves) ---
+# 只有当存档中存在 Caves 文件夹时才启动，或者你可以选择强制启动
+# 这里为了稳妥，我们直接启动，如果没洞穴配置游戏会自动停止 Caves 进程，无伤大雅
+screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Caves
+echo "✅ [Boot] 洞穴服务器 (Caves) 已启动"
+
+echo "✨ 启动序列完成。"
+
+```
+
 ### File: bin/dst_tool.sh
 ```bash
 #!/bin/bash
@@ -254,6 +336,19 @@ run_explorer() {
     fi
 }
 
+run_wiki() {
+    local script_path="$PROJECT_ROOT/src/wiki.py"
+    if [ ! -f "$script_path" ]; then
+        echo -e "${RED}❌ 找不到 Wiki 脚本: $script_path${NC}"; pause; return
+    fi
+
+    echo -e "${CYAN}📚 请输入物品代码进行查询 (例如 spear, log, meat)${NC}"
+    read -p "物品代码: " item_code
+    if [ -n "$item_code" ]; then
+        "$PYTHON_EXEC" "$script_path" "$item_code"
+    fi
+    pause
+}
 console_menu() {
     while true; do
         clear
@@ -293,6 +388,7 @@ while true; do
     echo "5. 💾 创建备份        6. ⏪ 恢复存档"
     echo "7. 📜 查看日志        8. 🎮 发送指令"
     echo -e "9. 🔬 ${YELLOW}源码透视镜 (Explorer)${NC}"
+    echo -e "10.📚 ${GREEN}Wagstaff 百科 (Wiki)${NC}"
     echo "0. 🚪 退出"
     echo "==========================================="
     
@@ -308,6 +404,7 @@ while true; do
         7) view_log "$LOG_MASTER" "Master" ;; 
         8) console_menu ;;
         9) run_explorer ;; 
+	10) run_wiki ;;
         0) echo -e "${GREEN}再见，研究员。${NC}"; exit 0 ;;
         *) echo "无效"; sleep 0.5 ;;
     esac
@@ -463,8 +560,248 @@ if __name__ == "__main__":
 
 ```
 
+### File: src/utils.py
+```py
+import configparser
+import os
+from pathlib import Path
+
+class ConfigLoader:
+    def __init__(self):
+        # 自动定位项目根目录 (假设 utils.py 在 src/ 下)
+        self.project_root = Path(__file__).resolve().parent.parent
+        self.config_path = self.project_root / "conf" / "settings.ini"
+        
+        self.config = configparser.ConfigParser()
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"❌ 配置文件丢失: {self.config_path}")
+        
+        self.config.read(self.config_path)
+
+    def get(self, section, key):
+        """获取配置值并自动展开用户路径 (~)"""
+        val = self.config.get(section, key, fallback=None)
+        if val and "~" in val:
+            return os.path.expanduser(val)
+        return val
+
+# 单例模式：直接导出的实例
+wagstaff_config = ConfigLoader()
+
+# === 测试代码 ===
+if __name__ == "__main__":
+    print(f"Project Root: {wagstaff_config.project_root}")
+    print(f"DST Path: {wagstaff_config.get('PATHS', 'DST_ROOT')}")
+
+```
+
+### File: src/wiki.py
+```py
+#!/usr/bin/env python3
+import os
+import re
+import sys
+import zipfile
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich import box
+
+# === 引入 Wagstaff 工具库 ===
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils import wagstaff_config
+
+console = Console()
+
+class DSTWiki:
+    def __init__(self):
+        # 1. 继承配置
+        self.base_dir = wagstaff_config.get('PATHS', 'DST_ROOT')
+        self.zip_path = os.path.join(self.base_dir, "data", "databundles", "scripts.zip")
+        self.fallback_dir = os.path.join(self.base_dir, "data", "scripts")
+        
+        self.tuning_data = {}  # 存放数值常量
+        self.source = None
+        self.mode = None
+        
+        self.init_source()
+        self.load_tuning_db() # 预加载数值库
+
+    def init_source(self):
+        """初始化数据源 (Zip 或 文件夹)"""
+        if os.path.exists(self.zip_path):
+            self.mode = 'zip'
+            self.source = zipfile.ZipFile(self.zip_path, 'r')
+        elif os.path.exists(self.fallback_dir):
+            self.mode = 'folder'
+            self.source = self.fallback_dir
+        else:
+            console.print(f"[red]❌ 致命错误: 无法定位 scripts 数据源[/red]")
+            sys.exit(1)
+
+    def read_file(self, internal_path):
+        """读取文件内容的通用适配器"""
+        # 统一路径前缀
+        if not internal_path.startswith("scripts/"):
+            internal_path = f"scripts/{internal_path}"
+            
+        try:
+            if self.mode == 'zip':
+                # ZIP 中需要去除开头的 scripts/ 如果 ZIP 结构不同，视情况调整
+                # 根据之前的 Explorer 探测，ZIP 内确实有 scripts/ 前缀
+                with self.source.open(internal_path) as f:
+                    return f.read().decode('utf-8', errors='replace')
+            else:
+                # 文件夹模式，去除 scripts/ 前缀来拼接路径
+                real_path = os.path.join(self.source, internal_path.replace("scripts/", ""))
+                if os.path.exists(real_path):
+                    with open(real_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+        except KeyError:
+            return None # 文件在 Zip 中不存在
+        except FileNotFoundError:
+            return None
+        return None
+
+    def load_tuning_db(self):
+        """核心逻辑：解析 tuning.lua 构建数值字典"""
+        console.print("[dim]⚡ 正在构建 Tuning 数值库...[/dim]")
+        content = self.read_file("tuning.lua")
+        if not content:
+            console.print("[red]⚠️ 警告: 无法读取 tuning.lua[/red]")
+            return
+
+        # 正则提取: SPEAR_DAMAGE = 34
+        # 兼容浮点数、整数、负数
+        pattern = re.compile(r'([A-Z0-9_]+)\s*=\s*([-]?[\d\.]+)')
+        for name, value in pattern.findall(content):
+            key = f"TUNING.{name}"
+            self.tuning_data[key] = float(value)
+        
+        console.print(f"[green]✅ 索引完成: {len(self.tuning_data)} 条常量[/green]")
+
+    def resolve_val(self, val_str):
+        """将代码变量 (TUNING.X) 转换为 真实数值"""
+        val_str = val_str.strip()
+        # 如果是纯数字，直接返回
+        try:
+            return str(float(val_str))
+        except ValueError:
+            pass
+        
+        # 查表
+        if val_str in self.tuning_data:
+            return f"[bold cyan]{self.tuning_data[val_str]}[/bold cyan] [dim]({val_str})[/dim]"
+        return f"{val_str} [dim](?)[/dim]"
+
+    def search_recipe(self, item):
+        """从 recipes.lua 提取配方"""
+        content = self.read_file("recipes.lua")
+        if not content: return None
+
+        # 简化版正则匹配: Recipe("name", {Ingredient("a", 1), ...})
+        # 注意：这里只匹配标准格式，复杂格式可能需要更强的 Parser
+        pattern = re.compile(r'Recipe\s*\(\s*["\']' + re.escape(item) + r'["\']\s*,\s*\{(.*?)\}', re.DOTALL)
+        match = pattern.search(content)
+        
+        if match:
+            raw_ing = match.group(1)
+            # 提取材料: Ingredient("log", 2)
+            ings = re.findall(r'Ingredient\s*\(\s*["\'](.*?)["\']\s*,\s*([0-9\.]+)', raw_ing)
+            return ings
+        return None
+
+    def analyze_prefab(self, item):
+        """深度扫描 Prefab 文件，提取 Weapon/Armor/Edible 信息"""
+        content = self.read_file(f"prefabs/{item}.lua")
+        if not content: return None
+        
+        info = {}
+
+        # 1. ⚔️ 武器组件
+        # inst.components.weapon:SetDamage(TUNING.SPEAR_DAMAGE)
+        dmg = re.search(r'components\.weapon:SetDamage\s*\((.*?)\)', content)
+        if dmg: info['⚔️ 攻击力'] = self.resolve_val(dmg.group(1))
+
+        # 2. 🛡️ 护甲组件
+        # inst.components.armor:InitCondition(TUNING.ARMORWOOD, TUNING.ARMORWOOD_ABSORPTION)
+        # 参数1=耐久, 参数2=减伤
+        armor = re.search(r'components\.armor:InitCondition\s*\((.*?),\s*(.*?)\)', content)
+        if armor:
+            info['🛡️ 耐久度'] = self.resolve_val(armor.group(1))
+            info['🛡️ 减伤率'] = self.resolve_val(armor.group(2))
+
+        # 3. 🍖 食物组件
+        # inst.components.edible.healthvalue = 0
+        if "components.edible" in content:
+            hv = re.search(r'edible\.healthvalue\s*=\s*(.*)', content)
+            hung = re.search(r'edible\.hungervalue\s*=\s*(.*)', content)
+            san = re.search(r'edible\.sanityvalue\s*=\s*(.*)', content)
+            
+            if hv: info['❤️ 生命'] = self.resolve_val(hv.group(1))
+            if hung: info['🍖 饥饿'] = self.resolve_val(hung.group(1))
+            if san: info['🧠 San'] = self.resolve_val(san.group(1))
+
+        return info
+
+def main():
+    if len(sys.argv) < 2:
+        console.print("[yellow]用法: python wiki.py <物品代码>[/yellow]")
+        return
+
+    target = sys.argv[1].lower()
+    wiki = DSTWiki()
+    
+    console.print(Panel(f"[bold white on blue] 📚 正在查询档案: {target.upper()} [/bold white on blue]"))
+
+    # 并行获取数据
+    recipe = wiki.search_recipe(target)
+    stats = wiki.analyze_prefab(target)
+
+    if not recipe and not stats:
+        console.print(f"[red]❌ 未找到 '{target}' 的有效记录。[/red]")
+        console.print("[dim]提示: 请使用代码名 (如 log, spear, meat)[/dim]")
+        return
+
+    # === 渲染结果 ===
+    grid = Table.grid(expand=True, padding=(0, 2))
+    grid.add_column()
+    grid.add_column()
+
+    # 左列：配方
+    if recipe:
+        rt = Table(title="📜 合成配方", border_style="green", box=box.ROUNDED)
+        rt.add_column("材料", style="cyan")
+        rt.add_column("数量", style="magenta")
+        for name, amt in recipe:
+            rt.add_row(name, str(int(float(amt))))
+        grid.add_row(rt, "")
+    else:
+        grid.add_row(Panel("[dim]不可合成 / 特殊配方[/dim]", title="📜 合成配方"), "")
+
+    # 右列：属性
+    if stats:
+        st = Table(title="⚡ 核心数据 (解析后)", border_style="blue", box=box.ROUNDED)
+        st.add_column("属性", style="white")
+        st.add_column("数值", style="yellow")
+        for k, v in stats.items():
+            st.add_row(k, v)
+        grid.add_row("", st) # 放在第二行或第二列均可，这里做简单的流式布局
+        # 如果你想左右并排，可以用 rich.columns 或 Layout，Grid 这里会换行显示
+        # 修正：Grid add_row 接受多个参数对应列。
+        # 为了简单，我们直接打印两个表格，不用 Grid 复杂布局，除非内容很短。
+    
+    if stats:
+        console.print(st)
+
+if __name__ == "__main__":
+    main()
+
+```
+
 ### File: conf/settings.ini
-```ini
+```toml
 [PATHS]
 # 游戏安装目录
 DST_ROOT = ~/dontstarvetogether_dedicated_server
@@ -478,5 +815,178 @@ BACKUP_DIR = ~/dst_backups
 CLUSTER_NAME = MyDediServer
 # Klei 存档根目录 (通常是 ~/.klei/DoNotStarveTogether)
 KLEI_HOME = ~/.klei/DoNotStarveTogether
+
+```
+
+### File: devtools/snapshot.py
+```py
+#!/usr/bin/env python3
+import os
+import platform
+import subprocess
+import shutil
+import sys
+import json
+from pathlib import Path
+from datetime import datetime
+
+# ================= 配置区 =================
+# 自动定位项目根目录 (devtools 的上一级)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_FILE = PROJECT_ROOT / "project_context.txt"
+
+# 自动扫描规则
+SCAN_RULES = [
+    {"dir": "bin", "ext": ".sh"},
+    {"dir": "src", "ext": ".py"},
+    {"dir": "conf", "ext": ".ini"},
+    {"dir": "devtools", "ext": ".py"},
+    {"dir": ".", "ext": ".md"},      # README.md
+    {"dir": ".", "ext": ".txt"},     # requirements.txt
+]
+
+# 忽略列表
+IGNORE_DIRS = {".git", "__pycache__", "logs", "env", "venv", ".idea", ".vscode"}
+IGNORE_FILES = {"project_context.txt", ".DS_Store", "id_rsa", "known_hosts"}
+
+# ================= 功能函数 =================
+
+def run_cmd(cmd):
+    """执行 Shell 命令并返回结果"""
+    try:
+        return subprocess.check_output(cmd, shell=True, text=True, cwd=PROJECT_ROOT, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return "Unknown"
+
+def get_system_fingerprint():
+    """获取详细的环境指纹 (System Fingerprint)"""
+    info = []
+    
+    # 1. 基础信息
+    info.append(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    info.append(f"User: {os.getenv('USER', 'Unknown')}")
+    info.append(f"Host: {platform.node()} ({platform.system()} {platform.release()})")
+    
+    # 2. Python 环境
+    info.append(f"Python: {platform.python_version()} ({sys.executable})")
+    conda_env = os.getenv('CONDA_DEFAULT_ENV')
+    if conda_env:
+        info.append(f"Conda Env: {conda_env}")
+    
+    # 3. 依赖库检查 (修复了这里)
+    try:
+        import rich
+        # 尝试获取版本，如果拿不到(AttributeError)则显示已安装但版本未知
+        ver = getattr(rich, '__version__', 'Installed (ver unknown)')
+        info.append(f"Rich Ver: {ver}")
+    except ImportError:
+        info.append("Rich Ver: Not Installed")
+    except Exception as e:
+        info.append(f"Rich Ver: Error ({str(e)})")
+
+    # 4. 磁盘空间
+    try:
+        total, used, free = shutil.disk_usage(PROJECT_ROOT)
+        free_gb = free // (2**30)
+        total_gb = total // (2**30)
+        usage_percent = round((used / total) * 100, 1)
+        info.append(f"Disk: {free_gb}GB free / {total_gb}GB total ({usage_percent}% used)")
+    except:
+        info.append("Disk: Unavailable")
+    
+    return "\n".join(info)
+
+def get_git_status():
+    """获取版本控制状态"""
+    if not (PROJECT_ROOT / ".git").exists():
+        return "Git: Not a repository"
+    
+    branch = run_cmd("git rev-parse --abbrev-ref HEAD")
+    commit = run_cmd("git rev-parse --short HEAD")
+    last_msg = run_cmd("git log -1 --pretty=%B")
+    
+    # 检查是否有未提交的修改
+    is_dirty = run_cmd("git status --porcelain") != ""
+    dirty_mark = " [DIRTY]" if is_dirty else " [CLEAN]"
+    
+    return f"Branch: {branch}{dirty_mark}\nCommit: {commit}\nMessage: {last_msg}"
+
+def generate_tree(dir_path, prefix=""):
+    """递归生成目录树"""
+    tree_str = ""
+    try:
+        contents = sorted([p for p in dir_path.iterdir() if p.name not in IGNORE_DIRS])
+    except PermissionError:
+        return f"{prefix}└── [Permission Denied]\n"
+
+    pointers = [("├── " if i < len(contents) - 1 else "└── ") for i in range(len(contents))]
+    
+    for pointer, path in zip(pointers, contents):
+        if path.name in IGNORE_FILES: continue
+        
+        tree_str += f"{prefix}{pointer}{path.name}\n"
+        if path.is_dir():
+            extension = "│   " if pointer == "├── " else "    "
+            tree_str += generate_tree(path, prefix=prefix + extension)
+    return tree_str
+
+def main():
+    print(f"📸 正在生成 Wagstaff-Lab 全息快照 (v2.1)...")
+    
+    report = []
+    report.append("# Wagstaff-Lab Project Snapshot")
+    
+    # Section 1: 环境诊断
+    report.append("\n## 1. Environment Diagnostics")
+    report.append("```yaml")
+    report.append(get_system_fingerprint())
+    report.append("-" * 20)
+    report.append(get_git_status())
+    report.append("```")
+
+    # Section 2: 目录结构
+    report.append("\n## 2. Project Structure")
+    report.append("```text")
+    report.append(generate_tree(PROJECT_ROOT))
+    report.append("```")
+
+    # Section 3: 核心代码
+    report.append("\n## 3. Source Code")
+    
+    file_count = 0
+    for rule in SCAN_RULES:
+        search_dir = PROJECT_ROOT / rule["dir"]
+        if rule["dir"] == ".": search_dir = PROJECT_ROOT
+            
+        if not search_dir.exists(): continue
+        
+        for file_path in sorted(search_dir.glob(f"*{rule['ext']}")):
+            if file_path.name in IGNORE_FILES: continue
+            
+            rel_path = file_path.relative_to(PROJECT_ROOT)
+            report.append(f"\n### File: {rel_path}")
+            
+            lang = rule['ext'].replace('.', '')
+            if lang == 'sh': lang = 'bash'
+            if lang == 'ini': lang = 'toml'
+            
+            report.append(f"```{lang}")
+            try:
+                content = file_path.read_text(encoding='utf-8')
+                report.append(content)
+                file_count += 1
+            except Exception as e:
+                report.append(f"Error reading file: {e}")
+            report.append("```")
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(report))
+    
+    print(f"✅ 快照生成完毕: {OUTPUT_FILE}")
+    print(f"📊 已归档 {file_count} 个核心文件。")
+    print("👉 运行 'cat project_context.txt' 查看。")
+
+if __name__ == "__main__":
+    main()
 
 ```
