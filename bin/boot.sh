@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # =========================================================
 # Wagstaff-Lab Bootloader (启动引导程序)
 # 职责: 设置环境库(LD_LIBRARY_PATH)并启动 DST 二进制文件
@@ -48,13 +47,13 @@ echo "   - 存档簇名称: $CLUSTER_NAME"
 
 # --- 7. 启动进程 (Master) ---
 # 使用 -dmS 让它在后台 Screen 运行
-screen -dmS "DST_Master" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Master
+screen -dmS "DST_Master" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$CLUSTER_NAME" -shard Master
 echo "✅ [Boot] 地面服务器 (Master) 已启动"
 
 # --- 8. 启动进程 (Caves) ---
 # 只有当存档中存在 Caves 文件夹时才启动，或者你可以选择强制启动
 # 这里为了稳妥，我们直接启动，如果没洞穴配置游戏会自动停止 Caves 进程，无伤大雅
-screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Caves
+screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$CLUSTER_NAME" -shard Caves
 echo "✅ [Boot] 洞穴服务器 (Caves) 已启动"
 
 echo "✨ 启动序列完成。"

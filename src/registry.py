@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""
+Wagstaff-Lab 工具注册中心 (v2.2)
+所有工具的元数据、命令别名及用法说明均在此统一维护。
+"""
+
+TOOLS = [
+    # --- 核心/业务工具 (src/) ---
+    {
+        "file": "guide.py",
+        "alias": None,
+        "desc": "Wagstaff-Lab 控制台主面板",
+        "usage": "Wagstaff-Lab",
+        "type": "Core"
+    },
+    {
+        "file": "wiki.py",
+        "alias": "wiki",
+        "desc": "物品/配方/数值查询百科",
+        "usage": "wagstaff wiki <item_code>",
+        "type": "Src"
+    },
+    {
+        "file": "explorer.py",
+        "alias": "exp",
+        "desc": "源码结构浏览与深度分析",
+        "usage": "wagstaff exp",
+        "type": "Src"
+    },
+
+    # --- 开发工具 (devtools/) ---
+    {
+        "file": "pm.py",
+        "alias": "pm",
+        "desc": "项目进度与任务管理",
+        "usage": "pm [ui|obj|add|done|log]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "reporter.py",
+        "alias": "report",
+        "desc": "生成全服资产/配方分布报告",
+        "usage": "wagstaff report [assets|recipes|all]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "snapshot.py",
+        "alias": "snap",
+        "desc": "生成项目全息代码快照",
+        "usage": "wagstaff snap",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "installer.py",
+        "alias": "install",
+        "desc": "环境注册与安装向导",
+        "usage": "python3 devtools/installer.py",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+]
+
+def get_tools():
+    return TOOLS

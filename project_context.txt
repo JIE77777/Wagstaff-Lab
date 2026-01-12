@@ -2,43 +2,59 @@
 
 ## 1. Environment Diagnostics
 ```yaml
-Time: 2026-01-12 12:29:57
+Time: 2026-01-12 16:42:38
 User: steam
 Host: VM-8-2-ubuntu (Linux 6.8.0-49-generic)
-Python: 3.10.19 (/home/steam/miniconda3/envs/dst_lab/bin/python)
-Conda Env: dst_lab
+Python: 3.13.11 (/home/steam/miniconda3/bin/python3)
 Rich Ver: Installed (ver unknown)
-Disk: 87GB free / 117GB total (22.0% used)
 --------------------
 Branch: main [DIRTY]
-Commit: 1484bb0
-Message: Feat: Implement Wiki module and centralized config architecture
+Commit: 9b711b1
+Message: Feat: Add Deep Analyzer to Explorer and fix Wiki regex
 ```
 
 ## 2. Project Structure
 ```text
 ├── .gitignore
+├── PROJECT_STATUS.json
+├── README.md
 ├── bin
 │   ├── .dst_tool.sh.swp
+│   ├── Wagstaff-Lab
 │   ├── boot.sh
-│   └── dst_tool.sh
+│   ├── dst_tool.sh
+│   ├── pm
+│   └── wagstaff
 ├── conf
 │   └── settings.ini
 ├── data
+│   └── reports
+│       ├── asset_registry.md
+│       └── recipe_distribution.md
 ├── devtools
+│   ├── installer.py
+│   ├── pm.py
+│   ├── reporter.py
 │   └── snapshot.py
-└── src
-    ├── explorer.py
-    ├── utils.py
-    └── wiki.py
+├── setup.sh
+├── src
+│   ├── analyzer.py
+│   ├── engine.py
+│   ├── explorer.py
+│   ├── guide.py
+│   ├── registry.py
+│   ├── utils.py
+│   └── wiki.py
+└── tests
+    └── test_recipes.py
 
 ```
 
 ## 3. Source Code
 
 ### File: bin/boot.sh
-```bash
-#!/bin/bash
+```sh
+#!/bin/bashif reci$CLUSTER_NAME
 
 # =========================================================
 # Wagstaff-Lab Bootloader (启动引导程序)
@@ -88,13 +104,13 @@ echo "   - 存档簇名称: $CLUSTER_NAME"
 
 # --- 7. 启动进程 (Master) ---
 # 使用 -dmS 让它在后台 Screen 运行
-screen -dmS "DST_Master" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Master
+screen -dmS "DST_Master" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$CLUSTER_NAME" -shard Master
 echo "✅ [Boot] 地面服务器 (Master) 已启动"
 
 # --- 8. 启动进程 (Caves) ---
 # 只有当存档中存在 Caves 文件夹时才启动，或者你可以选择强制启动
 # 这里为了稳妥，我们直接启动，如果没洞穴配置游戏会自动停止 Caves 进程，无伤大雅
-screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$cluster_name" -shard Caves
+screen -dmS "DST_Caves" ./dontstarve_dedicated_server_nullrenderer -console -cluster "$CLUSTER_NAME" -shard Caves
 echo "✅ [Boot] 洞穴服务器 (Caves) 已启动"
 
 echo "✨ 启动序列完成。"
@@ -102,7 +118,7 @@ echo "✨ 启动序列完成。"
 ```
 
 ### File: bin/dst_tool.sh
-```bash
+```sh
 #!/bin/bash
 
 # =========================================================
@@ -412,11 +428,338 @@ done
 
 ```
 
-### File: src/explorer.py
+### File: src/analyzer.py
+```py
+#!/usr/bin/env python3
+import re
+
+# ==========================================
+# 1. 全局数值解析器 (TuningResolver)
+# ==========================================
+class TuningResolver:
+    def __init__(self, content):
+        self.raw_map = {}
+        if content:
+            self._parse_tuning(content)
+
+    def _parse_tuning(self, content):
+        clean_content = re.sub(r'\blocal\s+', '', content)
+        pattern = re.compile(r'([a-zA-Z0-9_]+)\s*=\s*([^,\r\n]+)')
+        for name, raw_val in pattern.findall(clean_content):
+            clean_val = raw_val.split('--')[0].strip()
+            try:
+                self.raw_map[name] = float(clean_val)
+            except ValueError:
+                self.raw_map[name] = clean_val
+
+    def _trace_value(self, start_key):
+        path = []
+        current_key = start_key
+        visited = set()
+        for _ in range(5):
+            if current_key in visited: break
+            visited.add(current_key)
+            val = self.raw_map.get(current_key)
+            if val is None: break
+            if isinstance(val, float):
+                path.append(f"[bold cyan]{val}[/bold cyan]")
+                break
+            if isinstance(val, str):
+                if val in self.raw_map:
+                    path.append(f"[yellow]{val}[/yellow]")
+                    current_key = val
+                else:
+                    path.append(f"[white]{val}[/white]")
+                    break
+        if not path: return None
+        return " ➜ ".join(path)
+
+    def enrich(self, text):
+        if not text or "TUNING." not in text: return text
+        def replace_match(match):
+            full_key = match.group(1)
+            short_key = full_key.replace("TUNING.", "")
+            trace_str = self._trace_value(short_key)
+            if trace_str:
+                return f"{full_key} [dim]({trace_str})[/dim]"
+            return full_key
+        return re.sub(r'(TUNING\.[A-Z0-9_]+)', replace_match, text)
+
+# ==========================================
+# 2. Lua 文件分析器 (LuaAnalyzer)
+# ==========================================
+class LuaAnalyzer:
+    def __init__(self, content):
+        self.content = content
+        self.structure = {
+            "assets": [], "components": [], "helpers": [],
+            "stategraph": None, "brain": None, "events": [], "tags": []
+        }
+        self.parse()
+
+    def parse(self):
+        self._extract_tables()
+        self._extract_components_robust()
+        self._extract_standard_helpers()
+        self._extract_logic()
+
+    def _clean_value(self, raw_val):
+        val = re.sub(r'--.*', '', raw_val)
+        return " ".join(val.split())
+
+    def _extract_tables(self):
+        asset_pattern = re.compile(r'Asset\s*\(\s*["\'](.*?)["\']\s*,\s*["\'](.*?)["\']\s*\)')
+        for match in asset_pattern.findall(self.content):
+            self.structure["assets"].append({"type": match[0], "path": match[1]})
+
+    def _extract_standard_helpers(self):
+        helper_pattern = re.compile(r'^\s*(Make[a-zA-Z0-9_]+)\s*\(', re.MULTILINE)
+        found = set()
+        for match in helper_pattern.findall(self.content):
+            if match not in found:
+                self.structure["helpers"].append(match)
+                found.add(match)
+
+    def _extract_components_robust(self):
+        added_comps = set()
+        add_pattern = re.compile(r'inst:AddComponent\s*\(\s*["\'](.*?)["\']\s*\)')
+        for match in add_pattern.findall(self.content):
+            added_comps.add(match)
+        for comp_name in added_comps:
+            comp_data = {"name": comp_name, "methods": [], "properties": []}
+            method_pattern = re.compile(r'components\.' + re.escape(comp_name) + r'[:\.]([a-zA-Z0-9_]+)\s*\((.*?)\)', re.DOTALL)
+            for m in method_pattern.findall(self.content):
+                func_name = m[0]
+                clean_args = self._clean_value(m[1])
+                if len(clean_args) > 50: clean_args = clean_args[:47] + "..."
+                comp_data["methods"].append(f"{func_name}({clean_args})")
+            prop_pattern = re.compile(r'components\.' + re.escape(comp_name) + r'\.([a-zA-Z0-9_]+)\s*=\s*(.+)')
+            for p in prop_pattern.findall(self.content):
+                prop_name = p[0]
+                raw_val = p[1].strip()
+                if raw_val.startswith("function"):
+                    comp_data["properties"].append(f"{prop_name} = [Function]")
+                    continue
+                clean_val = self._clean_value(raw_val)
+                comp_data["properties"].append(f"{prop_name} = {clean_val}")
+            self.structure["components"].append(comp_data)
+
+    def _extract_logic(self):
+        brain = re.search(r'inst:SetBrain\s*\(\s*require\s*\(\s*["\'](.*?)["\']\s*\)\s*\)', self.content)
+        if brain: self.structure["brain"] = brain.group(1)
+        sg = re.search(r'inst:SetStateGraph\s*\(\s*["\'](.*?)["\']\s*\)', self.content)
+        if sg: self.structure["stategraph"] = sg.group(1)
+        tags = re.findall(r'[^--]inst:AddTag\s*\(\s*["\'](.*?)["\']\s*\)', self.content)
+        self.structure["tags"] = list(set(tags))
+        events = re.findall(r'inst:ListenForEvent\s*\(\s*["\'](.*?)["\']', self.content)
+        self.structure["events"] = list(set(events))
+
+    def get_report(self):
+        return self.structure
+
+# ==========================================
+# 3. 配方解析器 (RecipeAnalyzer) - [FINAL]
+# ==========================================
+class RecipeAnalyzer:
+    def __init__(self, content):
+        self.raw_content = content
+        self.recipes = {}
+        self.aliases = {}
+        if content:
+            self._parse()
+
+    def _clean_comments(self):
+        return re.sub(r'--.*$', '', self.raw_content, flags=re.MULTILINE)
+
+    def _extract_table_block(self, content, start_index):
+        # 堆栈式提取 {...}
+        start_brace = content.find('{', start_index)
+        if start_brace == -1: return None, start_index
+
+        balance = 1
+        for i in range(start_brace + 1, len(content)):
+            char = content[i]
+            if char == '{':
+                balance += 1
+            elif char == '}':
+                balance -= 1
+            if balance == 0:
+                return content[start_brace+1 : i], i + 1
+        return None, start_index
+
+    def _parse(self):
+        clean_content = self._clean_comments()
+        
+        # [核心修复]
+        # 1. \bRecipe: 确保匹配单词开头，排除 DeconstructRecipe
+        # 2. 2?: 兼容 Recipe 和 Recipe2
+        # 3. \(: 确保是函数调用
+        iter_pattern = re.compile(r'\bRecipe2?\s*\(\s*["\'](.*?)["\']', re.DOTALL)
+        
+        for match in iter_pattern.finditer(clean_content):
+            name = match.group(1)
+            cursor = match.end()
+            
+            # 提取成分表
+            ing_block, new_cursor = self._extract_table_block(clean_content, cursor)
+            
+            if ing_block:
+                ingredients = []
+                # 解析 Ingredient
+                ing_pattern = re.compile(r'Ingredient\s*\(\s*["\'](.*?)["\']\s*,\s*([^,\)]+)')
+                for item, amount in ing_pattern.findall(ing_block):
+                    ingredients.append({"item": item, "amount": amount.strip()})
+                
+                # 尝试提取后续参数 (Tab, Tech)
+                remainder = clean_content[new_cursor:].split(')')[0]
+                parts = [p.strip() for p in remainder.split(',') if p.strip()]
+                
+                # Recipe 和 Recipe2 的参数位置略有不同，但通常 Tab 和 Tech 都在前面
+                # 这里做个简单的防御式提取
+                tab = "UNKNOWN"
+                tech = "UNKNOWN"
+                
+                for p in parts:
+                    if "TECH." in p: tech = p
+                    if "RECIPETABS." in p: tab = p
+
+                self.recipes[name] = {
+                    "ingredients": ingredients,
+                    "tab": tab,
+                    "tech": tech
+                }
+                
+                # 建立索引
+                self.aliases[name.lower()] = name
+                self.aliases[name.replace("_", "").lower()] = name
+
+    def get(self, query_name):
+        q = query_name.lower()
+        real_name = self.aliases.get(q)
+        if not real_name:
+            real_name = self.aliases.get(q.replace("_", ""))
+        
+        if real_name:
+            return real_name, self.recipes[real_name]
+        return None, None
+```
+
+### File: src/engine.py
 ```py
 #!/usr/bin/env python3
 import os
 import zipfile
+from rich.console import Console
+from utils import wagstaff_config
+from analyzer import TuningResolver, RecipeAnalyzer, LuaAnalyzer
+
+console = Console()
+
+class WagstaffEngine:
+    """
+    Wagstaff Lab 核心引擎 (v1.0)
+    职责: 统一管理数据源 (Zip/Folder) 和 核心知识库 (Tuning/Recipes)
+    """
+    def __init__(self, load_db=True, silent=False):
+        self.base_dir = wagstaff_config.get('PATHS', 'DST_ROOT')
+        self.zip_path = os.path.join(self.base_dir, "data", "databundles", "scripts.zip")
+        self.fallback_dir = os.path.join(self.base_dir, "data", "scripts")
+        
+        self.mode = None
+        self.source = None
+        self.file_list = []
+        
+        self.tuning = None
+        self.recipes = None
+        
+        self._init_source(silent)
+        if load_db:
+            self._init_databases(silent)
+
+    def _init_source(self, silent):
+        if os.path.exists(self.zip_path):
+            self.mode = 'zip'
+            self.source = zipfile.ZipFile(self.zip_path, 'r')
+            self.file_list = self.source.namelist()
+            if not silent: console.print(f"[dim]📦 引擎挂载 Zip 源: {self.zip_path}[/dim]")
+        elif os.path.exists(self.fallback_dir):
+            self.mode = 'folder'
+            self.source = self.fallback_dir
+            for root, _, files in os.walk(self.fallback_dir):
+                for name in files:
+                    rel = os.path.relpath(os.path.join(root, name), self.fallback_dir).replace("\\", "/")
+                    self.file_list.append(rel)
+            if not silent: console.print(f"[dim]📂 引擎挂载文件夹源: {self.fallback_dir}[/dim]")
+        else:
+            raise FileNotFoundError("无法找到 scripts.zip 或 scripts/ 目录")
+
+    def _init_databases(self, silent):
+        if not silent: console.print("[dim]🔄 加载神经中枢 (Tuning & Recipes)...[/dim]")
+        t_content = self.read_file("scripts/tuning.lua") or self.read_file("tuning.lua")
+        self.tuning = TuningResolver(t_content if t_content else "")
+        r_content = self.read_file("scripts/recipes.lua") or self.read_file("recipes.lua")
+        self.recipes = RecipeAnalyzer(r_content if r_content else "")
+
+    def read_file(self, path):
+        """智能读取文件（自动处理 scripts/ 前缀）"""
+        candidates = [path]
+        if not path.startswith("scripts/"): candidates.append(f"scripts/{path}")
+        else: candidates.append(path.replace("scripts/", ""))
+        
+        try:
+            if self.mode == 'zip':
+                for p in candidates:
+                    if p in self.file_list:
+                        return self.source.read(p).decode('utf-8', errors='replace')
+            else:
+                for p in candidates:
+                    real_path = os.path.join(self.source, p.replace("scripts/", ""))
+                    if os.path.exists(real_path):
+                        with open(real_path, 'r', encoding='utf-8', errors='replace') as f: return f.read()
+        except Exception:
+            return None
+        return None
+
+    def find_file(self, name, fuzzy=True):
+        """模糊查找文件 (如 armorwood -> scripts/prefabs/armor_wood.lua)"""
+        candidates = [f"scripts/prefabs/{name}.lua", f"prefabs/{name}.lua", f"scripts/{name}", name]
+        for c in candidates:
+            if c in self.file_list: return c
+            
+        if not fuzzy: return None
+
+        target = name.replace("_", "").lower()
+        for fname in self.file_list:
+            if not fname.endswith(".lua"): continue
+            base = os.path.basename(fname).replace(".lua", "")
+            if base.replace("_", "").lower() == target:
+                return fname
+        return None
+
+    def analyze_prefab(self, item_name):
+        """一键分析 Prefab (整合了 wiki.py 的逻辑)"""
+        path = self.find_file(item_name)
+        if not path: return None
+        
+        content = self.read_file(path)
+        if not content: return None
+        
+        analyzer = LuaAnalyzer(content)
+        data = analyzer.get_report()
+        
+        if self.tuning:
+            for comp in data.get('components', []):
+                comp['properties'] = [self.tuning.enrich(p) for p in comp['properties']]
+                comp['methods'] = [self.tuning.enrich(m) for m in comp['methods']]
+        
+        return data
+
+```
+
+### File: src/explorer.py
+```py
+#!/usr/bin/env python3
+import os
 import sys
 from rich.console import Console
 from rich.table import Table
@@ -425,55 +768,28 @@ from rich.panel import Panel
 from rich.prompt import Prompt, IntPrompt
 from rich.syntax import Syntax
 from rich import box
+from engine import WagstaffEngine
 
-# === 引入 Wagstaff 工具库 ===
-# 将 src 目录加入路径，以便导入 utils
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from utils import wagstaff_config
-
-# 初始化 Rich
 console = Console()
 
 class DSTExplorer:
     def __init__(self):
-        # 从统一配置读取路径
-        self.base_dir = wagstaff_config.get('PATHS', 'DST_ROOT')
-        self.zip_path = os.path.join(self.base_dir, "data", "databundles", "scripts.zip")
-        self.fallback_dir = os.path.join(self.base_dir, "data", "scripts")
-        
-        self.mode = None 
-        self.source = None
-        self.file_list = []
-        self.root_prefix = "scripts/" 
-        
-        self.init_source()
-
-    def init_source(self):
-        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v2.1[/bold cyan]\n目标源: {self.base_dir}", border_style="blue"))
-
-        if os.path.exists(self.zip_path):
-            self.mode = 'zip'
-            self.source = zipfile.ZipFile(self.zip_path, 'r')
-            self.file_list = self.source.namelist()
-            console.print(f"[green]✅ 已挂载 ZIP 核心: scripts.zip ({len(self.file_list)} files)[/green]")
-        elif os.path.exists(self.fallback_dir):
-            self.mode = 'folder'
-            self.source = self.fallback_dir
-            for root, _, files in os.walk(self.fallback_dir):
-                for name in files:
-                    rel_path = os.path.relpath(os.path.join(root, name), self.fallback_dir)
-                    self.file_list.append(rel_path)
-            console.print(f"[green]✅ 已挂载文件夹: scripts/ ({len(self.file_list)} files)[/green]")
-        else:
-            console.print(f"[bold red]❌ 致命错误：在 {self.base_dir} 未找到 scripts 数据！[/bold red]")
-            console.print("请检查 conf/settings.ini 配置是否正确。")
+        # 直接使用引擎，不再自己处理 Zip 和 Tuning
+        try:
+            self.engine = WagstaffEngine(load_db=True)
+        except Exception as e:
+            console.print(f"[red]引擎启动失败: {e}[/red]")
             sys.exit(1)
+        
+        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v3.0[/bold cyan]\n核心: {self.engine.mode.upper()} 模式", border_style="blue"))
+        if self.engine.tuning:
+            console.print(f"[dim]⚡ Tuning 解析器就绪 (包含 {len(self.engine.tuning.raw_map)} 条常数)[/dim]")
 
     def get_structure_tree(self):
-        tree = Tree(f"📁 [bold yellow]源码结构 ({self.mode})[/bold yellow]")
+        tree = Tree(f"📁 [bold yellow]源码结构[/bold yellow]")
         dir_counts = {}
-        for f in self.file_list:
-            clean_path = f.replace(self.root_prefix, "", 1) if f.startswith(self.root_prefix) else f
+        for f in self.engine.file_list:
+            clean_path = f.replace("scripts/", "", 1) if f.startswith("scripts/") else f
             top_dir = clean_path.split('/')[0] if '/' in clean_path else "[Root Files]"
             dir_counts[top_dir] = dir_counts.get(top_dir, 0) + 1
 
@@ -488,7 +804,7 @@ class DSTExplorer:
     def search_files(self):
         keyword = Prompt.ask("[bold green]🔍 搜索关键词[/bold green]")
         if not keyword: return
-        matches = [f for f in self.file_list if keyword.lower() in f.lower()]
+        matches = [f for f in self.engine.file_list if keyword.lower() in f.lower()]
         
         if not matches:
             console.print("[yellow]无结果[/yellow]")
@@ -503,51 +819,108 @@ class DSTExplorer:
         console.print(table)
         if len(matches) > 15: console.print(f"[dim]...剩余 {len(matches)-15} 项隐藏[/dim]")
 
-    def read_content(self, filepath):
+    def analyze_content(self, filename, content):
+        # 使用引擎提供的分析方法 (已包含数值增强)
+        # 注意：engine.analyze_prefab 是针对 prefab 的，这里我们可能需要通用的 analyzer
+        # 为了复用 engine 的能力，我们手动调用 analyzer 但使用 engine 的 tuning
+        from analyzer import LuaAnalyzer
+        
         try:
-            if self.mode == 'zip':
-                with self.source.open(filepath) as f: return f.read().decode('utf-8', errors='replace')
-            else:
-                with open(os.path.join(self.source, filepath), 'r', encoding='utf-8') as f: return f.read()
+            analyzer = LuaAnalyzer(content)
+            data = analyzer.get_report()
         except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            return None
+            console.print(f"[red]解析失败: {e}[/red]")
+            return
+        
+        tree = Tree(f"🧬 [bold green]深度解析: {filename}[/bold green]")
+        
+        # 1. 资源
+        if data.get('assets'):
+            asset_branch = tree.add(f"📦 资源引用 ({len(data['assets'])})")
+            for a in data['assets']:
+                style = "magenta" if "Anim" in a['type'] else "blue"
+                asset_branch.add(f"[{style}]{a['type']}[/{style}]: {a['path']}")
+
+        # 2. 逻辑 (Brain/StateGraph/Tags)
+        logic_branch = tree.add("🧠 核心逻辑")
+        has_logic = False
+        if data.get('brain'): 
+            logic_branch.add(f"AI: [magenta]{data['brain']}[/magenta]")
+            has_logic = True
+        if data.get('stategraph'): 
+            logic_branch.add(f"SG: [magenta]{data['stategraph']}[/magenta]")
+            has_logic = True
+        if data.get('tags'): 
+            tags = data['tags']
+            tag_str = ", ".join([f"[dim]{t}[/dim]" for t in tags[:8]])
+            if len(tags) > 8: tag_str += "..."
+            logic_branch.add(f"Tags: {tag_str}")
+            has_logic = True
+        if not has_logic: logic_branch.label = "[dim]🧠 核心逻辑 (无)[/dim]"
+
+        # 3. 组件 (使用 Engine 的 Tuning 进行增强)
+        if data.get('components'):
+            comp_branch = tree.add(f"⚙️ 功能组件 ({len(data['components'])})")
+            for comp in data['components']:
+                node = comp_branch.add(f"[bold yellow]{comp['name']}[/bold yellow]")
+                
+                # 属性
+                if comp['properties']:
+                    target = node if len(comp['properties']) <=3 else node.add("[dim]属性配置[/dim]")
+                    for p in comp['properties']:
+                        p = self.engine.tuning.enrich(p) if self.engine.tuning else p
+                        if "=" in p:
+                            k, v = p.split("=", 1)
+                            target.add(f"[cyan]{k.strip()}[/cyan] = [white]{v.strip()}[/white]")
+                        else:
+                            target.add(f"[cyan]{p}[/cyan]")
+                
+                # 方法
+                if comp['methods']:
+                    target = node if len(comp['methods']) <=3 else node.add("[dim]函数调用[/dim]")
+                    for m in comp['methods']:
+                        m = self.engine.tuning.enrich(m) if self.engine.tuning else m
+                        target.add(f"[green]ƒ[/green] {m}")
+        else:
+            tree.add("[dim]⚙️ 功能组件 (无)[/dim]")
+
+        console.print(Panel(tree, border_style="green"))
+        input("按回车返回...")
 
     def preview_file(self):
         target = Prompt.ask("[bold green]👀 文件名[/bold green]")
-        candidates = [f for f in self.file_list if target.lower() in f.lower()]
-        if not candidates: return console.print("[red]未找到[/red]")
+        path = self.engine.find_file(target, fuzzy=True)
+        if not path:
+            console.print("[red]未找到[/red]")
+            return
         
-        target_file = candidates[0]
-        if len(candidates) > 1: console.print(f"[yellow]打开最匹配项: {target_file}[/yellow]")
+        console.print(f"[yellow]打开: {path}[/yellow]")
+        content = self.engine.read_file(path)
         
-        content = self.read_content(target_file)
         if content:
             syntax = Syntax("\n".join(content.splitlines()[:50]), "lua", theme="monokai", line_numbers=True)
-            console.print(Panel(syntax, title=f"{target_file} (Top 50 lines)", border_style="blue"))
-            input("按回车继续...")
+            console.print(Panel(syntax, title=f"{path} (Top 50 lines)", border_style="blue"))
+            
+            action = Prompt.ask("[bold cyan]下一步[/bold cyan]", choices=["q", "a"], default="q")
+            if action == "a":
+                self.analyze_content(path, content)
 
     def show_tuning(self):
-        path = f"{self.root_prefix}tuning.lua"
-        if path not in self.file_list: path = "tuning.lua"
-        
-        content = self.read_content(path)
-        if not content: return console.print("[red]Tuning.lua not found[/red]")
+        if not self.engine.tuning: 
+            return console.print("[red]Tuning 未加载[/red]")
         
         console.print("[bold magenta]🔢 Tuning 数值采样[/bold magenta]")
+        # 简单展示前 10 个
         count = 0
-        for line in content.splitlines():
-            line = line.strip()
-            if ' = ' in line and line[0].isupper() and "--" not in line:
-                console.print(f"  [cyan]{line}[/cyan]")
-                count += 1
-                if count >= 10: break
+        for k, v in list(self.engine.tuning.raw_map.items())[:10]:
+             console.print(f"  [cyan]{k}[/cyan] = {v}")
+             count += 1
 
 def main():
     explorer = DSTExplorer()
     while True:
-        console.print("\n[bold white on blue] 🦁 Wagstaff 探索面板 [/bold white on blue]")
-        console.print("1. [bold]📁 结构[/]  2. [bold]🔍 搜索[/]  3. [bold]👀 预览[/]  4. [bold]🔢 数值[/]  0. [bold red]退出[/]")
+        console.print("\n[bold white on blue] 🦁 Wagstaff 探索面板 v3.0 [/bold white on blue]")
+        console.print("1. [bold]📁 结构[/]  2. [bold]🔍 搜索[/]  3. [bold]👀 预览&分析[/]  4. [bold]🔢 数值[/]  0. [bold red]退出[/]")
         choice = IntPrompt.ask("选择", choices=["0","1","2","3","4"], default=1)
         if choice == 0: break
         elif choice == 1: console.print(explorer.get_structure_tree())
@@ -556,7 +929,137 @@ def main():
         elif choice == 4: explorer.show_tuning()
 
 if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+```
+
+### File: src/guide.py
+```py
+#!/usr/bin/env python3
+import os
+import sys
+import json
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from pathlib import Path
+
+# 引入配置和注册表
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from registry import get_tools
+
+console = Console()
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def load_status():
+    status_path = PROJECT_ROOT / "PROJECT_STATUS.json"
+    if status_path.exists():
+        with open(status_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def main():
+    data = load_status()
+    
+    console.print(Panel("[bold white on blue] 🧪 Wagstaff-Lab (v2.2) 控制台 [/bold white on blue]", border_style="blue"))
+    
+    if "objective" in data:
+        console.print(f"[bold green]🎯 当前目标:[/bold green] {data['objective']}")
+    
+    # 增加 Usage 列的展示
+    console.print("\n[bold yellow]🛠️  工具箱使用指南[/bold yellow]")
+    table = Table(box=None, show_header=True, header_style="bold cyan")
+    table.add_column("工具", style="bold")
+    table.add_column("描述")
+    table.add_column("标准用法 (Usage)", style="green")
+    
+    for tool in get_tools():
+        table.add_row(
+            tool['file'], 
+            tool['desc'], 
+            tool.get('usage', 'N/A')
+        )
+
+    console.print(table)
+    console.print("\n[dim]💡 输入 [bold]pm ui[/bold] 管理任务，输入 [bold]wagstaff snap[/bold] 更新快照。[/dim]")
+
+if __name__ == "__main__":
     main()
+
+```
+
+### File: src/registry.py
+```py
+#!/usr/bin/env python3
+"""
+Wagstaff-Lab 工具注册中心 (v2.2)
+所有工具的元数据、命令别名及用法说明均在此统一维护。
+"""
+
+TOOLS = [
+    # --- 核心/业务工具 (src/) ---
+    {
+        "file": "guide.py",
+        "alias": None,
+        "desc": "Wagstaff-Lab 控制台主面板",
+        "usage": "Wagstaff-Lab",
+        "type": "Core"
+    },
+    {
+        "file": "wiki.py",
+        "alias": "wiki",
+        "desc": "物品/配方/数值查询百科",
+        "usage": "wagstaff wiki <item_code>",
+        "type": "Src"
+    },
+    {
+        "file": "explorer.py",
+        "alias": "exp",
+        "desc": "源码结构浏览与深度分析",
+        "usage": "wagstaff exp",
+        "type": "Src"
+    },
+
+    # --- 开发工具 (devtools/) ---
+    {
+        "file": "pm.py",
+        "alias": "pm",
+        "desc": "项目进度与任务管理",
+        "usage": "pm [ui|obj|add|done|log]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "reporter.py",
+        "alias": "report",
+        "desc": "生成全服资产/配方分布报告",
+        "usage": "wagstaff report [assets|recipes|all]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "snapshot.py",
+        "alias": "snap",
+        "desc": "生成项目全息代码快照",
+        "usage": "wagstaff snap",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "installer.py",
+        "alias": "install",
+        "desc": "环境注册与安装向导",
+        "usage": "python3 devtools/installer.py",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+]
+
+def get_tools():
+    return TOOLS
 
 ```
 
@@ -598,206 +1101,101 @@ if __name__ == "__main__":
 ### File: src/wiki.py
 ```py
 #!/usr/bin/env python3
-import os
-import re
 import sys
-import zipfile
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.markdown import Markdown
+from rich.text import Text
 from rich import box
-
-# === 引入 Wagstaff 工具库 ===
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from utils import wagstaff_config
+from engine import WagstaffEngine # 直接调用引擎
 
 console = Console()
 
-class DSTWiki:
-    def __init__(self):
-        # 1. 继承配置
-        self.base_dir = wagstaff_config.get('PATHS', 'DST_ROOT')
-        self.zip_path = os.path.join(self.base_dir, "data", "databundles", "scripts.zip")
-        self.fallback_dir = os.path.join(self.base_dir, "data", "scripts")
-        
-        self.tuning_data = {}  # 存放数值常量
-        self.source = None
-        self.mode = None
-        
-        self.init_source()
-        self.load_tuning_db() # 预加载数值库
-
-    def init_source(self):
-        """初始化数据源 (Zip 或 文件夹)"""
-        if os.path.exists(self.zip_path):
-            self.mode = 'zip'
-            self.source = zipfile.ZipFile(self.zip_path, 'r')
-        elif os.path.exists(self.fallback_dir):
-            self.mode = 'folder'
-            self.source = self.fallback_dir
-        else:
-            console.print(f"[red]❌ 致命错误: 无法定位 scripts 数据源[/red]")
-            sys.exit(1)
-
-    def read_file(self, internal_path):
-        """读取文件内容的通用适配器"""
-        # 统一路径前缀
-        if not internal_path.startswith("scripts/"):
-            internal_path = f"scripts/{internal_path}"
-            
-        try:
-            if self.mode == 'zip':
-                # ZIP 中需要去除开头的 scripts/ 如果 ZIP 结构不同，视情况调整
-                # 根据之前的 Explorer 探测，ZIP 内确实有 scripts/ 前缀
-                with self.source.open(internal_path) as f:
-                    return f.read().decode('utf-8', errors='replace')
-            else:
-                # 文件夹模式，去除 scripts/ 前缀来拼接路径
-                real_path = os.path.join(self.source, internal_path.replace("scripts/", ""))
-                if os.path.exists(real_path):
-                    with open(real_path, 'r', encoding='utf-8') as f:
-                        return f.read()
-        except KeyError:
-            return None # 文件在 Zip 中不存在
-        except FileNotFoundError:
-            return None
-        return None
-
-    def load_tuning_db(self):
-        """核心逻辑：解析 tuning.lua 构建数值字典"""
-        console.print("[dim]⚡ 正在构建 Tuning 数值库...[/dim]")
-        content = self.read_file("tuning.lua")
-        if not content:
-            console.print("[red]⚠️ 警告: 无法读取 tuning.lua[/red]")
-            return
-
-        # 正则提取: SPEAR_DAMAGE = 34
-        # 兼容浮点数、整数、负数
-        pattern = re.compile(r'([A-Z0-9_]+)\s*=\s*([-]?[\d\.]+)')
-        for name, value in pattern.findall(content):
-            key = f"TUNING.{name}"
-            self.tuning_data[key] = float(value)
-        
-        console.print(f"[green]✅ 索引完成: {len(self.tuning_data)} 条常量[/green]")
-
-    def resolve_val(self, val_str):
-        """将代码变量 (TUNING.X) 转换为 真实数值"""
-        val_str = val_str.strip()
-        # 如果是纯数字，直接返回
-        try:
-            return str(float(val_str))
-        except ValueError:
-            pass
-        
-        # 查表
-        if val_str in self.tuning_data:
-            return f"[bold cyan]{self.tuning_data[val_str]}[/bold cyan] [dim]({val_str})[/dim]"
-        return f"{val_str} [dim](?)[/dim]"
-
-    def search_recipe(self, item):
-        """从 recipes.lua 提取配方"""
-        content = self.read_file("recipes.lua")
-        if not content: return None
-
-        # 简化版正则匹配: Recipe("name", {Ingredient("a", 1), ...})
-        # 注意：这里只匹配标准格式，复杂格式可能需要更强的 Parser
-        pattern = re.compile(r'Recipe\s*\(\s*["\']' + re.escape(item) + r'["\']\s*,\s*\{(.*?)\}', re.DOTALL)
-        match = pattern.search(content)
-        
-        if match:
-            raw_ing = match.group(1)
-            # 提取材料: Ingredient("log", 2)
-            ings = re.findall(r'Ingredient\s*\(\s*["\'](.*?)["\']\s*,\s*([0-9\.]+)', raw_ing)
-            return ings
-        return None
-
-    def analyze_prefab(self, item):
-        """深度扫描 Prefab 文件，提取 Weapon/Armor/Edible 信息"""
-        content = self.read_file(f"prefabs/{item}.lua")
-        if not content: return None
-        
-        info = {}
-
-        # 1. ⚔️ 武器组件
-        # inst.components.weapon:SetDamage(TUNING.SPEAR_DAMAGE)
-        dmg = re.search(r'components\.weapon:SetDamage\s*\((.*?)\)', content)
-        if dmg: info['⚔️ 攻击力'] = self.resolve_val(dmg.group(1))
-
-        # 2. 🛡️ 护甲组件
-        # inst.components.armor:InitCondition(TUNING.ARMORWOOD, TUNING.ARMORWOOD_ABSORPTION)
-        # 参数1=耐久, 参数2=减伤
-        armor = re.search(r'components\.armor:InitCondition\s*\((.*?),\s*(.*?)\)', content)
-        if armor:
-            info['🛡️ 耐久度'] = self.resolve_val(armor.group(1))
-            info['🛡️ 减伤率'] = self.resolve_val(armor.group(2))
-
-        # 3. 🍖 食物组件
-        # inst.components.edible.healthvalue = 0
-        if "components.edible" in content:
-            hv = re.search(r'edible\.healthvalue\s*=\s*(.*)', content)
-            hung = re.search(r'edible\.hungervalue\s*=\s*(.*)', content)
-            san = re.search(r'edible\.sanityvalue\s*=\s*(.*)', content)
-            
-            if hv: info['❤️ 生命'] = self.resolve_val(hv.group(1))
-            if hung: info['🍖 饥饿'] = self.resolve_val(hung.group(1))
-            if san: info['🧠 San'] = self.resolve_val(san.group(1))
-
-        return info
-
 def main():
     if len(sys.argv) < 2:
-        console.print("[yellow]用法: python wiki.py <物品代码>[/yellow]")
+        console.print("[yellow]用法: python src/wiki.py <物品代码>[/yellow]")
         return
-
+    
     target = sys.argv[1].lower()
-    wiki = DSTWiki()
     
-    console.print(Panel(f"[bold white on blue] 📚 正在查询档案: {target.upper()} [/bold white on blue]"))
-
-    # 并行获取数据
-    recipe = wiki.search_recipe(target)
-    stats = wiki.analyze_prefab(target)
-
-    if not recipe and not stats:
-        console.print(f"[red]❌ 未找到 '{target}' 的有效记录。[/red]")
-        console.print("[dim]提示: 请使用代码名 (如 log, spear, meat)[/dim]")
+    # 1. 启动引擎
+    try:
+        engine = WagstaffEngine()
+    except Exception as e:
+        console.print(f"[red]引擎启动失败: {e}[/red]")
         return
 
-    # === 渲染结果 ===
-    grid = Table.grid(expand=True, padding=(0, 2))
-    grid.add_column()
-    grid.add_column()
-
-    # 左列：配方
-    if recipe:
-        rt = Table(title="📜 合成配方", border_style="green", box=box.ROUNDED)
-        rt.add_column("材料", style="cyan")
-        rt.add_column("数量", style="magenta")
-        for name, amt in recipe:
-            rt.add_row(name, str(int(float(amt))))
-        grid.add_row(rt, "")
-    else:
-        grid.add_row(Panel("[dim]不可合成 / 特殊配方[/dim]", title="📜 合成配方"), "")
-
-    # 右列：属性
-    if stats:
-        st = Table(title="⚡ 核心数据 (解析后)", border_style="blue", box=box.ROUNDED)
-        st.add_column("属性", style="white")
-        st.add_column("数值", style="yellow")
-        for k, v in stats.items():
-            st.add_row(k, v)
-        grid.add_row("", st) # 放在第二行或第二列均可，这里做简单的流式布局
-        # 如果你想左右并排，可以用 rich.columns 或 Layout，Grid 这里会换行显示
-        # 修正：Grid add_row 接受多个参数对应列。
-        # 为了简单，我们直接打印两个表格，不用 Grid 复杂布局，除非内容很短。
+    # 2. 查配方
+    real_name, recipe_data = engine.recipes.get(target)
+    if not real_name: real_name = target
     
-    if stats:
-        console.print(st)
+    # 3. 查数据 (使用引擎封装好的方法)
+    prefab_data = engine.analyze_prefab(real_name)
+
+    if not recipe_data and not prefab_data:
+        console.print(f"[red]❌ 未找到 '{target}'[/red]")
+        return
+
+    # === 渲染层 (保持原有美观逻辑) ===
+    console.print(Panel(f"[bold white on blue] 📚 Wagstaff 档案: {real_name.upper()} [/bold white on blue]"))
+    
+    grid = Table.grid(expand=True, padding=(0, 2))
+    grid.add_column(ratio=1)
+    grid.add_column(ratio=2)
+
+    # 左：配方
+    left_rows = []
+    if recipe_data:
+        t_name = recipe_data['tab'].replace("RECIPETABS.", "")
+        rt = Table(title=f"📜 合成 ({t_name})", border_style="green", box=box.SIMPLE)
+        rt.add_column("材料", style="cyan"); rt.add_column("数量", style="magenta")
+        for ing in recipe_data['ingredients']:
+            rt.add_row(ing['item'], engine.tuning.enrich(ing['amount']))
+        left_rows.append(rt)
+        if recipe_data.get('tech'): 
+            left_rows.append(f"\n[dim]🔬 {recipe_data['tech'].replace('TECH.', '')}[/dim]")
+    else:
+        left_rows.append(Panel("[dim]不可合成[/dim]", border_style="dim"))
+
+    # 右：组件
+    right_rows = []
+    if prefab_data:
+        # Helpers
+        if prefab_data.get('helpers'):
+            tags = [f"[reverse cyan]{h.replace('Make','').replace('Inventory','')}[/reverse cyan]" for h in prefab_data['helpers']]
+            right_rows.append(Text.from_markup(" ".join(tags) + "\n"))
+        
+        # Stats
+        INTERESTING = ["weapon", "armor", "finiteuses", "edible", "tool", "fuel", "instrument"]
+        st = Table(box=box.MINIMAL, show_header=False)
+        st.add_column("C", style="dim"); st.add_column("V", style="white")
+        
+        has_stat = False
+        for comp in prefab_data.get('components', []):
+            if comp['name'] in INTERESTING:
+                # 提取方法调用作为关键数据
+                for m in comp['methods']:
+                    if any(k in m for k in ["SetDamage", "SetAbsorption", "SetMaxUses", "GetHealth"]):
+                        icon = "⚔️" if comp['name']=="weapon" else "⚙️"
+                        st.add_row(f"{icon} {comp['name']}", m.split('(', 1)[1][:-1]) # 简略显示参数
+                        has_stat = True
+                # 提取属性
+                for p in comp['properties']:
+                    if "fuelvalue" in p or "armor" in p:
+                         st.add_row(f"⚙️ {comp['name']}", p)
+                         has_stat = True
+        
+        if has_stat: right_rows.append(st)
+        else: right_rows.append("[dim]无核心战斗/生存数据[/dim]")
+    else:
+        right_rows.append("[red]⚠️ 无法读取文件[/red]")
+
+    from rich.console import Group
+    grid.add_row(Group(*left_rows), Group(*right_rows))
+    console.print(grid)
 
 if __name__ == "__main__":
     main()
-
 ```
 
 ### File: conf/settings.ini
@@ -818,6 +1216,347 @@ KLEI_HOME = ~/.klei/DoNotStarveTogether
 
 ```
 
+### File: devtools/installer.py
+```py
+#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+from rich.console import Console
+
+# 引入注册表
+sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+from registry import get_tools
+
+console = Console()
+
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parent.parent
+BIN_DIR = PROJECT_ROOT / "bin"
+SRC_DIR = PROJECT_ROOT / "src"
+DEV_DIR = PROJECT_ROOT / "devtools"
+
+def get_shell_config():
+    home = Path.home()
+    shell = os.environ.get("SHELL", "")
+    if "zsh" in shell: return home / ".zshrc"
+    elif "bash" in shell: return home / ".bashrc"
+    else: return home / ".profile"
+
+def create_wrappers():
+    # 1. 创建 'Wagstaff-Lab' 主入口
+    main_wrapper = BIN_DIR / "Wagstaff-Lab"
+    with open(main_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write(f'python3 "{SRC_DIR}/guide.py" "$@"\n')
+    os.chmod(main_wrapper, 0o755)
+    
+    # 2. 创建 'pm' 快捷指令
+    pm_wrapper = BIN_DIR / "pm"
+    with open(pm_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write(f'python3 "{DEV_DIR}/pm.py" "$@"\n')
+    os.chmod(pm_wrapper, 0o755)
+
+    # 3. 动态创建 'wagstaff' 工具箱 (基于 Registry)
+    ws_wrapper = BIN_DIR / "wagstaff"
+    with open(ws_wrapper, 'w') as f:
+        f.write('#!/bin/bash\n')
+        f.write('TOOL=$1\nshift\n')
+        f.write('case "$TOOL" in\n')
+        
+        # --- 动态生成 Case 分支 ---
+        tools = get_tools()
+        registered_aliases = []
+        
+        for tool in tools:
+            alias = tool.get('alias')
+            if not alias: continue # 跳过没有别名的工具
+            
+            folder = tool.get('folder', 'src')
+            # 转换 folder 为绝对路径变量
+            if folder == 'src': abs_path = SRC_DIR
+            elif folder == 'devtools': abs_path = DEV_DIR
+            else: abs_path = PROJECT_ROOT / folder
+            
+            f.write(f'  {alias}) python3 "{abs_path}/{tool["file"]}" "$@" ;;\n')
+            registered_aliases.append(f"{alias} ({tool['desc']})")
+        # ------------------------
+
+        f.write(f'  *) "{main_wrapper}" "$@" ;;\n') 
+        f.write('esac\n')
+    os.chmod(ws_wrapper, 0o755)
+    
+    console.print(f"[green]✅ 指令注册成功 (Registry Driven)[/green]")
+    console.print(f"   已自动注册 {len(registered_aliases)} 个子命令到 'wagstaff'")
+
+def register_to_path():
+    rc_file = get_shell_config()
+    bin_path_str = str(BIN_DIR)
+    
+    if not rc_file.exists(): return
+
+    content = rc_file.read_text()
+    if f'export PATH="{bin_path_str}:$PATH"' in content:
+        console.print("[dim]⚡ 环境变量已就绪[/dim]")
+    else:
+        try:
+            with open(rc_file, 'a') as f:
+                f.write(f'\n# Wagstaff-Lab Environment\nexport PATH="{bin_path_str}:$PATH"\n')
+            console.print(f"[green]✅ PATH 已更新[/green]")
+        except Exception:
+            pass
+
+def main():
+    console.print("[bold blue]🔧 Wagstaff-Lab 自动化注册中心[/bold blue]")
+    create_wrappers()
+    register_to_path()
+
+if __name__ == "__main__":
+    main()
+
+```
+
+### File: devtools/pm.py
+```py
+#!/usr/bin/env python3
+import os
+import json
+import sys
+from datetime import datetime
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.prompt import Prompt, IntPrompt
+
+console = Console()
+STATUS_FILE = "PROJECT_STATUS.json"
+
+class ProjectManager:
+    def __init__(self):
+        self.data = self._load()
+
+    def _load(self):
+        if os.path.exists(STATUS_FILE):
+            with open(STATUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {"objective": "Unset", "tasks": [], "logs": [], "guidelines": []}
+
+    def _save(self):
+        with open(STATUS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f, indent=2, ensure_ascii=False)
+
+    def set_objective(self, obj):
+        self.data["objective"] = obj
+        self._save()
+        console.print(f"[green]✅ 目标更新:[/green] {obj}")
+
+    def add_task(self, task):
+        self.data["tasks"].append({"desc": task, "status": "todo", "time": str(datetime.now())})
+        self._save()
+        console.print(f"[green]✅ 任务+1:[/green] {task}")
+    
+    def add_rule(self, rule):
+        if "guidelines" not in self.data: self.data["guidelines"] = []
+        self.data["guidelines"].append(rule)
+        self._save()
+        console.print(f"[bold magenta]📜 宗旨录入:[/bold magenta] {rule}")
+
+    def complete_task(self, index):
+        if 0 <= index < len(self.data["tasks"]):
+            self.data["tasks"][index]["status"] = "done"
+            self._save()
+            console.print(f"[green]🎉 完成:[/green] {self.data['tasks'][index]['desc']}")
+        else:
+            console.print("[red]❌ 索引无效[/red]")
+
+    def log_entry(self, msg):
+        self.data["logs"].append(f"[{datetime.now().strftime('%Y-%m-%d %H:%M')}] {msg}")
+        if len(self.data["logs"]) > 10: self.data["logs"].pop(0)
+        self._save()
+        console.print("[green]📝 日志已记录[/green]")
+
+    def show_status(self):
+        console.clear()
+        console.print(Panel(f"[bold blue]🎯 目标: {self.data.get('objective', 'Unset')}[/bold blue]"))
+        
+        t_table = Table(title="任务清单", box=None)
+        t_table.add_column("ID", style="dim"); t_table.add_column("状态"); t_table.add_column("内容")
+        for i, t in enumerate(self.data["tasks"]):
+            status = "✅" if t["status"] == "done" else "⬜"
+            style = "dim strike" if t["status"] == "done" else "bold"
+            t_table.add_row(str(i), status, f"[{style}]{t['desc']}[/{style}]")
+        console.print(t_table)
+        
+        if self.data.get("logs"):
+            console.print("\n[dim]📜 最近日志:[/dim]")
+            for l in self.data["logs"][-3:]:
+                console.print(f"  {l}")
+
+    def interactive_mode(self):
+        while True:
+            self.show_status()
+            console.print("\n[bold cyan]操作菜单:[/bold cyan]")
+            console.print("1. [green]✅ 完成任务[/]  2. [blue]➕ 新增任务[/]  3. [magenta]📝 写日志[/]  4. [yellow]🎯 改目标[/]  0. [red]退出[/]")
+            
+            choice = Prompt.ask("选择操作", choices=["0", "1", "2", "3", "4"], default="0")
+            
+            if choice == "0": break
+            elif choice == "1":
+                idx = IntPrompt.ask("输入任务ID")
+                self.complete_task(idx)
+            elif choice == "2":
+                desc = Prompt.ask("输入任务描述")
+                self.add_task(desc)
+            elif choice == "3":
+                log = Prompt.ask("输入日志内容")
+                self.log_entry(log)
+            elif choice == "4":
+                obj = Prompt.ask("输入新目标")
+                self.set_objective(obj)
+            
+            if choice != "0":
+                input("\n按回车继续...")
+
+def main():
+    pm = ProjectManager()
+    if len(sys.argv) > 1:
+        cmd = sys.argv[1]
+        content = " ".join(sys.argv[2:])
+        if cmd == "obj": pm.set_objective(content)
+        elif cmd == "add": pm.add_task(content)
+        elif cmd == "rule": pm.add_rule(content)
+        elif cmd == "done": pm.complete_task(int(sys.argv[2]))
+        elif cmd == "log": pm.log_entry(content)
+        elif cmd == "ui": pm.interactive_mode() # 新增入口
+        else: pm.show_status()
+    else:
+        # 默认直接进入交互模式，更省事
+        pm.interactive_mode()
+
+if __name__ == "__main__":
+    main()
+
+```
+
+### File: devtools/reporter.py
+```py
+#!/usr/bin/env python3
+import os
+import sys
+import re
+from collections import Counter, defaultdict
+from rich.console import Console
+from rich.progress import track
+
+# 挂载 src 并引入引擎
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+from engine import WagstaffEngine
+
+console = Console()
+
+# === [修复] 动态定位项目路径 ===
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+REPORT_DIR = os.path.join(PROJECT_ROOT, "data", "reports")
+
+class WagstaffReporter:
+    def __init__(self):
+        # 启动引擎，不需要加载数据库(我们只做正则扫描)
+        self.engine = WagstaffEngine(load_db=False, silent=True)
+        self._ensure_report_dir()
+
+    def _ensure_report_dir(self):
+        if not os.path.exists(REPORT_DIR):
+            os.makedirs(REPORT_DIR)
+            console.print(f"[green]📁 创建报告目录: {REPORT_DIR}[/green]")
+
+    def generate_asset_report(self):
+        """扫描全服资产分布"""
+        console.print("[bold blue]📡 正在生成资产分布报告...[/bold blue]")
+        
+        TARGETS = {
+            "STRINGS": re.compile(r'STRINGS\.[A-Z0-9_]+\s*='),
+            "Prefabs": re.compile(r'\bPrefab\s*\('),
+            "LootTables": re.compile(r'\bSetLoot\s*\(|\bSetChanceLoot\s*\('),
+            "Brains": re.compile(r'require\s*[\("\']brains/'),
+            "Widgets": re.compile(r'require\s*[\("\']widgets/'),
+        }
+        
+        stats = defaultdict(Counter)
+        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
+        
+        for fname in track(lua_files, description="Scanning Assets..."):
+            content = self.engine.read_file(fname)
+            if not content: continue
+            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
+            
+            for cat, pattern in TARGETS.items():
+                matches = pattern.findall(clean)
+                if matches:
+                    stats[cat][fname] += len(matches)
+
+        out_path = os.path.join(REPORT_DIR, "asset_registry.md")
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write("# Wagstaff Asset Registry\n\n")
+            f.write("| Category | Total Definitions | Top File |\n")
+            f.write("|----------|-------------------|----------|\n")
+            for cat, file_counts in stats.items():
+                total = sum(file_counts.values())
+                top_file = file_counts.most_common(1)[0][0]
+                f.write(f"| {cat} | {total} | `{top_file}` |\n")
+            
+            f.write("\n## Detailed Breakdown\n")
+            for cat, file_counts in stats.items():
+                f.write(f"\n### {cat}\n")
+                for fname, count in file_counts.most_common(10):
+                    f.write(f"- `{fname}`: {count}\n")
+        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
+
+    def generate_recipe_report(self):
+        """扫描配方分布"""
+        console.print("[bold blue]🍳 正在生成配方分布报告...[/bold blue]")
+        
+        pattern = re.compile(r'^\s*([a-zA-Z0-9_]*Recipe[a-zA-Z0-9_]*)\s*\(', re.MULTILINE)
+        stats = Counter()
+        file_stats = defaultdict(int)
+        
+        lua_files = [f for f in self.engine.file_list if f.endswith(".lua")]
+        
+        for fname in track(lua_files, description="Scanning Recipes..."):
+            content = self.engine.read_file(fname)
+            if not content: continue
+            clean = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
+            
+            matches = pattern.findall(clean)
+            for m in matches:
+                if "Get" in m or "Find" in m: continue
+                stats[m] += 1
+                file_stats[fname] += 1
+
+        out_path = os.path.join(REPORT_DIR, "recipe_distribution.md")
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write("# Wagstaff Recipe Distribution\n\n")
+            f.write("## Function Usage\n")
+            for func, count in stats.most_common():
+                f.write(f"- **{func}**: {count}\n")
+            f.write("\n## File Hotspots (Top 20)\n")
+            for fname, count in sorted(file_stats.items(), key=lambda x:x[1], reverse=True)[:20]:
+                f.write(f"- `{fname}`: {count} recipes\n")
+
+        console.print(f"[green]✅ 报告已保存: {out_path}[/green]")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python reporter.py [assets|recipes|all]")
+        sys.exit(1)
+    reporter = WagstaffReporter()
+    cmd = sys.argv[1]
+    if cmd == "assets" or cmd == "all": reporter.generate_asset_report()
+    if cmd == "recipes" or cmd == "all": reporter.generate_recipe_report()
+
+```
+
 ### File: devtools/snapshot.py
 ```py
 #!/usr/bin/env python3
@@ -830,100 +1569,59 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# ================= 配置区 =================
-# 自动定位项目根目录 (devtools 的上一级)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_FILE = PROJECT_ROOT / "project_context.txt"
 
-# 自动扫描规则
 SCAN_RULES = [
     {"dir": "bin", "ext": ".sh"},
     {"dir": "src", "ext": ".py"},
     {"dir": "conf", "ext": ".ini"},
     {"dir": "devtools", "ext": ".py"},
-    {"dir": ".", "ext": ".md"},      # README.md
-    {"dir": ".", "ext": ".txt"},     # requirements.txt
+    {"dir": ".", "ext": ".md"},
+    {"dir": ".", "ext": ".txt"},
 ]
 
-# 忽略列表
 IGNORE_DIRS = {".git", "__pycache__", "logs", "env", "venv", ".idea", ".vscode"}
 IGNORE_FILES = {"project_context.txt", ".DS_Store", "id_rsa", "known_hosts"}
 
-# ================= 功能函数 =================
-
 def run_cmd(cmd):
-    """执行 Shell 命令并返回结果"""
     try:
         return subprocess.check_output(cmd, shell=True, text=True, cwd=PROJECT_ROOT, stderr=subprocess.DEVNULL).strip()
     except Exception:
         return "Unknown"
 
 def get_system_fingerprint():
-    """获取详细的环境指纹 (System Fingerprint)"""
     info = []
-    
-    # 1. 基础信息
     info.append(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     info.append(f"User: {os.getenv('USER', 'Unknown')}")
     info.append(f"Host: {platform.node()} ({platform.system()} {platform.release()})")
-    
-    # 2. Python 环境
     info.append(f"Python: {platform.python_version()} ({sys.executable})")
-    conda_env = os.getenv('CONDA_DEFAULT_ENV')
-    if conda_env:
-        info.append(f"Conda Env: {conda_env}")
-    
-    # 3. 依赖库检查 (修复了这里)
     try:
         import rich
-        # 尝试获取版本，如果拿不到(AttributeError)则显示已安装但版本未知
         ver = getattr(rich, '__version__', 'Installed (ver unknown)')
         info.append(f"Rich Ver: {ver}")
-    except ImportError:
-        info.append("Rich Ver: Not Installed")
-    except Exception as e:
-        info.append(f"Rich Ver: Error ({str(e)})")
-
-    # 4. 磁盘空间
-    try:
-        total, used, free = shutil.disk_usage(PROJECT_ROOT)
-        free_gb = free // (2**30)
-        total_gb = total // (2**30)
-        usage_percent = round((used / total) * 100, 1)
-        info.append(f"Disk: {free_gb}GB free / {total_gb}GB total ({usage_percent}% used)")
     except:
-        info.append("Disk: Unavailable")
-    
+        info.append("Rich Ver: Not Installed")
     return "\n".join(info)
 
 def get_git_status():
-    """获取版本控制状态"""
-    if not (PROJECT_ROOT / ".git").exists():
-        return "Git: Not a repository"
-    
+    if not (PROJECT_ROOT / ".git").exists(): return "Git: Not a repository"
     branch = run_cmd("git rev-parse --abbrev-ref HEAD")
     commit = run_cmd("git rev-parse --short HEAD")
     last_msg = run_cmd("git log -1 --pretty=%B")
-    
-    # 检查是否有未提交的修改
     is_dirty = run_cmd("git status --porcelain") != ""
     dirty_mark = " [DIRTY]" if is_dirty else " [CLEAN]"
-    
     return f"Branch: {branch}{dirty_mark}\nCommit: {commit}\nMessage: {last_msg}"
 
 def generate_tree(dir_path, prefix=""):
-    """递归生成目录树"""
     tree_str = ""
     try:
         contents = sorted([p for p in dir_path.iterdir() if p.name not in IGNORE_DIRS])
     except PermissionError:
         return f"{prefix}└── [Permission Denied]\n"
-
     pointers = [("├── " if i < len(contents) - 1 else "└── ") for i in range(len(contents))]
-    
     for pointer, path in zip(pointers, contents):
         if path.name in IGNORE_FILES: continue
-        
         tree_str += f"{prefix}{pointer}{path.name}\n"
         if path.is_dir():
             extension = "│   " if pointer == "├── " else "    "
@@ -931,12 +1629,10 @@ def generate_tree(dir_path, prefix=""):
     return tree_str
 
 def main():
-    print(f"📸 正在生成 Wagstaff-Lab 全息快照 (v2.1)...")
-    
+    print(f"📸 正在生成 Wagstaff-Lab 全息快照...")
     report = []
     report.append("# Wagstaff-Lab Project Snapshot")
     
-    # Section 1: 环境诊断
     report.append("\n## 1. Environment Diagnostics")
     report.append("```yaml")
     report.append(get_system_fingerprint())
@@ -944,49 +1640,92 @@ def main():
     report.append(get_git_status())
     report.append("```")
 
-    # Section 2: 目录结构
     report.append("\n## 2. Project Structure")
     report.append("```text")
     report.append(generate_tree(PROJECT_ROOT))
     report.append("```")
 
-    # Section 3: 核心代码
     report.append("\n## 3. Source Code")
-    
     file_count = 0
     for rule in SCAN_RULES:
         search_dir = PROJECT_ROOT / rule["dir"]
         if rule["dir"] == ".": search_dir = PROJECT_ROOT
-            
         if not search_dir.exists(): continue
-        
         for file_path in sorted(search_dir.glob(f"*{rule['ext']}")):
             if file_path.name in IGNORE_FILES: continue
-            
             rel_path = file_path.relative_to(PROJECT_ROOT)
             report.append(f"\n### File: {rel_path}")
-            
             lang = rule['ext'].replace('.', '')
-            if lang == 'sh': lang = 'bash'
             if lang == 'ini': lang = 'toml'
-            
             report.append(f"```{lang}")
             try:
-                content = file_path.read_text(encoding='utf-8')
-                report.append(content)
+                report.append(file_path.read_text(encoding='utf-8'))
                 file_count += 1
-            except Exception as e:
-                report.append(f"Error reading file: {e}")
+            except:
+                report.append("Error reading file")
             report.append("```")
+    
+    # Section 4: Project Context (Auto-Generated)
+    report.append("\n## 4. Project Context (Auto-Generated)")
+    report.append("```text")
+    if os.path.exists("PROJECT_STATUS.json"):
+        try:
+            with open("PROJECT_STATUS.json", 'r') as f:
+                data = json.load(f)
+                if data.get("guidelines"):
+                    report.append("DEV MANIFESTO:")
+                    for rule in data["guidelines"]:
+                        report.append(f"* {rule}")
+                    report.append("-" * 20)
+                report.append(f"OBJECTIVE: {data.get('objective')}")
+                report.append("\nTASKS:")
+                for i, t in enumerate(data.get('tasks', [])):
+                    mark = "[x]" if t['status'] == 'done' else "[ ]"
+                    report.append(f"{i}. {mark} {t['desc']}")
+        except:
+            report.append("Error reading project status.")
+    else:
+        report.append("No project status file found.")
+    report.append("```")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(report))
     
     print(f"✅ 快照生成完毕: {OUTPUT_FILE}")
-    print(f"📊 已归档 {file_count} 个核心文件。")
-    print("👉 运行 'cat project_context.txt' 查看。")
 
 if __name__ == "__main__":
     main()
 
+```
+
+### File: README.md
+```md
+🧪 Wagstaff-Lab (v2.2)Wagstaff-Lab 是一个专为《饥荒联机版》(Don't Starve Together) 设计的服务器运维、源码分析与项目管理工具集 。它采用“注册表驱动”架构，实现了从底层数据解析到高层 UI 展示的全自动化管理 。🌟 核心理念 (Manifesto)本项目的开发严格遵循以下宗旨 ：架构分层：Engine 负责底层 I/O 与数据解析，Tool 负责业务逻辑与交互，严禁 UI 代码混入底层 。单文件可用：每个脚本必须保持原子化，能够独立运行 。路径自适应：禁止硬编码绝对路径，所有路径均通过 __file__ 动态推算 。数据持久化：所有扫描结果与日志必须落盘保存 。稳健降级：优先读取 scripts.zip，失败时自动降级为文件夹读取模式 。🚀 快速开始1. 环境准备确保你的系统已安装 Conda，并创建了名为 dst_lab 的 Python 3.10+ 环境 。2. 初始化项目在拉取代码后，运行一键初始化脚本 ：Bash./setup.sh
+该脚本会自动：修复脚本执行权限 。自动激活 dst_lab 环境。将项目工具路径注册到你的系统环境变量（.bashrc 或 .profile） 。3. 生效配置Bashsource ~/.bashrc
+🛠️ 工具箱说明书你可以通过输入 Wagstaff-Lab 呼出主控制面板查看实时工具列表 。命令别名功能描述Wagstaff-Lab-主入口：查看项目概况与工具清单pm-项目管理：交互式管理任务进度与开发日志 wagstaff wikiwiki百科查询：快速查阅物品配方、组件与数值 wagstaff expexp源码透视：深度分析 Prefab 结构与逻辑 wagstaff reportreport情报生成：生成资产分布与配方统计报告 wagstaff snapsnap全息快照：生成用于 AI 协作的项目全息快照 🏗️ 新工具开发 SOP (v2.2 标准)若要在实验室中纳入新工具，请遵循以下流程：开发 (Develop)：在 src/ 或 devtools/ 目录下编写你的 Python 脚本 。注册 (Register)：在 src/registry.py 的 TOOLS 列表中添加该工具的元数据（包含 file, alias, desc, usage 等字段）。同步 (Apply)：运行 wagstaff install (或 python3 devtools/installer.py) 自动生成命令行包装器。记录 (Log)：使用 pm ui 记录你的开发日志 。📁 目录结构Plaintext├── bin/                # 自动化生成的命令行包装器 
+├── src/                # 业务核心代码 (Engine, Wiki, Explorer) 
+├── devtools/           # 开发运维工具 (PM, Snap, Reporter) 
+├── conf/               # 配置文件 (settings.ini)
+├── data/               # 持久化数据与报告 
+└── PROJECT_STATUS.json # 项目进度与宗旨数据库
+```
+
+## 4. Project Context (Auto-Generated)
+```text
+DEV MANIFESTO:
+* 架构分层：Engine负责底层I/O，Tool负责交互，禁止UI混入底层
+* 单文件可用：脚本必须原子化，能独立运行，拒绝强耦合
+* 路径自适应：禁止硬编码绝对路径，必须通过 __file__ 动态定位
+* 数据持久化：扫描结果和日志必须写入文件，不仅限于控制台输出
+* 稳健降级：优先Zip读取，失败则降级Folder
+--------------------
+OBJECTIVE: Wagstaff Lab v2.0 架构升级与情报持久化
+
+TASKS:
+0. [x] 重构 Wiki 和 Explorer 使用 Engine
+1. [x] 实现情报扫描结果保存到 data/reports/
+2. [x] 创建 src/guide.py 项目概况面板
+3. [x] 创建 devtools/installer.py 并封装 bin/wagstaff 命令
+4. [ ] 文档化：在 README.md 中记录新工具接入 SOP
+5. [ ] 重构工具注册逻辑：引入 src/registry.py 实现单一数据源
 ```
