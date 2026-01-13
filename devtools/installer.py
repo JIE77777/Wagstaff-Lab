@@ -42,7 +42,19 @@ def create_wrappers():
     ws_wrapper = BIN_DIR / "wagstaff"
     with open(ws_wrapper, 'w') as f:
         f.write('#!/bin/bash\n')
-        f.write('TOOL=$1\nshift\n')
+        
+        # [修复逻辑] 更加稳健的参数处理
+        # 1. 获取第一个参数，如果没有则为空字符串 (防止 unbound variable 报错)
+        f.write('TOOL="${1:-}"\n')
+        
+        # 2. 如果参数为空，直接转交控制权给主面板 (exec 替换进程)
+        f.write('if [ -z "$TOOL" ]; then\n')
+        f.write(f'  exec "{main_wrapper}" "$@"\n')
+        f.write('fi\n')
+        
+        # 3. 只有在有参数时才 shift
+        f.write('shift\n')
+        
         f.write('case "$TOOL" in\n')
         
         # --- 动态生成 Case 分支 ---
@@ -54,7 +66,6 @@ def create_wrappers():
             if not alias: continue # 跳过没有别名的工具
             
             folder = tool.get('folder', 'src')
-            # 转换 folder 为绝对路径变量
             if folder == 'src': abs_path = SRC_DIR
             elif folder == 'devtools': abs_path = DEV_DIR
             else: abs_path = PROJECT_ROOT / folder
@@ -63,7 +74,8 @@ def create_wrappers():
             registered_aliases.append(f"{alias} ({tool['desc']})")
         # ------------------------
 
-        f.write(f'  *) "{main_wrapper}" "$@" ;;\n') 
+        # 默认情况也转交给主面板
+        f.write(f'  *) exec "{main_wrapper}" "$@" ;;\n') 
         f.write('esac\n')
     os.chmod(ws_wrapper, 0o755)
     

@@ -74,6 +74,75 @@ trap 'echo -e "\n${YELLOW}>> 返回主菜单...${NC}"; sleep 0.5' SIGINT
 print_line() { echo -e "${CYAN}----------------------------------------${NC}"; }
 pause() { echo -e "\n${WHITE}按回车键继续...${NC}"; read -r; }
 
+# [Security] 解析绝对路径（优先 realpath，缺失则用 python3）
+resolve_path() {
+    local p="$1"
+    if command -v realpath >/dev/null 2>&1; then
+        realpath -m "$p"
+        return $?
+    fi
+    python3 - "$p" <<'PY'
+import os, sys
+try:
+    print(os.path.realpath(os.path.expanduser(sys.argv[1])))
+except:
+    sys.exit(1)
+PY
+}
+
+# [Security] 高危删除：仅允许删除 KLEI_HOME/CLUSTER_NAME 且做二次确认
+safe_delete_cluster_dir() {
+    local base="$KLEI_HOME"
+    local cluster="$CLUSTER_NAME"
+    local target="$base/$cluster"
+
+    if [ -z "$base" ] || [ -z "$cluster" ]; then
+        echo -e "${RED}❌ KLEI_HOME 或 CLUSTER_NAME 为空，拒绝删除${NC}"
+        return 1
+    fi
+
+    local base_real target_real
+    base_real="$(resolve_path "$base")" || return 1
+    target_real="$(resolve_path "$target")" || return 1
+
+    # 护栏1: 目标不能是 /、HOME、KLEI_HOME 本身
+    if [ "$target_real" = "/" ] || [ "$target_real" = "$HOME" ] || [ "$target_real" = "$base_real" ]; then
+        echo -e "${RED}❌ 目标路径异常 (系统目录保护)，拒绝删除: $target_real${NC}"
+        return 1
+    fi
+
+    # 护栏2: 目标必须严格位于 KLEI_HOME 目录树下
+    case "$target_real" in
+        "$base_real"/*) ;;
+        *)
+            echo -e "${RED}❌ 目标不在 KLEI_HOME 下 (越权保护)，拒绝删除${NC}"
+            echo -e "   KLEI_HOME: $base_real"
+            echo -e "   TARGET:    $target_real"
+            return 1
+            ;;
+    esac
+
+    if [ ! -d "$target_real" ]; then
+        echo -e "${RED}❌ 存档目录不存在: $target_real${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}🧹 警告：即将彻底删除旧存档目录:${NC}"
+    echo -e "${RED}   $target_real${NC}"
+    
+    # 护栏3: 严格文本确认
+    read -p "请输入以下内容确认删除: DELETE $target_real : " confirm_del
+    if [ "$confirm_del" != "DELETE $target_real" ]; then
+        echo -e "${YELLOW}🚫 输入不匹配，已取消删除操作${NC}"
+        return 1
+    fi
+
+    echo -e "${RED}🔥 正在执行销毁...${NC}"
+    rm -rf -- "$target_real"
+    return 0
+}
+
+
 check_status() {
     local master_status="${RED}🔴 未运行${NC}"
     local caves_status="${RED}🔴 未运行${NC}"
@@ -158,7 +227,7 @@ graceful_stop() {
 restart_server() {
     print_line
     if screen -ls | grep -qE "DST_Master|DST_Caves"; then
-        eval "original_pause_def=$(declare -f pause)"; pause() { :; } 
+        original_pause_def="$(declare -f pause)"; pause() { :; } 
         graceful_stop
         eval "$original_pause_def"
     fi
@@ -206,13 +275,17 @@ restore_backup() {
 
     # 自动停服
     if screen -ls | grep -qE "DST_Master|DST_Caves"; then
-        eval "original_pause_def=$(declare -f pause)"; pause() { :; } 
+        original_pause_def="$(declare -f pause)"; pause() { :; } 
         graceful_stop
         eval "$original_pause_def"
     fi
 
-    echo -e "${YELLOW}🧹 清理旧存档...${NC}"
-    rm -rf "$KLEI_HOME/$CLUSTER_NAME"
+    echo -e "${YELLOW}🧹 准备清理旧存档...${NC}"
+    if ! safe_delete_cluster_dir; then
+        echo -e "${RED}❌ 删除步骤失败或被取消，已中止回档流程${NC}"
+        pause
+        return
+    fi
     echo -e "${BLUE}📦 解压备份...${NC}"
     tar -zxf "${files[$c]}" -C "$KLEI_HOME"
     echo -e "${GREEN}✅ 回档成功${NC}"

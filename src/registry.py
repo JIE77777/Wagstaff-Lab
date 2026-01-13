@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Wagstaff-Lab 工具注册中心 (v2.2)
-所有工具的元数据、命令别名及用法说明均在此统一维护。
+Wagstaff-Lab 工具注册中心 (v2.3)
 """
 
 TOOLS = [
@@ -12,6 +11,13 @@ TOOLS = [
         "desc": "Wagstaff-Lab 控制台主面板",
         "usage": "Wagstaff-Lab",
         "type": "Core"
+    },
+    {
+        "file": "doctor.py",
+        "alias": "doctor",
+        "desc": "环境配置与依赖健康检查",
+        "usage": "wagstaff doctor",
+        "type": "Src"
     },
     {
         "file": "wiki.py",
@@ -49,7 +55,7 @@ TOOLS = [
         "file": "snapshot.py",
         "alias": "snap",
         "desc": "生成项目全息代码快照",
-        "usage": "wagstaff snap",
+        "usage":  "wagstaff snap [--mode core|full|custom] [--config conf/snapshot_profile.json]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -58,6 +64,22 @@ TOOLS = [
         "alias": "install",
         "desc": "环境注册与安装向导",
         "usage": "python3 devtools/installer.py",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "sampler.py",
+        "alias": "samples",
+        "desc": "生成 DST Lua 样本包（用于扩展解析器）",
+        "usage": "wagstaff samples [--categories ...] [--n N] [--head-lines N] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "codemap.py",
+        "alias": "map",
+        "desc": "生成 DST scripts 宏观结构地图报告",
+        "usage": "wagstaff map",
         "type": "Dev",
         "folder": "devtools"
     },

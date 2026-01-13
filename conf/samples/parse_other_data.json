@@ -1,0 +1,59 @@
+{
+  "name": "parse_other_data",
+  "description": "Samples for expanding analyzer beyond prefab/recipe: STRINGS, Widgets, Brains, Stategraphs, LootTables, Components.",
+  "limits": {
+    "max_total_chars": 260000,
+    "max_chars_per_file": 18000
+  },
+  "defaults": {
+    "head_lines": 120,
+    "snippet_blocks": 10,
+    "context_lines": 4
+  },
+  "categories": [
+    {
+      "name": "STRINGS",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/strings.lua", "scripts/*strings*.lua", "scripts/strings_pretranslated.lua"],
+      "rank_patterns": ["\\bSTRINGS\\s*=", "\\bSTRINGS\\.[A-Z0-9_]+"],
+      "snippet_patterns": ["\\bSTRINGS\\.[A-Z0-9_]+\\s*=", "\\bSTRINGS\\.[A-Z0-9_]+"]
+    },
+    {
+      "name": "Widgets",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/widgets/**/*.lua", "scripts/screens/**/*.lua"],
+      "rank_patterns": ["require\\s*\\(?\\s*[\"']widgets/", "Class\\("],
+      "snippet_patterns": ["require\\s*\\(?\\s*[\"']widgets/", "Class\\(", "Widget\\("]
+    },
+    {
+      "name": "Brains",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/prefabs/**/*.lua", "scripts/brains/**/*.lua"],
+      "rank_patterns": ["require\\s*\\(?\\s*[\"']brains/", "SetBrain\\s*\\("],
+      "snippet_patterns": ["require\\s*\\(?\\s*[\"']brains/", "SetBrain\\s*\\("]
+    },
+    {
+      "name": "Stategraphs",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/stategraphs/**/*.lua"],
+      "rank_patterns": ["StateGraph\\(", "ActionHandler\\("],
+      "snippet_patterns": ["StateGraph\\(", "ActionHandler\\(", "EventHandler\\("]
+    },
+    {
+      "name": "LootTables",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/prefabs/**/*.lua", "scripts/components/lootdropper.lua"],
+      "rank_patterns": ["SetLoot\\s*\\(", "SetChanceLoot\\s*\\(", "AddChanceLoot\\s*\\("],
+      "snippet_patterns": ["SetLoot\\s*\\(", "SetChanceLoot\\s*\\(", "AddChanceLoot\\s*\\(", "DropLoot\\s*\\("]
+    },
+    {
+      "name": "Components",
+      "pick_n": 2,
+      "candidate_globs": ["scripts/components/**/*.lua"],
+      "rank_patterns": ["\\bClass\\(", "\\bfunction\\s+[A-Za-z0-9_]+:"],
+      "snippet_patterns": ["\\bClass\\(", "\\bfunction\\s+[A-Za-z0-9_]+:"],
+      "head_lines": 200
+    }
+  ]
+}
+

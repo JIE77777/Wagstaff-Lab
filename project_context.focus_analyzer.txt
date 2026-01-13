@@ -1,0 +1,1943 @@
+# Wagstaff-Lab Project Snapshot
+
+- Generated: 2026-01-13T14:27:04
+- Mode: core
+- Template: focus_analyzer_otherdata
+
+## 1. Environment Diagnostics
+```yaml
+Time: 2026-01-13 14:27:04
+User: steam
+Host: VM-8-2-ubuntu (Linux 6.8.0-49-generic)
+Python: 3.10.19 (/home/steam/miniconda3/envs/dst_lab/bin/python3)
+Rich Ver: Installed (ver unknown)
+--------------------
+Branch: main [DIRTY]
+Commit: 336ed22
+Message: Release v2.2: Registry-driven architecture, new SOPs, and documentation
+```
+
+## 2. Project Overview
+### 2.1 Toolbox (src/registry.py)
+```text
+alias   | file         | type | desc                    | usage                                           
+--------+--------------+------+-------------------------+-------------------------------------------------
+        | guide.py     | Core | Wagstaff-Lab 控制台主面板     | Wagstaff-Lab                                    
+doctor  | doctor.py    | Src  | 环境配置与依赖健康检查             | wagstaff doctor                                 
+wiki    | wiki.py      | Src  | 物品/配方/数值查询百科            | wagstaff wiki <item_code>                       
+exp     | explorer.py  | Src  | 源码结构浏览与深度分析             | wagstaff exp                                    
+pm      | pm.py        | Dev  | 项目进度与任务管理               | pm [ui|obj|add|done|log]                        
+report  | reporter.py  | Dev  | 生成全服资产/配方分布报告           | wagstaff report [assets|recipes|all]            
+snap    | snapshot.py  | Dev  | 生成项目全息代码快照              | wagstaff snap [--mode core|full|custom] [--co...
+install | installer.py | Dev  | 环境注册与安装向导               | python3 devtools/installer.py                   
+samples | sampler.py   | Dev  | 生成 DST Lua 样本包（用于扩展解析器） | wagstaff samples [--categories ...] [--n N] [...
+map     | codemap.py   | Dev  | 生成 DST scripts 宏观结构地图报告 | wagstaff map                                    
+```
+
+### 2.2 Project Context (PROJECT_STATUS.json)
+```text
+OBJECTIVE: None
+```
+
+## 3. Project Structure
+```text
+├── .gitignore
+├── bin
+│   ├── boot.sh
+│   ├── dst_tool.sh
+│   ├── pm
+│   ├── wagstaff
+│   └── Wagstaff-Lab
+├── conf
+│   ├── samples
+│   │   └── parse_other_data.json
+│   ├── settings.ini
+│   └── snapshot_templates.json
+├── data
+│   ├── reports
+│   │   ├── asset_registry.md
+│   │   ├── dst_codemap.json
+│   │   ├── dst_codemap.md
+│   │   └── recipe_distribution.md
+│   ├── samples
+│   │   ├── samples_20260113_105500.manifest.json
+│   │   ├── samples_20260113_105500.md
+│   │   ├── samples_20260113_112749.manifest.json
+│   │   └── samples_20260113_112749.md
+│   └── snapshots
+├── devtools
+│   ├── codemap.py
+│   ├── installer.py
+│   ├── pm.py
+│   ├── reporter.py
+│   ├── sampler.py
+│   └── snapshot.py
+├── PROJECT_STATUS.json
+├── README.md
+├── setup.sh
+├── src
+│   ├── analyzer.py
+│   ├── doctor.py
+│   ├── engine.py
+│   ├── explorer.py
+│   ├── guide.py
+│   ├── registry.py
+│   ├── utils.py
+│   └── wiki.py
+└── tests
+    └── test_recipes.py
+```
+
+## 4. File Inventory
+(mode: full/interface/head/skip; '*' means truncated when rendered)
+
+```text
+mode      | bytes | sha256_12    | path                                              
+----------+-------+--------------+---------------------------------------------------
+skip      | 1837  | -            | PROJECT_STATUS.json                               
+skip      | 2786  | -            | README.md                                         
+full      | 353   | 15952c921af7 | conf/settings.ini                                 
+skip      | 2096  | -            | data/reports/asset_registry.md                    
+skip      | 5196  | -            | data/reports/dst_codemap.md                       
+skip      | 1655  | -            | data/reports/recipe_distribution.md               
+skip      | 3455  | -            | data/samples/samples_20260113_105500.manifest.json
+skip      | 98207 | -            | data/samples/samples_20260113_105500.md           
+skip      | 2006  | -            | data/samples/samples_20260113_112749.manifest.json
+skip      | 40900 | -            | data/samples/samples_20260113_112749.md           
+full      | 5942  | e724d24f11e6 | devtools/codemap.py                               
+skip      | 3586  | -            | devtools/installer.py                             
+skip      | 4956  | -            | devtools/pm.py                                    
+interface | 4763  | 915b1577a0aa | devtools/reporter.py                              
+full      | 14604 | 2eaf081041e4 | devtools/sampler.py                               
+interface | 30382 | d4f3890bf272 | devtools/snapshot.py                              
+full      | 12469 | 8a4532394b56 | src/analyzer.py                                   
+skip      | 7012  | -            | src/doctor.py                                     
+full      | 4409  | 3b06776239e6 | src/engine.py                                     
+full      | 9616  | 6f0febfb5667 | src/explorer.py                                   
+skip      | 1548  | -            | src/guide.py                                      
+full      | 2339  | 12dac7d17279 | src/registry.py                                   
+full      | 1040  | ffc01cb3d8f3 | src/utils.py                                      
+full      | 8796  | d7709d0e1f1b | src/wiki.py                                       
+skip      | 1479  | -            | tests/test_recipes.py                             
+```
+
+## 5. File Contents
+
+### File: conf/settings.ini
+- mode: full
+- size_bytes: 353
+- sha256_12: 15952c921af7
+
+```toml
+[PATHS]
+# 游戏安装目录
+DST_ROOT = ~/dontstarvetogether_dedicated_server
+# SteamCMD 目录
+STEAMCMD_DIR = ~/steamcmd
+# 备份存放目录
+BACKUP_DIR = ~/dst_backups
+
+[SERVER]
+# 你的存档文件夹名 (Cluster Name)
+CLUSTER_NAME = MyDediServer
+# Klei 存档根目录 (通常是 ~/.klei/DoNotStarveTogether)
+KLEI_HOME = ~/.klei/DoNotStarveTogether
+```
+
+### File: devtools/codemap.py
+- mode: full
+- size_bytes: 5942
+- sha256_12: e724d24f11e6
+
+```py
+#!/usr/bin/env python3
+"""Wagstaff-Lab DST Code Map (Report)
+
+Goal
+- 系统化梳理 DST scripts 结构：目录分布、关键类别数量、热点文件（按体量）。
+- 为后续“解析其他数据”提供宏观视图与优先级线索。
+
+Outputs
+- data/reports/dst_codemap.md
+- data/reports/dst_codemap.json
+
+This tool reads DST scripts through src/engine.py (scripts.zip / scripts/).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from engine import WagstaffEngine  # type: ignore
+
+REPORT_DIR = PROJECT_ROOT / "data" / "reports"
+
+
+def _now_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _file_size(engine: WagstaffEngine, path: str) -> int:
+    try:
+        if engine.mode == "zip":
+            return engine.source.getinfo(path).file_size  # type: ignore[attr-defined]
+        real = os.path.join(engine.source, path.replace("scripts/", ""))  # type: ignore[arg-type]
+        return os.path.getsize(real)
+    except Exception:
+        return -1
+
+
+def build_codemap(engine: WagstaffEngine) -> Dict[str, object]:
+    files = list(engine.file_list)
+    lua_files = [f for f in files if f.endswith(".lua")]
+
+    # Directory distribution (normalize scripts/ prefix)
+    top_dir = Counter()
+    second_dir = Counter()
+
+    for f in lua_files:
+        clean = f[8:] if f.startswith("scripts/") else f
+        parts = clean.split("/")
+        if len(parts) == 1:
+            top_dir["[Root]"] += 1
+        else:
+            top_dir[parts[0]] += 1
+            if len(parts) >= 2:
+                second_dir[f"{parts[0]}/{parts[1]}"] += 1
+
+    # Category counts
+    categories: Dict[str, List[str]] = {
+        "Prefabs": [f for f in lua_files if f.startswith("scripts/prefabs/")],
+        "Components": [f for f in lua_files if f.startswith("scripts/components/")],
+        "Stategraphs": [f for f in lua_files if f.startswith("scripts/stategraphs/")],
+        "Brains": [f for f in lua_files if f.startswith("scripts/brains/")],
+        "Behaviours": [f for f in lua_files if f.startswith("scripts/behaviours/")],
+        "Widgets": [f for f in lua_files if f.startswith("scripts/widgets/")],
+        "Screens": [f for f in lua_files if f.startswith("scripts/screens/")],
+        "Strings": [f for f in lua_files if "strings" in f and f.startswith("scripts/")],
+        "Recipes": [f for f in lua_files if f.endswith("recipes.lua") or f.endswith("recipes2.lua")],
+        "Tuning": [f for f in lua_files if f.endswith("tuning.lua")],
+    }
+
+    cat_counts = {k: len(v) for k, v in categories.items()}
+
+    # Largest files
+    size_list: List[Tuple[int, str]] = []
+    for f in lua_files:
+        size_list.append((_file_size(engine, f), f))
+    size_list.sort(key=lambda x: x[0], reverse=True)
+
+    largest = [{"path": p, "bytes": s} for s, p in size_list[:50] if s >= 0]
+
+    # Top directories
+    top_dirs = [{"dir": d, "count": c} for d, c in top_dir.most_common(40)]
+    top_second = [{"dir": d, "count": c} for d, c in second_dir.most_common(60)]
+
+    return {
+        "generated": _now_iso(),
+        "engine_mode": engine.mode,
+        "total_files": len(files),
+        "lua_files": len(lua_files),
+        "categories": cat_counts,
+        "top_dirs": top_dirs,
+        "top_second_level": top_second,
+        "largest_lua_files": largest,
+    }
+
+
+def render_md(doc: Dict[str, object]) -> str:
+    lines: List[str] = []
+    lines.append("# DST Scripts Code Map")
+    lines.append("")
+    lines.append("## Meta")
+    lines.append("```yaml")
+    lines.append(f"generated: {doc.get('generated')}")
+    lines.append(f"engine_mode: {doc.get('engine_mode')}")
+    lines.append(f"total_files: {doc.get('total_files')}")
+    lines.append(f"lua_files: {doc.get('lua_files')}")
+    lines.append("```")
+
+    lines.append("")
+    lines.append("## Category Counts")
+    lines.append("")
+    lines.append("| Category | Count |")
+    lines.append("|---|---:|")
+    for k, v in sorted((doc.get("categories") or {}).items(), key=lambda x: x[0]):
+        lines.append(f"| {k} | {v} |")
+
+    lines.append("")
+    lines.append("## Top Directories (Lua)")
+    lines.append("")
+    lines.append("| Dir | Files |")
+    lines.append("|---|---:|")
+    for item in doc.get("top_dirs") or []:
+        lines.append(f"| {item['dir']} | {item['count']} |")
+
+    lines.append("")
+    lines.append("## Hotspots: Largest Lua Files")
+    lines.append("")
+    lines.append("| Bytes | Path |")
+    lines.append("|---:|---|")
+    for item in doc.get("largest_lua_files") or []:
+        lines.append(f"| {item['bytes']} | `{item['path']}` |")
+
+    lines.append("")
+    lines.append("## Top 2nd-level Directories")
+    lines.append("")
+    lines.append("| Dir | Files |")
+    lines.append("|---|---:|")
+    for item in doc.get("top_second_level") or []:
+        lines.append(f"| {item['dir']} | {item['count']} |")
+
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate DST scripts code map report.")
+    parser.add_argument("--out-md", default=str(REPORT_DIR / "dst_codemap.md"))
+    parser.add_argument("--out-json", default=str(REPORT_DIR / "dst_codemap.json"))
+    args = parser.parse_args()
+
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+    engine = WagstaffEngine(load_db=False, silent=True)
+    doc = build_codemap(engine)
+
+    md_path = Path(args.out_md)
+    json_path = Path(args.out_json)
+
+    md_path.write_text(render_md(doc), encoding="utf-8")
+    json_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"✅ Code map written: {md_path}")
+    print(f"✅ JSON written: {json_path}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+### File: devtools/reporter.py
+- mode: interface
+- size_bytes: 4763
+- sha256_12: 915b1577a0aa
+
+```py
+# Constants
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+REPORT_DIR = os.path.join(PROJECT_ROOT, 'data', 'reports')
+
+class WagstaffReporter:
+    ...
+    def _ensure_report_dir(self):
+    def generate_asset_report(self):  # 扫描全服资产分布
+    def generate_recipe_report(self):  # 扫描配方分布
+```
+
+### File: devtools/sampler.py
+- mode: full
+- size_bytes: 14604
+- sha256_12: 2eaf081041e4
+
+```py
+#!/usr/bin/env python3
+"""Wagstaff-Lab Sample Pack Generator
+
+Purpose
+- 为“解析其他数据类型（STRINGS/Widgets/Brains/Stategraphs/LootTables/Components…）”准备可复用样本。
+- 输出一个 *可直接喂给大模型* 的 Markdown（带 head + line-numbered snippets），并落盘 manifest.json 便于追溯。
+
+Outputs
+- data/samples/samples_<timestamp>.md
+- data/samples/samples_<timestamp>.manifest.json
+
+Notes
+- 读取数据源来自 DST 的 scripts.zip / scripts/ 目录（通过 src/engine.py）。
+- 样本选择优先参考 data/reports/asset_registry.md（如果存在）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import random
+import re
+import sys
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
+
+# Mount src/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from engine import WagstaffEngine  # type: ignore
+
+OUT_DIR = PROJECT_ROOT / "data" / "samples"
+REPORT_DIR = PROJECT_ROOT / "data" / "reports"
+
+DEFAULT_CATEGORIES = ["STRINGS", "Widgets", "Brains", "Stategraphs", "LootTables", "Components"]
+
+# Fallback picks (used when no report-based guidance is available)
+DEFAULT_FILES: Dict[str, List[str]] = {
+    "STRINGS": ["scripts/strings.lua", "scripts/skin_strings.lua"],
+    "Widgets": ["scripts/widgets/controls.lua", "scripts/screens/playerhud.lua"],
+    "Brains": ["scripts/prefabs/pigman.lua", "scripts/prefabs/merm.lua"],
+    "Stategraphs": ["scripts/stategraphs/SGwilson.lua", "scripts/stategraphs/SGwilson_client.lua"],
+    "LootTables": ["scripts/prefabs/deciduoustrees.lua", "scripts/prefabs/evergreens.lua"],
+    "Components": ["scripts/components/scenariorunner.lua", "scripts/components/debuffable.lua"],
+}
+
+CATEGORY_PREFIX_HINTS: Dict[str, List[str]] = {
+    "Components": ["scripts/components/"],
+    "Stategraphs": ["scripts/stategraphs/"],
+    "Widgets": ["scripts/widgets/", "scripts/screens/"],
+    "Brains": ["scripts/brains/", "scripts/behaviours/"]
+}
+
+# Snippet patterns are intentionally lightweight (line-based) for speed.
+CATEGORY_PATTERNS: Dict[str, List[re.Pattern]] = {
+    "STRINGS": [
+        re.compile(r"\bSTRINGS\.[A-Z0-9_]+\b"),
+        re.compile(r"\bSTRINGS\s*=\s*\{"),
+    ],
+    "Widgets": [
+        re.compile(r"\brequire\s*\(?[\"']widgets/"),
+        re.compile(r"\bClass\s*\("),
+        re.compile(r"\bWidget\b"),
+    ],
+    "Brains": [
+        re.compile(r"\brequire\s*\(?[\"']brains/"),
+        re.compile(r"\brequire\s*\(?[\"']behaviours/"),
+        re.compile(r"\bBrain\b"),
+    ],
+    "Stategraphs": [
+        re.compile(r"\bStateGraph\s*\("),
+        re.compile(r"\bstates\s*=\s*\{"),
+        re.compile(r"\bevents\s*=\s*\{"),
+    ],
+    "LootTables": [
+        re.compile(r"\bSetLoot\s*\("),
+        re.compile(r"\bSetChanceLoot\s*\("),
+        re.compile(r"\bloot\b"),
+    ],
+    "Components": [
+        re.compile(r"\bClass\s*\("),
+        re.compile(r"\binst:AddComponent\b"),
+        re.compile(r"\bself\.[a-zA-Z0-9_]+\s*=\s*"),
+    ],
+}
+
+
+def _now_iso() -> str:
+    # Keep timezone offset (astimezone) for reproducibility across machines.
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _now_ts() -> str:
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _sha256_12_text(text: str) -> str:
+    h = hashlib.sha256(text.encode("utf-8", errors="replace"))
+    return h.hexdigest()[:12]
+
+
+def _safe_read_asset_registry(path: Path) -> Dict[str, List[str]]:
+    """Parse data/reports/asset_registry.md into {Category: [file1, file2, ...]}.
+
+    This report is generated by devtools/reporter.py. It includes sections like:
+    ### Widgets
+    - `scripts/widgets/controls.lua`: 35
+    """
+    if not path.exists():
+        return {}
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+
+    current: Optional[str] = None
+    out: Dict[str, List[str]] = {}
+
+    header_re = re.compile(r"^###\s+(.+?)\s*$")
+    item_re = re.compile(r"^\-\s+`([^`]+)`:\s*\d+\s*$")
+
+    for line in lines:
+        m = header_re.match(line)
+        if m:
+            current = m.group(1).strip()
+            out.setdefault(current, [])
+            continue
+        m = item_re.match(line)
+        if m and current:
+            out.setdefault(current, []).append(m.group(1).strip())
+
+    return out
+
+
+def _file_size(engine: WagstaffEngine, path: str) -> int:
+    try:
+        if engine.mode == "zip":
+            return engine.source.getinfo(path).file_size  # type: ignore[attr-defined]
+        # folder
+        real = os.path.join(engine.source, path.replace("scripts/", ""))  # type: ignore[arg-type]
+        return os.path.getsize(real)
+    except Exception:
+        return -1
+
+
+def _choose_files(
+    engine: WagstaffEngine,
+    category: str,
+    n: int,
+    registry_map: Dict[str, List[str]],
+    rng: random.Random,
+) -> List[str]:
+    # 1) Prefer asset_registry.md hints
+    picked: List[str] = []
+    if category in registry_map:
+        for p in registry_map[category]:
+            if p in engine.file_list:
+                picked.append(p)
+            if len(picked) >= n:
+                return picked
+
+    # 2) Fallback defaults
+    for p in DEFAULT_FILES.get(category, []):
+        if p in engine.file_list and p not in picked:
+            picked.append(p)
+        if len(picked) >= n:
+            return picked
+
+    # 3) Prefix-based discovery
+    prefixes = CATEGORY_PREFIX_HINTS.get(category, [])
+    if prefixes:
+        candidates: List[str] = []
+        for f in engine.file_list:
+            if not f.endswith(".lua"):
+                continue
+            if any(f.startswith(pref) for pref in prefixes):
+                candidates.append(f)
+
+        # Prefer larger files (tend to contain more structure)
+        candidates.sort(key=lambda p: _file_size(engine, p), reverse=True)
+        for p in candidates:
+            if p not in picked:
+                picked.append(p)
+            if len(picked) >= n:
+                return picked
+
+    # 4) Last resort: random lua files
+    lua_files = [f for f in engine.file_list if f.endswith(".lua")]
+    rng.shuffle(lua_files)
+    for p in lua_files:
+        if p not in picked:
+            picked.append(p)
+        if len(picked) >= n:
+            return picked
+
+    return picked
+
+
+def _pick_snippet_lines(
+    lines: List[str],
+    patterns: Sequence[re.Pattern],
+    snippet_blocks: int,
+    context_lines: int,
+    rng: random.Random,
+) -> List[Tuple[int, int]]:
+    """Return a list of (start_idx, end_idx_exclusive) ranges."""
+    match_idxs: List[int] = []
+    for i, line in enumerate(lines):
+        for pat in patterns:
+            if pat.search(line):
+                match_idxs.append(i)
+                break
+
+    # Dedup while preserving order
+    seen = set()
+    match_idxs = [i for i in match_idxs if not (i in seen or seen.add(i))]
+
+    # If too many matches, sample evenly across the file for coverage
+    chosen_idxs: List[int] = []
+    if len(match_idxs) == 0:
+        # fallback: choose some random anchors
+        if lines:
+            anchors = list(range(0, len(lines), max(1, len(lines) // max(1, snippet_blocks))))
+            rng.shuffle(anchors)
+            chosen_idxs = sorted(anchors[:snippet_blocks])
+    elif len(match_idxs) <= snippet_blocks:
+        chosen_idxs = match_idxs
+    else:
+        if snippet_blocks == 1:
+            chosen_idxs = [match_idxs[len(match_idxs) // 2]]
+        else:
+            for k in range(snippet_blocks):
+                pos = int(k * (len(match_idxs) - 1) / (snippet_blocks - 1))
+                chosen_idxs.append(match_idxs[pos])
+
+    ranges: List[Tuple[int, int]] = []
+    covered: List[Tuple[int, int]] = []
+
+    for idx in chosen_idxs:
+        s = max(0, idx - context_lines)
+        e = min(len(lines), idx + context_lines + 1)
+
+        # Skip heavy overlap
+        overlapped = False
+        for cs, ce in covered:
+            if not (e <= cs or s >= ce):
+                overlapped = True
+                break
+        if overlapped:
+            continue
+
+        covered.append((s, e))
+        ranges.append((s, e))
+
+    return ranges
+
+
+def _render_snippet(lines: List[str], start: int, end: int) -> str:
+    out: List[str] = []
+    for i in range(start, end):
+        ln = i + 1
+        out.append(f"{ln:5d}: {lines[i]}")
+    return "\n".join(out)
+
+
+def _cap_text(text: str, max_chars: int) -> Tuple[str, bool]:
+    if len(text) <= max_chars:
+        return text, False
+    return text[: max_chars - 200] + "\n\n[TRUNCATED: per-file cap]\n", True
+
+
+@dataclass
+class FileSample:
+    path: str
+    sha256_12: str
+    lines: int
+    head_lines: int
+    snippet_blocks: int
+    rendered: str
+
+
+def build_sample_pack(
+    categories: List[str],
+    n_files_per_category: int,
+    head_lines: int,
+    snippet_blocks: int,
+    context_lines: int,
+    max_chars_per_file: int,
+    max_total_chars: int,
+    seed: int,
+) -> Tuple[str, Dict[str, object]]:
+    engine = WagstaffEngine(load_db=False, silent=True)
+
+    asset_registry_path = REPORT_DIR / "asset_registry.md"
+    recipe_distribution_path = REPORT_DIR / "recipe_distribution.md"
+
+    registry_map = _safe_read_asset_registry(asset_registry_path)
+
+    rng = random.Random(seed)
+
+    # Collect samples
+    chosen: Dict[str, List[str]] = {}
+    files_meta: Dict[str, List[Dict[str, object]]] = {}
+
+    md: List[str] = []
+    md.append("# Wagstaff-Lab Lua Sample Pack")
+    md.append("")
+    md.append("## Meta")
+    md.append("```yaml")
+    md.append(f"generated: {_now_iso()}")
+    md.append(f"engine_mode: {engine.mode}")
+    md.append(f"categories: {categories}")
+    md.append(f"n_files_per_category: {n_files_per_category}")
+    md.append(f"head_lines: {head_lines}")
+    md.append(f"snippet_blocks: {snippet_blocks}")
+    md.append(f"context_lines: {context_lines}")
+    md.append("```")
+
+    total_chars = sum(len(x) + 1 for x in md)
+
+    for cat in categories:
+        md.append("")
+        md.append(f"## Category: {cat}")
+        md.append("")
+
+        selected = _choose_files(engine, cat, n_files_per_category, registry_map, rng)
+        chosen[cat] = selected
+        files_meta[cat] = []
+
+        patterns = CATEGORY_PATTERNS.get(cat, [])
+
+        for p in selected:
+            content = engine.read_file(p) or ""
+            if not content:
+                continue
+
+            lines = content.splitlines()
+
+            head = "\n".join(lines[:head_lines])
+            ranges = _pick_snippet_lines(lines, patterns, snippet_blocks, context_lines, rng)
+
+            snips: List[str] = []
+            for i, (s, e) in enumerate(ranges, start=1):
+                snips.append(f"**Snippet {i}**\n```lua\n{_render_snippet(lines, s, e)}\n```")
+
+            rendered = []
+            rendered.append(f"### File: {p}")
+            sha = _sha256_12_text(content)
+            rendered.append(f"> sha256_12={sha}, lines={len(lines)}")
+            rendered.append("")
+            rendered.append("#### Head")
+            rendered.append("```lua")
+            rendered.append(head)
+            rendered.append("```")
+            rendered.append("")
+            rendered.append("#### Snippets (line-numbered)")
+            rendered.append("")
+            rendered.append("\n\n".join(snips) if snips else "(no snippets found)")
+
+            block = "\n".join(rendered) + "\n"
+            block, truncated = _cap_text(block, max_chars_per_file)
+
+            # Total budget check
+            if total_chars + len(block) > max_total_chars:
+                md.append("\n[STOP: max_total_chars reached]\n")
+                break
+
+            md.append(block)
+            total_chars += len(block)
+
+            files_meta[cat].append(
+                {
+                    "path": p,
+                    "sha256_12": sha,
+                    "lines": len(lines),
+                    "head_lines": min(head_lines, len(lines)),
+                    "snippet_blocks": len(ranges),
+                    "truncated": truncated,
+                }
+            )
+
+    manifest: Dict[str, object] = {
+        "generated": _now_iso(),
+        "engine_mode": engine.mode,
+        "categories": categories,
+        "chosen": chosen,
+        "files": files_meta,
+        "source_reports": {
+            "asset_registry": str(asset_registry_path) if asset_registry_path.exists() else None,
+            "recipe_distribution": str(recipe_distribution_path) if recipe_distribution_path.exists() else None,
+        },
+        "params": {
+            "n_files_per_category": n_files_per_category,
+            "head_lines": head_lines,
+            "snippet_blocks": snippet_blocks,
+            "context_lines": context_lines,
+            "seed": seed,
+        },
+        "limits": {
+            "max_chars_per_file": max_chars_per_file,
+            "max_total_chars": max_total_chars,
+        },
+    }
+
+    return "\n".join(md) + "\n", manifest
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Generate DST Lua sample pack for parser development.")
+    parser.add_argument("--categories", nargs="*", default=DEFAULT_CATEGORIES, help="Categories to include")
+    parser.add_argument("--n", type=int, default=2, help="Files per category")
+    parser.add_argument("--head-lines", type=int, default=120)
+    parser.add_argument("--snippet-blocks", type=int, default=10)
+    parser.add_argument("--context-lines", type=int, default=4)
+    parser.add_argument("--max-chars-per-file", type=int, default=18000)
+    parser.add_argument("--max-total-chars", type=int, default=260000)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--out-dir", default=str(OUT_DIR))
+    args = parser.parse_args()
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    md, manifest = build_sample_pack(
+        categories=list(args.categories),
+        n_files_per_category=args.n,
+        head_lines=args.head_lines,
+        snippet_blocks=args.snippet_blocks,
+        context_lines=args.context_lines,
+        max_chars_per_file=args.max_chars_per_file,
+        max_total_chars=args.max_total_chars,
+        seed=args.seed,
+    )
+
+    ts = _now_ts()
+    md_path = out_dir / f"samples_{ts}.md"
+    manifest_path = out_dir / f"samples_{ts}.manifest.json"
+
+    md_path.write_text(md, encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"✅ Sample pack written: {md_path}")
+    print(f"✅ Manifest written: {manifest_path}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+### File: devtools/snapshot.py
+- mode: interface
+- size_bytes: 30382
+- sha256_12: d4f3890bf272
+
+```py
+"""Wagstaff-Lab Snapshot (v4)"""
+
+# Constants
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_CONFIG = PROJECT_ROOT / 'conf' / 'snapshot_templates.json'
+DEFAULT_IGNORE_DIRS = {'.git', '__pycache__', '.pytest_cache', 'logs', 'env', 'venv', '.idea', '.vs...
+DEFAULT_IGNORE_FILES = {'project_context.txt', '.DS_Store', 'id_rsa', 'id_ed25519', 'known_hosts'}
+DEFAULT_IGNORE_GLOBS = ['data/snapshots/**', '**/*.swp', '**/*.swo', '**/*.tmp', '**/*.bak', '**/*.l...
+BUILTIN_TEMPLATES = {'core': {'desc': 'Builtin core template', 'output': 'project_context.txt', '...
+_SECRET_KV_RE = re.compile('(?i)\\b(password|passphrase|token|secret|api[_-]?key|client[_-]?s...
+
+class FileRecord:
+    ...
+
+def _now_ts() -> str:
+    ...
+
+def _run_cmd(cmd: str) -> str:
+    ...
+
+def get_system_fingerprint() -> str:
+    ...
+
+def get_git_status() -> str:
+    ...
+
+def _is_probably_binary(path: Path) -> bool:
+    ...
+
+def _redact(text: str) -> str:
+    ...
+
+def _sha256_12(path: Path) -> str:
+    ...
+
+def _posix_rel(path: Path) -> str:
+    ...
+
+def _match_glob(rel_posix: str, pattern: str) -> bool:
+    ...
+
+def _load_templates(config_path: Path) -> Dict[str, Any]:
+    ...
+
+def _resolve_template(templates_doc: Dict[str, Any], mode: str, template_name: Optional[str]) -> Tuple[str, Dict[str, Any]]:
+    ...
+
+def _ensure_parent(path: Path) -> None:
+    ...
+
+def _iter_candidates(include_globs: List[str]) -> List[Path]:
+    ...
+
+def _should_ignore(path: Path, ignore_files: set[str], ignore_globs: List[str], ignore_dirs: set[str]) -> bool:
+    ...
+
+def _pick_rule(rel_posix: str, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+    ...
+
+def _read_text_limited(path: Path, max_bytes: int) -> Tuple[str, bool]:
+    ...
+
+def _read_head_lines(path: Path, head_lines: int) -> Tuple[str, bool]:
+    ...
+
+def _safe_unparse(node: ast.AST) -> str:
+    ...
+
+def _format_args(args: ast.arguments) -> str:
+    ...
+
+def _first_doc_line(doc: Optional[str], max_len: int=120) -> str:
+    ...
+
+def _extract_python_interface(path: Path, max_chars: int=40000) -> str:
+    ...
+
+def _render_tree(root: Path, prefix: str, depth: int, max_depth: int, max_entries: int, ignore_dirs: set[str], ignore_files: set[str], ignore_globs: List[str]) -> str:
+    ...
+
+def _extract_registry_tools() -> Optional[List[Dict[str, Any]]]:
+    ...
+
+def _render_tools_overview(tools: Optional[List[Dict[str, Any]]]) -> str:
+    ...
+
+def _render_project_status() -> str:
+    ...
+
+def _render_file_inventory(records: List[FileRecord], limit: int=500) -> str:
+    ...
+
+def _write_zip(zip_path: Path, records: List[FileRecord]) -> None:
+    ...
+
+def main() -> None:
+    ...
+```
+
+### File: src/analyzer.py
+- mode: full
+- size_bytes: 12469
+- sha256_12: 8a4532394b56
+
+```py
+#!/usr/bin/env python3
+import re
+
+# ==========================================
+# 1. 全局数值解析器 (TuningResolver) - [链式追踪版]
+# ==========================================
+class TuningResolver:
+    def __init__(self, content):
+        self.raw_map = {}
+        if content:
+            self._parse_tuning(content)
+
+    def _parse_tuning(self, content):
+        clean_content = re.sub(r'\blocal\s+', '', content)
+        # 匹配 NAME = VALUE
+        pattern = re.compile(r'([a-zA-Z0-9_]+)\s*=\s*([^,\r\n]+)')
+        for name, raw_val in pattern.findall(clean_content):
+            # 去除注释和空白
+            clean_val = raw_val.split('--')[0].strip()
+            
+            # 尝试直接转数字
+            try:
+                self.raw_map[name] = float(clean_val)
+            except ValueError:
+                # 存为字符串，可能是引用其他变量
+                self.raw_map[name] = clean_val
+
+    def enrich(self, text):
+        if not text or "TUNING." not in text: return text
+        
+        def replace_match(match):
+            root_key = match.group(1).replace("TUNING.", "")
+            
+            # === 链式追踪逻辑 Start ===
+            chain = []
+            current_key = root_key
+            visited = {root_key}
+            
+            # 最多追踪 5 层，防止死循环
+            for _ in range(5):
+                val = self.raw_map.get(current_key)
+                
+                # 1. 如果没找到值，停止
+                if val is None:
+                    break
+                
+                # 2. 如果是数字，这是终点
+                if isinstance(val, (int, float)):
+                    if isinstance(val, float) and val.is_integer():
+                        val = int(val)
+                    chain.append(f"[bold cyan]{val}[/bold cyan]") # 最终数值高亮
+                    break
+                
+                # 3. 如果是字符串
+                if isinstance(val, str):
+                    # 3a. 如果这个字符串也是个变量名（在表中存在），继续追踪
+                    if val in self.raw_map and val not in visited:
+                        chain.append(f"[dim]{val}[/dim]") # 中间变量变暗
+                        current_key = val
+                        visited.add(val)
+                    # 3b. 只是普通字符串字面量
+                    else:
+                        chain.append(f"[green]'{val}'[/green]")
+                        break
+            # === 链式追踪逻辑 End ===
+
+            if chain:
+                # 将路径用 -> 连接，例如: (wilson_attack -> 34)
+                chain_str = " -> ".join(chain)
+                return f"{match.group(1)} ({chain_str})"
+            
+            return match.group(1)
+            
+        return re.sub(r'(TUNING\.[A-Z0-9_]+)', replace_match, text)
+
+
+# ==========================================
+# 2. 专用解析器策略 (Parsers)
+# ==========================================
+
+class BaseParser:
+    def __init__(self, content):
+        self.content = content
+        # 预处理：移除注释以便正则匹配，同时保留换行以维持结构感
+        self.clean_content = re.sub(r'--.*$', '', content, flags=re.MULTILINE)
+        self.clean_content = re.sub(r'--\[\[.*?\]\]', '', self.clean_content, flags=re.DOTALL)
+
+    def _extract_requires(self):
+        return re.findall(r'require\s*[\("\'](.*?)[\)"\']', self.clean_content)
+
+class LootParser(BaseParser):
+    """解析掉落表 (LootTables) - v2.0 增强版"""
+    def parse(self):
+        data = {
+            "type": "loot",
+            "table_name": None,
+            "entries": []
+        }
+        
+        # 1. 提取表名定义 (SetSharedLootTable)
+        table_match = re.search(r'SetSharedLootTable\s*\(\s*[\'"]([^\'"]+)[\'"]', self.clean_content)
+        if table_match:
+            data["table_name"] = table_match.group(1)
+
+        # 2. [新增] 提取内联表定义 (Inline Table Data)
+        # 针对 Krampus 这种直接在 SetSharedLootTable 中传入列表的情况
+        if data["table_name"]:
+            start_idx = self.clean_content.find("SetSharedLootTable")
+            if start_idx != -1:
+                snippet = self.clean_content[start_idx:]
+                # 匹配: { 'prefab', number }
+                inline_matches = re.findall(r'\{\s*[\'"]([^\'"]+)[\'"]\s*,\s*([\d\.]+)\s*\}', snippet)
+                for item, chance in inline_matches:
+                    data["entries"].append({"item": item, "chance": float(chance), "method": "TableData"})
+
+        # 3. 提取随机掉落 (AddRandomLoot)
+        for p, w in re.findall(r'AddRandom.*?Loot\s*\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*([\d\.]+)', self.clean_content):
+            data["entries"].append({"item": p, "weight": float(w), "method": "Random"})
+
+        # 4. 提取概率掉落 (AddChanceLoot)
+        for p, c in re.findall(r'AddChanceLoot\s*\(\s*[\'"]([^\'"]+)[\'"]\s*,\s*([\d\.]+)', self.clean_content):
+            data["entries"].append({"item": p, "chance": float(c), "method": "Chance"})
+
+        return data
+
+class WidgetParser(BaseParser):
+    """解析 UI 组件 (Widgets/Screens)"""
+    def parse(self):
+        data = {
+            "type": "widget",
+            "classes": [],
+            "dependencies": self._extract_requires()
+        }
+
+        # 提取类继承关系
+        pattern = r'local\s+([a-zA-Z0-9_]+)\s*=\s*Class\s*\(\s*([a-zA-Z0-9_]+)'
+        for name, parent in re.findall(pattern, self.clean_content):
+            data["classes"].append({"name": name, "parent": parent})
+
+        return data
+
+class StringParser(BaseParser):
+    """解析文本配置 (STRINGS)"""
+    def parse(self):
+        data = {
+            "type": "strings",
+            "roots": [],
+            "includes": self._extract_requires()
+        }
+
+        # 提取顶级 Key 定义
+        for match in re.findall(r'STRINGS\.([A-Z0-9_]+)\s*=\s*\{', self.clean_content):
+            data["roots"].append(match)
+        
+        # 提取直接赋值
+        for match in re.findall(r'STRINGS\.([A-Z0-9_]+)\s*=\s*["\']', self.clean_content):
+             if match not in data["roots"]:
+                 data["roots"].append(match)
+
+        return data
+
+class PrefabParser(BaseParser):
+    """解析实体预设 (Standard Prefabs)"""
+    def parse(self):
+        data = {
+            "type": "prefab",
+            "assets": [], "components": [], "helpers": [],
+            "stategraph": None, "brain": None, "events": [], "tags": []
+        }
+        
+        # Assets
+        for t, p in re.findall(r'Asset\s*\(\s*["\'](.*?)["\']\s*,\s*["\'](.*?)["\']\s*\)', self.clean_content):
+            data["assets"].append({"type": t, "path": p})
+
+        # Logic (Brain/SG)
+        brain = re.search(r'SetBrain\s*\(\s*require\s*\(\s*["\'](.*?)["\']\s*\)\s*\)', self.clean_content)
+        if brain: data["brain"] = brain.group(1)
+        
+        sg = re.search(r'SetStateGraph\s*\(\s*["\'](.*?)["\']\s*\)', self.clean_content)
+        if sg: data["stategraph"] = sg.group(1)
+
+        # Helpers & Tags
+        data["helpers"] = list(set(re.findall(r'^\s*(Make[a-zA-Z0-9_]+)\s*\(', self.content, re.MULTILINE)))
+        data["tags"] = list(set(re.findall(r'inst:AddTag\s*\(\s*["\'](.*?)["\']\s*\)', self.clean_content)))
+
+        # Components
+        added_comps = set(re.findall(r'inst:AddComponent\s*\(\s*["\'](.*?)["\']\s*\)', self.clean_content))
+        for comp_name in added_comps:
+            comp_data = {"name": comp_name, "methods": [], "properties": []}
+            
+            # 方法调用
+            method_pattern = r'components\.' + re.escape(comp_name) + r'[:\.]([a-zA-Z0-9_]+)\s*\((.*?)\)'
+            for m_name, m_args in re.findall(method_pattern, self.clean_content):
+                clean_args = re.sub(r'\s+', ' ', m_args).strip()
+                if len(clean_args) > 30: clean_args = clean_args[:27] + "..."
+                comp_data["methods"].append(f"{m_name}({clean_args})")
+            
+            # 属性赋值
+            prop_pattern = r'components\.' + re.escape(comp_name) + r'\.([a-zA-Z0-9_]+)\s*=\s*([^=\n]+)'
+            for p_name, p_val in re.findall(prop_pattern, self.clean_content):
+                comp_data["properties"].append(f"{p_name} = {p_val.strip()}")
+
+            data["components"].append(comp_data)
+            
+        return data
+
+# ==========================================
+# 3. 统一分析入口 (Facade)
+# ==========================================
+class LuaAnalyzer:
+    """
+    智能分析器：根据文件特征自动选择最佳解析策略
+    """
+    def __init__(self, content):
+        self.content = content
+        self.parser = self._select_strategy()
+
+    def _select_strategy(self):
+        # 1. Widget/Screen (UI) - 优先级最高
+        if "Class(Widget" in self.content or "Class(Screen" in self.content or 'require "widgets/' in self.content:
+            return WidgetParser(self.content)
+        
+        # 2. Prefab (实体) - [关键修复] 优先判定实体
+        # 只要包含 "return Prefab"，它就是实体文件，无论里面有没有掉落表定义
+        if "return Prefab" in self.content:
+            return PrefabParser(self.content)
+            
+        # 3. Strings (文本)
+        if "STRINGS." in self.content and "STRINGS.CHARACTERS" in self.content:
+            return StringParser(self.content)
+
+        # 4. Loot Table (纯掉落表文件)
+        # 只有在不是 Prefab 的情况下，SetSharedLootTable 才意味着它是纯数据表
+        if "SetSharedLootTable" in self.content or "AddChanceLoot" in self.content:
+            return LootParser(self.content)
+        
+        # 5. 默认回退
+        return PrefabParser(self.content)
+
+    def get_report(self):
+        return self.parser.parse()
+
+# ==========================================
+# 4. 配方解析器 (RecipeAnalyzer)
+# ==========================================
+class RecipeAnalyzer:
+    def __init__(self, content):
+        self.raw_content = content
+        self.recipes = {}
+        self.aliases = {}
+        if content:
+            self._parse()
+
+    def _clean_comments(self):
+        return re.sub(r'--.*$', '', self.raw_content, flags=re.MULTILINE)
+
+    def _extract_table_block(self, content, start_index):
+        start_brace = content.find('{', start_index)
+        if start_brace == -1: return None, start_index
+        balance = 1
+        for i in range(start_brace + 1, len(content)):
+            if content[i] == '{': balance += 1
+            elif content[i] == '}': balance -= 1
+            if balance == 0: return content[start_brace+1 : i], i + 1
+        return None, start_index
+
+    def _parse(self):
+        clean_content = self._clean_comments()
+        iter_pattern = re.compile(r'\bRecipe2?\s*\(\s*["\'](.*?)["\']', re.DOTALL)
+        
+        for match in iter_pattern.finditer(clean_content):
+            name = match.group(1)
+            cursor = match.end()
+            ing_block, new_cursor = self._extract_table_block(clean_content, cursor)
+            
+            if ing_block:
+                ingredients = []
+                for item, amount in re.findall(r'Ingredient\s*\(\s*["\'](.*?)["\']\s*,\s*([^,\)]+)', ing_block):
+                    ingredients.append({"item": item, "amount": amount.strip()})
+                
+                # [优化] 提取后续参数 (Tab, Tech)
+                # 截取直到下一个 Recipe 开始，或者文件结束
+                remainder_chunk = clean_content[new_cursor : new_cursor + 300] 
+                
+                tab = "UNKNOWN"
+                tech = "UNKNOWN"
+                
+                # 提取 TECH.XYZ
+                tech_match = re.search(r'(TECH\.[A-Z0-9_]+)', remainder_chunk)
+                if tech_match:
+                    tech = tech_match.group(1)
+                
+                # 提取 RECIPETABS.XYZ
+                tab_match = re.search(r'(RECIPETABS\.[A-Z0-9_]+)', remainder_chunk)
+                if tab_match:
+                    tab = tab_match.group(1)
+
+                self.recipes[name] = {"ingredients": ingredients, "tab": tab, "tech": tech}
+                self.aliases[name.lower()] = name
+                self.aliases[name.replace("_", "").lower()] = name
+
+    def get(self, query_name):
+        q = query_name.lower()
+        real_name = self.aliases.get(q) or self.aliases.get(q.replace("_", ""))
+        return (real_name, self.recipes[real_name]) if real_name else (None, None)
+```
+
+### File: src/engine.py
+- mode: full
+- size_bytes: 4409
+- sha256_12: 3b06776239e6
+
+```py
+#!/usr/bin/env python3
+import os
+import zipfile
+from rich.console import Console
+from utils import wagstaff_config
+from analyzer import TuningResolver, RecipeAnalyzer, LuaAnalyzer
+
+console = Console()
+
+class WagstaffEngine:
+    """
+    Wagstaff Lab 核心引擎 (v1.0)
+    职责: 统一管理数据源 (Zip/Folder) 和 核心知识库 (Tuning/Recipes)
+    """
+    def __init__(self, load_db=True, silent=False):
+        self.base_dir = wagstaff_config.get('PATHS', 'DST_ROOT')
+        self.zip_path = os.path.join(self.base_dir, "data", "databundles", "scripts.zip")
+        self.fallback_dir = os.path.join(self.base_dir, "data", "scripts")
+        
+        self.mode = None
+        self.source = None
+        self.file_list = []
+        
+        self.tuning = None
+        self.recipes = None
+        
+        self._init_source(silent)
+        if load_db:
+            self._init_databases(silent)
+
+    def _init_source(self, silent):
+        if os.path.exists(self.zip_path):
+            self.mode = 'zip'
+            self.source = zipfile.ZipFile(self.zip_path, 'r')
+            self.file_list = self.source.namelist()
+            if not silent: console.print(f"[dim]📦 引擎挂载 Zip 源: {self.zip_path}[/dim]")
+        elif os.path.exists(self.fallback_dir):
+            self.mode = 'folder'
+            self.source = self.fallback_dir
+            for root, _, files in os.walk(self.fallback_dir):
+                for name in files:
+                    rel = os.path.relpath(os.path.join(root, name), self.fallback_dir).replace("\\", "/")
+                    self.file_list.append(rel)
+            if not silent: console.print(f"[dim]📂 引擎挂载文件夹源: {self.fallback_dir}[/dim]")
+        else:
+            raise FileNotFoundError("无法找到 scripts.zip 或 scripts/ 目录")
+
+    def _init_databases(self, silent):
+        if not silent: console.print("[dim]🔄 加载神经中枢 (Tuning & Recipes)...[/dim]")
+        t_content = self.read_file("scripts/tuning.lua") or self.read_file("tuning.lua")
+        self.tuning = TuningResolver(t_content if t_content else "")
+        r_content = self.read_file("scripts/recipes.lua") or self.read_file("recipes.lua")
+        self.recipes = RecipeAnalyzer(r_content if r_content else "")
+
+    def read_file(self, path):
+        """智能读取文件（自动处理 scripts/ 前缀）"""
+        candidates = [path]
+        if not path.startswith("scripts/"): candidates.append(f"scripts/{path}")
+        else: candidates.append(path.replace("scripts/", ""))
+        
+        try:
+            if self.mode == 'zip':
+                for p in candidates:
+                    if p in self.file_list:
+                        return self.source.read(p).decode('utf-8', errors='replace')
+            else:
+                for p in candidates:
+                    real_path = os.path.join(self.source, p.replace("scripts/", ""))
+                    if os.path.exists(real_path):
+                        with open(real_path, 'r', encoding='utf-8', errors='replace') as f: return f.read()
+        except Exception:
+            return None
+        return None
+
+    def find_file(self, name, fuzzy=True):
+        """模糊查找文件 (如 armorwood -> scripts/prefabs/armor_wood.lua)"""
+        candidates = [f"scripts/prefabs/{name}.lua", f"prefabs/{name}.lua", f"scripts/{name}", name]
+        for c in candidates:
+            if c in self.file_list: return c
+            
+        if not fuzzy: return None
+
+        target = name.replace("_", "").lower()
+        for fname in self.file_list:
+            if not fname.endswith(".lua"): continue
+            base = os.path.basename(fname).replace(".lua", "")
+            if base.replace("_", "").lower() == target:
+                return fname
+        return None
+
+    def analyze_prefab(self, item_name):
+        """一键分析 Prefab (整合了 wiki.py 的逻辑)"""
+        path = self.find_file(item_name)
+        if not path: return None
+        
+        content = self.read_file(path)
+        if not content: return None
+        
+        analyzer = LuaAnalyzer(content)
+        data = analyzer.get_report()
+        
+        if self.tuning:
+            for comp in data.get('components', []):
+                comp['properties'] = [self.tuning.enrich(p) for p in comp['properties']]
+                comp['methods'] = [self.tuning.enrich(m) for m in comp['methods']]
+        
+        return data
+```
+
+### File: src/explorer.py
+- mode: full
+- size_bytes: 9616
+- sha256_12: 6f0febfb5667
+
+```py
+#!/usr/bin/env python3
+import os
+import sys
+from rich.console import Console
+from rich.table import Table
+from rich.tree import Tree
+from rich.panel import Panel
+from rich.prompt import Prompt, IntPrompt
+from rich.syntax import Syntax
+from rich import box
+from engine import WagstaffEngine
+
+console = Console()
+
+class DSTExplorer:
+    def __init__(self):
+        # 初始化引擎
+        try:
+            self.engine = WagstaffEngine(load_db=True)
+        except Exception as e:
+            console.print(f"[red]引擎启动失败: {e}[/red]")
+            sys.exit(1)
+        
+        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v3.1[/bold cyan]\n模式: {self.engine.mode.upper()} | 解析核心: Multi-Parser", border_style="blue"))
+        if self.engine.tuning:
+            console.print(f"[dim]⚡ Tuning 数值库就绪 ({len(self.engine.tuning.raw_map)} 条目)[/dim]")
+
+    def get_structure_tree(self):
+        """展示源码目录结构"""
+        tree = Tree(f"📁 [bold yellow]源码结构[/bold yellow]")
+        dir_counts = {}
+        for f in self.engine.file_list:
+            clean_path = f.replace("scripts/", "", 1) if f.startswith("scripts/") else f
+            top_dir = clean_path.split('/')[0] if '/' in clean_path else "[Root Files]"
+            dir_counts[top_dir] = dir_counts.get(top_dir, 0) + 1
+
+        for d, count in sorted(dir_counts.items(), key=lambda x: x[1], reverse=True):
+            if d == "[Root Files]":
+                tree.add(f"📄 {d} ({count})")
+            else:
+                style = "bold cyan" if d in ["prefabs", "components", "tuning.lua"] else "white"
+                tree.add(f"📂 [{style}]{d}[/{style}] ([dim]{count}[/dim])")
+        return tree
+
+    def search_files(self):
+        """文件名搜索"""
+        keyword = Prompt.ask("[bold green]🔍 搜索关键词[/bold green]")
+        if not keyword: return
+        
+        matches = [f for f in self.engine.file_list if keyword.lower() in f.lower()]
+        
+        if not matches:
+            console.print("[yellow]无结果[/yellow]")
+            return
+
+        table = Table(title=f"Results: '{keyword}'", box=box.SIMPLE)
+        table.add_column("路径", style="dim")
+        table.add_column("文件", style="bold green")
+        for m in matches[:15]:
+            d, f = os.path.split(m)
+            table.add_row(d, f)
+        console.print(table)
+        if len(matches) > 15: console.print(f"[dim]...剩余 {len(matches)-15} 项隐藏[/dim]")
+
+    def analyze_content(self, filename, content):
+        """核心分析逻辑：根据 analyzer 返回的类型进行多态渲染"""
+        from analyzer import LuaAnalyzer
+        
+        try:
+            # 1. 统一入口解析 (Facade)
+            data = LuaAnalyzer(content).get_report()
+        except Exception as e:
+            console.print(f"[red]解析失败: {e}[/red]")
+            return
+        
+        # 2. 根据数据类型分发渲染
+        dtype = data.get("type", "prefab")
+        tree = Tree(f"🧬 [bold green]深度解析: {dtype.upper()}[/bold green]")
+        
+        if dtype == "loot":
+            self._render_loot(tree, data)
+        elif dtype == "widget":
+            self._render_widget(tree, data)
+        elif dtype == "strings":
+            self._render_strings(tree, data)
+        else:
+            self._render_prefab(tree, data)
+
+        console.print(Panel(tree, border_style="green"))
+        input("按回车返回...")
+
+    # === 子渲染器 (Renderers) ===
+
+    def _render_loot(self, tree, data):
+        """渲染掉落表数据"""
+        if data.get('table_name'):
+            tree.add(f"📜 表名: [bold gold1]{data['table_name']}[/bold gold1]")
+        
+        entries = data.get('entries', [])
+        if entries:
+            branch = tree.add(f"💰 掉落项 ({len(entries)})")
+            for item in entries:
+                if item.get('method') == 'Random':
+                    branch.add(f"[cyan]{item['item']}[/cyan]: 权重 [yellow]{item['weight']}[/yellow]")
+                else:
+                    chance = item.get('chance', 0)
+                    branch.add(f"[cyan]{item['item']}[/cyan]: 几率 [magenta]{chance}[/magenta]")
+
+    def _render_widget(self, tree, data):
+        """渲染 UI Widget 数据"""
+        if data.get('classes'):
+            c_branch = tree.add("🧩 UI 类定义")
+            for c in data['classes']:
+                c_branch.add(f"[bold white]{c['name']}[/bold white] (extends [dim]{c['parent']}[/dim])")
+        
+        if data.get('dependencies'):
+            d_branch = tree.add("🔗 依赖模块")
+            for d in data['dependencies']:
+                d_branch.add(f"[dim]{d}[/dim]")
+
+    def _render_strings(self, tree, data):
+        """渲染文本配置数据"""
+        if data.get('includes'):
+            tree.add(f"📥 引入文件: {', '.join(data['includes'])}")
+        
+        if data.get('roots'):
+            r_branch = tree.add("🔤 文本根节点 (Roots)")
+            for root in data['roots']:
+                r_branch.add(f"STRINGS.[bold yellow]{root}[/bold yellow]")
+
+    def _render_prefab(self, tree, data):
+        """渲染实体 Prefab 数据 (包含 Tuning 增强)"""
+        # 1. 资源
+        if data.get('assets'):
+            asset_branch = tree.add(f"📦 资源引用 ({len(data['assets'])})")
+            for a in data['assets']:
+                style = "magenta" if "Anim" in a['type'] else "blue"
+                asset_branch.add(f"[{style}]{a['type']}[/{style}]: {a['path']}")
+
+        # 2. 逻辑 (Brain/SG/Tags)
+        logic_branch = tree.add("🧠 核心逻辑")
+        has_logic = False
+        if data.get('brain'): 
+            logic_branch.add(f"AI: [magenta]{data['brain']}[/magenta]")
+            has_logic = True
+        if data.get('stategraph'): 
+            logic_branch.add(f"SG: [magenta]{data['stategraph']}[/magenta]")
+            has_logic = True
+        if data.get('tags'): 
+            tags = data['tags']
+            tag_str = ", ".join([f"[dim]{t}[/dim]" for t in tags[:8]])
+            if len(tags) > 8: tag_str += "..."
+            logic_branch.add(f"Tags: {tag_str}")
+            has_logic = True
+        if not has_logic: logic_branch.label = "[dim]🧠 核心逻辑 (无)[/dim]"
+
+        # 3. 组件 (使用 Engine 的 Tuning 进行增强)
+        if data.get('components'):
+            comp_branch = tree.add(f"⚙️ 功能组件 ({len(data['components'])})")
+            for comp in data['components']:
+                node = comp_branch.add(f"[bold yellow]{comp['name']}[/bold yellow]")
+                
+                # 属性
+                if comp['properties']:
+                    target = node if len(comp['properties']) <=3 else node.add("[dim]属性配置[/dim]")
+                    for p in comp['properties']:
+                        # 使用 Engine 传入的 Tuning 进行增强
+                        p_text = self.engine.tuning.enrich(p) if self.engine.tuning else p
+                        target.add(f"[cyan]{p_text}[/cyan]")
+                
+                # 方法
+                if comp['methods']:
+                    target = node if len(comp['methods']) <=3 else node.add("[dim]函数调用[/dim]")
+                    for m in comp['methods']:
+                        # 使用 Engine 传入的 Tuning 进行增强
+                        m_text = self.engine.tuning.enrich(m) if self.engine.tuning else m
+                        target.add(f"[green]ƒ[/green] {m_text}")
+        else:
+            tree.add("[dim]⚙️ 功能组件 (无)[/dim]")
+
+    def preview_file(self):
+        """文件预览入口"""
+        target = Prompt.ask("[bold green]👀 文件名[/bold green]")
+        path = self.engine.find_file(target, fuzzy=True)
+        if not path:
+            console.print("[red]未找到[/red]")
+            return
+        
+        console.print(f"[yellow]打开: {path}[/yellow]")
+        content = self.engine.read_file(path)
+        
+        if content:
+            # 只显示前 50 行以供概览
+            syntax = Syntax("\n".join(content.splitlines()[:50]), "lua", theme="monokai", line_numbers=True)
+            console.print(Panel(syntax, title=f"{path} (Top 50 lines)", border_style="blue"))
+            
+            action = Prompt.ask("[bold cyan]操作[/bold cyan]", choices=["q", "a"], default="q")
+            if action == "a":
+                self.analyze_content(path, content)
+
+    def show_tuning(self):
+        """展示 Tuning 样本"""
+        if not self.engine.tuning: 
+            return console.print("[red]Tuning 未加载[/red]")
+        
+        console.print("[bold magenta]🔢 Tuning 数值采样[/bold magenta]")
+        count = 0
+        for k, v in list(self.engine.tuning.raw_map.items())[:10]:
+             console.print(f"  [cyan]{k}[/cyan] = {v}")
+             count += 1
+
+def main():
+    explorer = DSTExplorer()
+    while True:
+        console.print("\n[bold white on blue] 🦁 Wagstaff 探索面板 v3.1 [/bold white on blue]")
+        console.print("1. [bold]📁 结构[/]  2. [bold]🔍 搜索[/]  3. [bold]👀 预览&分析[/]  4. [bold]🔢 数值[/]  0. [bold red]退出[/]")
+        choice = IntPrompt.ask("选择", choices=["0","1","2","3","4"], default=1)
+        if choice == 0: break
+        elif choice == 1: console.print(explorer.get_structure_tree())
+        elif choice == 2: explorer.search_files()
+        elif choice == 3: explorer.preview_file()
+        elif choice == 4: explorer.show_tuning()
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+```
+
+### File: src/registry.py
+- mode: full
+- size_bytes: 2339
+- sha256_12: 12dac7d17279
+
+```py
+#!/usr/bin/env python3
+"""
+Wagstaff-Lab 工具注册中心 (v2.3)
+"""
+
+TOOLS = [
+    # --- 核心/业务工具 (src/) ---
+    {
+        "file": "guide.py",
+        "alias": None,
+        "desc": "Wagstaff-Lab 控制台主面板",
+        "usage": "Wagstaff-Lab",
+        "type": "Core"
+    },
+    {
+        "file": "doctor.py",
+        "alias": "doctor",
+        "desc": "环境配置与依赖健康检查",
+        "usage": "wagstaff doctor",
+        "type": "Src"
+    },
+    {
+        "file": "wiki.py",
+        "alias": "wiki",
+        "desc": "物品/配方/数值查询百科",
+        "usage": "wagstaff wiki <item_code>",
+        "type": "Src"
+    },
+    {
+        "file": "explorer.py",
+        "alias": "exp",
+        "desc": "源码结构浏览与深度分析",
+        "usage": "wagstaff exp",
+        "type": "Src"
+    },
+
+    # --- 开发工具 (devtools/) ---
+    {
+        "file": "pm.py",
+        "alias": "pm",
+        "desc": "项目进度与任务管理",
+        "usage": "pm [ui|obj|add|done|log]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "reporter.py",
+        "alias": "report",
+        "desc": "生成全服资产/配方分布报告",
+        "usage": "wagstaff report [assets|recipes|all]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "snapshot.py",
+        "alias": "snap",
+        "desc": "生成项目全息代码快照",
+        "usage":  "wagstaff snap [--mode core|full|custom] [--config conf/snapshot_profile.json]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "installer.py",
+        "alias": "install",
+        "desc": "环境注册与安装向导",
+        "usage": "python3 devtools/installer.py",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "sampler.py",
+        "alias": "samples",
+        "desc": "生成 DST Lua 样本包（用于扩展解析器）",
+        "usage": "wagstaff samples [--categories ...] [--n N] [--head-lines N] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "codemap.py",
+        "alias": "map",
+        "desc": "生成 DST scripts 宏观结构地图报告",
+        "usage": "wagstaff map",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+]
+
+def get_tools():
+    return TOOLS
+```
+
+### File: src/utils.py
+- mode: full
+- size_bytes: 1040
+- sha256_12: ffc01cb3d8f3
+
+```py
+import configparser
+import os
+from pathlib import Path
+
+class ConfigLoader:
+    def __init__(self):
+        # 自动定位项目根目录 (假设 utils.py 在 src/ 下)
+        self.project_root = Path(__file__).resolve().parent.parent
+        self.config_path = self.project_root / "conf" / "settings.ini"
+        
+        self.config = configparser.ConfigParser()
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"❌ 配置文件丢失: {self.config_path}")
+        
+        self.config.read(self.config_path)
+
+    def get(self, section, key):
+        """获取配置值并自动展开用户路径 (~)"""
+        val = self.config.get(section, key, fallback=None)
+        if val and "~" in val:
+            return os.path.expanduser(val)
+        return val
+
+# 单例模式：直接导出的实例
+wagstaff_config = ConfigLoader()
+
+# === 测试代码 ===
+if __name__ == "__main__":
+    print(f"Project Root: {wagstaff_config.project_root}")
+    print(f"DST Path: {wagstaff_config.get('PATHS', 'DST_ROOT')}")
+```
+
+### File: src/wiki.py
+- mode: full
+- size_bytes: 8796
+- sha256_12: d7709d0e1f1b
+
+```py
+#!/usr/bin/env python3
+import sys
+import re
+import os
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.tree import Tree
+from rich.markdown import Markdown
+
+# 挂载 src 目录以导入核心模块
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from engine import WagstaffEngine
+from analyzer import LuaAnalyzer, LootParser, PrefabParser
+
+console = Console()
+
+class WagstaffWiki:
+    def __init__(self):
+        try:
+            self.engine = WagstaffEngine(load_db=True)
+            # console.print(f"[dim]Wiki 引擎已连接 (文件数: {len(self.engine.file_list)})[/dim]")
+        except Exception as e:
+            console.print(f"[red]引擎初始化失败: {e}[/red]")
+            sys.exit(1)
+
+    def run(self, args):
+        if not args:
+            self._print_help()
+            return
+
+        command = args[0].lower()
+        query = args[1] if len(args) > 1 else None
+
+        if command == "recipe":
+            self._search_recipe(query)
+        elif command == "mob" or command == "item":
+            self._analyze_prefab(query)
+        elif command == "loot":
+            self._find_loot_table(query)
+        elif command == "find":
+            self._global_search(query)
+        else:
+            self._print_help()
+
+    def _print_help(self):
+        console.print(Panel("""
+[bold cyan]📖 Wagstaff Wiki v2.0[/bold cyan]
+
+[green]bin/wagstaff wiki recipe <物品名>[/green]   查询配方 (支持模糊匹配)
+[green]bin/wagstaff wiki mob <生物名>[/green]      查询生物/物品详情 (属性、组件)
+[green]bin/wagstaff wiki loot <表名>[/green]       [bold yellow]🔥 查询掉落表/掉落率[/bold yellow]
+[green]bin/wagstaff wiki find <关键词>[/green]     全局代码搜索
+""", title="Help", border_style="blue"))
+
+    def _search_recipe(self, query):
+        if not query: return console.print("[red]请输入物品名称[/red]")
+        
+        real_name, recipe_data = self.engine.recipes.get(query)
+        
+        if not recipe_data:
+            # 模糊搜索
+            candidates = [k for k in self.engine.recipes.recipes.keys() if query in k]
+            if not candidates:
+                return console.print(f"[red]未找到配方: {query}[/red]")
+            if len(candidates) > 1:
+                console.print(f"[yellow]可能的匹配: {', '.join(candidates[:5])}...[/yellow]")
+                return
+            real_name, recipe_data = self.engine.recipes.get(candidates[0])
+
+        grid = Table.grid(expand=True)
+        grid.add_column()
+        grid.add_column(justify="right")
+        
+        # 标题行
+        tab_info = recipe_data.get('tab', 'UNKNOWN').replace("RECIPETABS.", "")
+        grid.add_row(f"[bold gold1]{real_name.upper()}[/bold gold1]", f"[dim]{tab_info}[/dim]")
+        
+        # 科技需求
+        tech = recipe_data.get('tech', 'UNKNOWN').replace("TECH.", "")
+        grid.add_row(f"[bold]科技:[/bold] {tech}", "")
+        
+        # 材料列表
+        grid.add_row("\n[bold]所需材料:[/bold]")
+        for ing in recipe_data.get('ingredients', []):
+            grid.add_row(f"  • [cyan]{ing['item']}[/cyan]", f"[yellow]x{ing['amount']}[/yellow]")
+            
+        console.print(Panel(grid, title="🛠️  配方详情", border_style="gold1"))
+
+    def _analyze_prefab(self, query):
+        """分析 Prefab 组件结构 (增强版: 显示属性与数值)"""
+        if not query: return console.print("[red]请输入名称[/red]")
+        
+        filepath = self.engine.find_file(query, fuzzy=True)
+        if not filepath:
+            return console.print(f"[red]未找到文件: {query}[/red]")
+
+        content = self.engine.read_file(filepath)
+        report = LuaAnalyzer(content).get_report()
+        
+        tree = Tree(f"🧬 [bold green]实体情报: {os.path.basename(filepath)}[/bold green]")
+        
+        # 使用 Tuning 增强数值显示
+        tuning = self.engine.tuning
+
+        if report.get('components'):
+            comp_branch = tree.add("⚙️ 关键组件")
+            for comp in report['components']:
+                c_name = comp['name']
+                # 只有当组件有内容时才展开，或者是核心组件
+                has_content = comp.get('properties') or comp.get('methods')
+                
+                style = "bold yellow"
+                # 高亮核心数值组件
+                if c_name in ['weapon', 'health', 'hunger', 'sanity', 'armor', 'lootdropper']:
+                    style = "bold magenta"
+                
+                node_text = f"[{style}]{c_name}[/{style}]"
+                
+                if not has_content:
+                    comp_branch.add(node_text)
+                    continue
+                
+                comp_node = comp_branch.add(node_text)
+                
+                # 1. 显示属性
+                for prop in comp.get('properties', []):
+                    val_text = tuning.enrich(prop) if tuning else prop
+                    comp_node.add(f"[dim]•[/dim] {val_text}")
+
+                # 2. 显示方法
+                for method in comp.get('methods', []):
+                    val_text = tuning.enrich(method) if tuning else method
+                    
+                    # 关键方法高亮
+                    if any(k in method for k in ["SetDamage", "SetMaxHealth", "SetArmor"]):
+                        comp_node.add(f"[bold green]ƒ {val_text}[/bold green]")
+                    elif "SetChanceLootTable" in method or "SetSharedLootTable" in method:
+                        comp_node.add(f"[bold red]ƒ {val_text}[/bold red]")
+                    else:
+                        comp_node.add(f"[dim]ƒ[/dim] {val_text}")
+
+        console.print(Panel(tree, border_style="green"))
+        console.print(f"\n💡 提示: 若发现 [red]SetChanceLootTable('NAME')[/red]，\n请运行: [bold cyan]bin/wagstaff wiki loot NAME[/bold cyan] 查看掉落率")
+
+    def _find_loot_table(self, query):
+        """
+        全库扫描 + LootParser 强力解析
+        """
+        if not query: return console.print("[red]请输入掉落表名称 (例如: krampus)[/red]")
+        
+        console.print(f"[dim]正在全库搜索掉落表: '{query}' ...[/dim]")
+        
+        # 特征码: SetSharedLootTable('NAME'
+        pattern = re.compile(r'SetSharedLootTable\s*\(\s*[\'"]' + re.escape(query) + r'[\'"]')
+        
+        found = False
+        for filepath in self.engine.file_list:
+            if not filepath.endswith(".lua"): continue
+            
+            content = self.engine.read_file(filepath)
+            if not content: continue
+            
+            if pattern.search(content):
+                self._render_loot_table(filepath, query, content)
+                found = True
+                break 
+        
+        if not found:
+            console.print(f"[red]未找到掉落表定义: '{query}'[/red]")
+            console.print("[dim]提示：有些掉落是代码动态生成的，或者表名与实体名不一致。[/dim]")
+
+    def _render_loot_table(self, filepath, table_name, content):
+        console.print(f"[bold green]✅ 找到定义文件: {filepath}[/bold green]")
+        
+        # 强制使用 LootParser 解析该文件
+        parser = LootParser(content)
+        data = parser.parse()
+        
+        if not data['entries']:
+            console.print("[yellow]解析器未能提取到具体物品项 (可能是复杂的动态逻辑)。[/yellow]")
+            return
+
+        table = Table(title=f"💰 掉落表: {table_name}", box=None)
+        table.add_column("物品 (Prefab)", style="cyan")
+        table.add_column("几率 / 权重", style="magenta")
+        table.add_column("类型", style="dim")
+
+        for entry in data['entries']:
+            val_str = ""
+            if 'chance' in entry:
+                # 格式化百分比
+                pct = entry['chance'] * 100
+                if pct < 1: val_str = f"{pct:.2f}%"
+                else: val_str = f"{pct:.0f}%"
+            elif 'weight' in entry:
+                val_str = f"权重 {entry['weight']}"
+            
+            table.add_row(entry['item'], val_str, entry['method'])
+
+        console.print(Panel(table, border_style="gold1"))
+
+    def _global_search(self, query):
+        if not query: return
+        count = 0
+        console.print(f"[dim]搜索 '{query}'...[/dim]")
+        for f in self.engine.file_list:
+            content = self.engine.read_file(f)
+            if content and query in content:
+                console.print(f"📄 {f}")
+                count += 1
+                if count >= 10:
+                    console.print("[dim]...结果过多，仅显示前 10 个[/dim]")
+                    break
+
+if __name__ == "__main__":
+    WagstaffWiki().run(sys.argv[1:])
+```
+
+## 6. Snapshot Stats
+```yaml
+total_candidates: 25
+included_records: 25
+embedded_files: 11
+max_total_bytes: 2200000
+bytes_remaining: 2135245
+```

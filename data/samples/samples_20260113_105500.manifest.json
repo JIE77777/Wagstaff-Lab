@@ -1,0 +1,144 @@
+{
+  "generated": "2026-01-13T10:55:01+08:00",
+  "engine_mode": "zip",
+  "categories": [
+    "STRINGS",
+    "Widgets",
+    "Brains",
+    "Stategraphs",
+    "LootTables",
+    "Components"
+  ],
+  "chosen": {
+    "STRINGS": [
+      "scripts/strings.lua",
+      "scripts/skin_strings.lua"
+    ],
+    "Widgets": [
+      "scripts/widgets/controls.lua",
+      "scripts/screens/playerhud.lua"
+    ],
+    "Brains": [
+      "scripts/prefabs/pigman.lua",
+      "scripts/prefabs/merm.lua"
+    ],
+    "Stategraphs": [
+      "scripts/stategraphs/SGwilson.lua",
+      "scripts/stategraphs/SGwilson_client.lua"
+    ],
+    "LootTables": [
+      "scripts/prefabs/deciduoustrees.lua",
+      "scripts/prefabs/evergreens.lua"
+    ],
+    "Components": [
+      "scripts/components/scenariorunner.lua",
+      "scripts/components/debuffable.lua"
+    ]
+  },
+  "files": {
+    "STRINGS": [
+      {
+        "path": "scripts/strings.lua",
+        "sha256_12": "c473909148f0",
+        "lines": 18126,
+        "head_lines": 120,
+        "snippet_blocks": 10
+      },
+      {
+        "path": "scripts/skin_strings.lua",
+        "sha256_12": "360fcf894f0c",
+        "lines": 8463,
+        "head_lines": 120,
+        "snippet_blocks": 7
+      }
+    ],
+    "Widgets": [
+      {
+        "path": "scripts/widgets/controls.lua",
+        "sha256_12": "3e6ac904ac9c",
+        "lines": 1143,
+        "head_lines": 120,
+        "snippet_blocks": 2
+      },
+      {
+        "path": "scripts/screens/playerhud.lua",
+        "sha256_12": "929f8f93ad2b",
+        "lines": 1738,
+        "head_lines": 120,
+        "snippet_blocks": 4
+      }
+    ],
+    "Brains": [
+      {
+        "path": "scripts/prefabs/pigman.lua",
+        "sha256_12": "057ce3dc07e5",
+        "lines": 861,
+        "head_lines": 120,
+        "snippet_blocks": 4
+      },
+      {
+        "path": "scripts/prefabs/merm.lua",
+        "sha256_12": "9318b5254591",
+        "lines": 1658,
+        "head_lines": 120,
+        "snippet_blocks": 1
+      }
+    ],
+    "Stategraphs": [
+      {
+        "path": "scripts/stategraphs/SGwilson.lua",
+        "sha256_12": "a4dc61624beb",
+        "lines": 25875,
+        "head_lines": 120,
+        "snippet_blocks": 10
+      },
+      {
+        "path": "scripts/stategraphs/SGwilson_client.lua",
+        "sha256_12": "348ab359e83b",
+        "lines": 7327,
+        "head_lines": 120,
+        "snippet_blocks": 10
+      }
+    ],
+    "LootTables": [
+      {
+        "path": "scripts/prefabs/deciduoustrees.lua",
+        "sha256_12": "abeb7b437c95",
+        "lines": 1458,
+        "head_lines": 120,
+        "snippet_blocks": 10
+      },
+      {
+        "path": "scripts/prefabs/evergreens.lua",
+        "sha256_12": "bfdc4b4c2c58",
+        "lines": 993,
+        "head_lines": 120,
+        "snippet_blocks": 10
+      }
+    ],
+    "Components": [
+      {
+        "path": "scripts/components/scenariorunner.lua",
+        "sha256_12": "113cd7848f23",
+        "lines": 64,
+        "head_lines": 64,
+        "snippet_blocks": 3
+      },
+      {
+        "path": "scripts/components/debuffable.lua",
+        "sha256_12": "6b54db69ec53",
+        "lines": 174,
+        "head_lines": 120,
+        "snippet_blocks": 4
+      }
+    ]
+  },
+  "source_reports": {
+    "asset_registry": "/home/steam/Wagstaff-Lab/data/reports/asset_registry.md",
+    "recipe_distribution": "/home/steam/Wagstaff-Lab/data/reports/recipe_distribution.md"
+  },
+  "limits": {
+    "max_chars_per_file": 18000,
+    "max_total_chars": 260000
+  }
+}
