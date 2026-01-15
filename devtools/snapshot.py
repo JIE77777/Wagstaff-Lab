@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wagstaff-Lab Snapshot (v4)
+"""Wagstaff-Lab Snapshot (v4.2)
 
 Goal:
 - Provide two primary modes:
@@ -27,11 +27,12 @@ import platform
 import re
 import subprocess
 import sys
+import time
 import textwrap
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -95,6 +96,10 @@ BUILTIN_TEMPLATES = {
         "output": "project_context.txt",
         "redact": True,
         "include_reports": True,
+        "hash": "embedded",
+        "embed_order": "smart",
+        "inventory": {"enabled": True, "scope": "all", "limit": 700},
+        "pinned": ["PROJECT_STATUS.json", "README.md", "conf/settings.ini", "conf/snapshot_templates.json", "src/registry.py"],
         "max_file_bytes": 200000,
         "max_total_bytes": 1200000,
         "tree": {"max_depth": 8, "max_entries_per_dir": 250},
@@ -127,6 +132,9 @@ BUILTIN_TEMPLATES = {
         "zip_output": "data/snapshots/archive_{timestamp}.zip",
         "redact": True,
         "include_reports": True,
+        "hash": "all",
+        "embed_order": "path",
+        "inventory": {"enabled": True, "scope": "all", "limit": 2000},
         "max_file_bytes": 500000,
         "max_total_bytes": 20000000,
         "tree": {"max_depth": 30, "max_entries_per_dir": 1000},
@@ -138,6 +146,7 @@ BUILTIN_TEMPLATES = {
 }
 
 
+
 @dataclass
 class FileRecord:
     rel_posix: str
@@ -145,9 +154,16 @@ class FileRecord:
     size_bytes: int
     sha256_12: str
     mode: str
+
+    # Rule-derived knobs (cached per file to avoid repeated rule scans)
+    head_lines: int = 200
+    per_file_max_bytes: int = 200000
+
+    # Render-time metadata
     rendered_bytes: int = 0
     truncated: bool = False
     note: str = ""
+    approx_tokens: int = 0
 
 
 def _now_ts() -> str:
@@ -237,18 +253,128 @@ def _sha256_12(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()[:12]
 
+DEFAULT_SHA_CACHE_PATH = PROJECT_ROOT / "data" / "snapshots" / ".snapshot_sha_cache.json"
+
+
+def _load_sha_cache(cache_path: Path) -> Dict[str, Dict[str, Any]]:
+    """Load SHA cache from disk (best-effort)."""
+    try:
+        if cache_path.exists():
+            data = json.loads(cache_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                # Ensure nested dicts
+                out: Dict[str, Dict[str, Any]] = {}
+                for k, v in data.items():
+                    if isinstance(k, str) and isinstance(v, dict):
+                        out[k] = v
+                return out
+    except Exception:
+        pass
+    return {}
+
+
+def _save_sha_cache(cache_path: Path, cache: Dict[str, Dict[str, Any]]) -> None:
+    """Persist SHA cache to disk (best-effort)."""
+    try:
+        _ensure_parent(cache_path)
+        cache_path.write_text(json.dumps(cache, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except Exception:
+        # Cache is purely an optimization; ignore failures
+        return
+
+
+def _sha256_12_cached(path: Path, rel_posix: str, cache: Dict[str, Dict[str, Any]]) -> str:
+    """Compute sha256_12 with a simple stat-based cache."""
+    try:
+        st = path.stat()
+        mtime_ns = int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9)))
+        size = int(st.st_size)
+    except Exception:
+        return "Unknown"
+
+    entry = cache.get(rel_posix)
+    if isinstance(entry, dict):
+        try:
+            if int(entry.get("mtime_ns", -1)) == mtime_ns and int(entry.get("size", -2)) == size:
+                val = entry.get("sha256_12")
+                if isinstance(val, str) and len(val) == 12:
+                    return val
+        except Exception:
+            pass
+
+    try:
+        sha = _sha256_12(path)
+    except Exception:
+        sha = "Unknown"
+
+    cache[rel_posix] = {"mtime_ns": mtime_ns, "size": size, "sha256_12": sha}
+    return sha
+
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate (useful for context-window sizing).
+
+    Heuristic:
+    - ASCII chars ~ 1 token / 4 chars
+    - Non-ASCII chars ~ 1 token / char (works better for CJK)
+    """
+    if not text:
+        return 0
+    n = len(text)
+    non_ascii = sum(1 for ch in text if ord(ch) > 127)
+    ascii_cnt = n - non_ascii
+    # ceil-ish without math import
+    return int(non_ascii + (ascii_cnt + 3) // 4)
+
 
 def _posix_rel(path: Path) -> str:
     return path.relative_to(PROJECT_ROOT).as_posix()
 
 
 def _match_glob(rel_posix: str, pattern: str) -> bool:
-    # Prefer pathlib's match to get ** semantics.
-    try:
-        return PurePosixPath(rel_posix).match(pattern)
-    except Exception:
-        return fnmatch.fnmatch(rel_posix, pattern)
+    """Glob matching with stable ** semantics.
 
+    Semantics:
+    - If pattern has no '/', treat it as a basename pattern.
+    - '**' matches 0..N path segments (unlike pathlib.Path.match which may require >=1).
+    - Other segments use fnmatch-style wildcards.
+    """
+    rel_posix = rel_posix.lstrip("/")
+    pattern = str(pattern or "").lstrip("/")
+
+    if not pattern:
+        return False
+
+    # Basename-only pattern: match only the filename.
+    if "/" not in pattern:
+        name = rel_posix.rsplit("/", 1)[-1]
+        return fnmatch.fnmatchcase(name, pattern)
+
+    path_parts = rel_posix.split("/") if rel_posix else []
+    pat_parts = pattern.split("/") if pattern else []
+
+    def rec(i: int, j: int) -> bool:
+        if i == len(pat_parts):
+            return j == len(path_parts)
+
+        pat = pat_parts[i]
+
+        if pat == "**":
+            # Match zero segments
+            if rec(i + 1, j):
+                return True
+            # Match one segment and keep '**' active
+            return j < len(path_parts) and rec(i, j + 1)
+
+        if j >= len(path_parts):
+            return False
+
+        if fnmatch.fnmatchcase(path_parts[j], pat):
+            return rec(i + 1, j + 1)
+
+        return False
+
+    return rec(0, 0)
 
 def _load_templates(config_path: Path) -> Dict[str, Any]:
     if config_path.exists():
@@ -289,35 +415,156 @@ def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _iter_candidates(include_globs: List[str]) -> List[Path]:
-    files: List[Path] = []
+def _simplify_include_globs(include_globs: List[str]) -> List[str]:
+    globs = [str(g).strip() for g in (include_globs or []) if str(g).strip()]
+    out: List[str] = []
     seen: set[str] = set()
-    for pattern in include_globs:
-        for p in PROJECT_ROOT.glob(pattern):
-            if p.is_dir():
+    for g in globs:
+        if g in seen:
+            continue
+        seen.add(g)
+        out.append(g)
+
+    # Common redundancy: if include-all is present, additional include globs are unnecessary
+    if any(g in {"**", "**/*"} for g in out):
+        return ["**/*"]
+
+    return out
+
+
+def _derive_prunable_ignore_prefixes(ignore_globs: List[str]) -> List[str]:
+    """Best-effort directory pruning from ignore globs.
+
+    If an ignore glob is of the form 'path/to/dir/**' (no wildcard in the prefix),
+    we can prune that subtree during os.walk for speed.
+    """
+    prefixes: List[str] = []
+    wildcard_re = re.compile(r"[*?\[]")
+    for pat in ignore_globs or []:
+        pat = str(pat).strip().lstrip("/")
+        if not pat:
+            continue
+        if not pat.endswith("/**") and not pat.endswith("/**/*"):
+            continue
+        prefix = pat[:-3] if pat.endswith("/**") else pat[:-5]
+        if not prefix:
+            continue
+        if wildcard_re.search(prefix):
+            continue
+        prefixes.append(prefix)
+    # Longer prefixes first to match more specifically
+    prefixes.sort(key=len, reverse=True)
+    return prefixes
+
+
+def _iter_candidates(
+    include_globs: List[str],
+    *,
+    ignore_dirs: set[str],
+    ignore_files: set[str],
+    ignore_globs: List[str],
+) -> List[Path]:
+    """Iterate candidate files with a single filesystem walk.
+
+    This is substantially faster than multiple Path.glob() passes when include_globs grows.
+    """
+    include_globs = _simplify_include_globs(include_globs)
+    if not include_globs:
+        return []
+
+    include_all = include_globs == ["**/*"]
+
+    # Separate basename patterns (no '/') vs full path patterns
+    basename_pats: List[str] = []
+    path_pats: List[str] = []
+    if not include_all:
+        for pat in include_globs:
+            if "/" in pat:
+                path_pats.append(pat)
+            else:
+                basename_pats.append(pat)
+
+    prunable_prefixes = _derive_prunable_ignore_prefixes(ignore_globs)
+
+    files: List[Path] = []
+
+    for root, dirs, filenames in os.walk(PROJECT_ROOT, topdown=True, followlinks=False):
+        # Rel path for pruning (posix)
+        try:
+            rel_root = Path(root).relative_to(PROJECT_ROOT).as_posix()
+        except Exception:
+            rel_root = ""
+
+        # Prune by ignore_dirs (name-based)
+        if dirs:
+            dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+        # Prune by ignore_globs-derived subtree prefixes
+        if rel_root:
+            for pref in prunable_prefixes:
+                if rel_root == pref or rel_root.startswith(pref + "/"):
+                    dirs[:] = []
+                    filenames = []
+                    break
+
+        for name in filenames:
+            if name in ignore_files:
                 continue
+
+            abs_path = Path(root) / name
             try:
-                rel = _posix_rel(p)
+                rel = abs_path.relative_to(PROJECT_ROOT).as_posix()
             except Exception:
                 continue
-            if rel in seen:
+
+            # Ignore globs (fast reject)
+            ignored = False
+            for pat in ignore_globs:
+                if _match_glob(rel, pat):
+                    ignored = True
+                    break
+            if ignored:
                 continue
-            seen.add(rel)
-            files.append(p)
-    files.sort(key=lambda x: _posix_rel(x))
+
+            # Include filter
+            if include_all:
+                files.append(abs_path)
+                continue
+
+            ok = False
+            if basename_pats:
+                for pat in basename_pats:
+                    if fnmatch.fnmatchcase(name, pat):
+                        ok = True
+                        break
+            if (not ok) and path_pats:
+                for pat in path_pats:
+                    if _match_glob(rel, pat):
+                        ok = True
+                        break
+            if ok:
+                files.append(abs_path)
+
+    files.sort(key=lambda p: _posix_rel(p))
     return files
 
 
 def _should_ignore(path: Path, ignore_files: set[str], ignore_globs: List[str], ignore_dirs: set[str]) -> bool:
-    # Fast dir ignore
-    parts = set(path.parts)
-    if parts & ignore_dirs:
+    """Return True if a file path should be ignored."""
+    try:
+        rel = _posix_rel(path)
+    except Exception:
         return True
+
+    # Ignore by directory segment (relative path only)
+    parts = rel.split("/")
+    for seg in parts[:-1]:
+        if seg in ignore_dirs:
+            return True
 
     if path.name in ignore_files:
         return True
 
-    rel = _posix_rel(path)
     for pat in ignore_globs:
         if _match_glob(rel, pat):
             return True
@@ -724,8 +971,12 @@ def main() -> None:
     parser.add_argument("--list-templates", action="store_true", help="List available templates and exit")
     parser.add_argument("--no-redact", action="store_true", help="Disable secret redaction")
     parser.add_argument("--zip", action="store_true", help="Force creating zip bundle when supported")
+    parser.add_argument("--hash", choices=["all", "embedded", "none"], help="Override hashing mode (all/embedded/none)")
+    parser.add_argument("--plan", action="store_true", help="Print a JSON plan summary and exit (no snapshot written)")
 
     args = parser.parse_args()
+
+    t0 = time.perf_counter()
 
     cfg_path = Path(args.config)
     templates_doc = _load_templates(cfg_path)
@@ -755,11 +1006,22 @@ def main() -> None:
             zip_path = output_path.with_suffix(".zip")
 
     # Template controls
-    include_globs = list(tpl.get("include_globs") or [])
+    include_globs = _simplify_include_globs(list(tpl.get("include_globs") or []))
+
+    ignore_dirs = set(DEFAULT_IGNORE_DIRS) | set(tpl.get("ignore_dirs") or [])
     ignore_files = set(tpl.get("ignore_files") or list(DEFAULT_IGNORE_FILES))
     ignore_globs = list(tpl.get("ignore_globs") or list(DEFAULT_IGNORE_GLOBS))
 
-    # Optional reports toggle
+    # Always ignore generated artifacts to avoid snapshot recursion
+    ignore_files.add(output_path.name)
+    if zip_path is not None:
+        ignore_files.add(zip_path.name)
+        try:
+            ignore_globs.append(zip_path.relative_to(PROJECT_ROOT).as_posix())
+        except Exception:
+            pass
+
+    # Optional reports toggle (hard exclude)
     if not bool(tpl.get("include_reports", True)):
         ignore_globs.append("data/reports/**")
 
@@ -774,30 +1036,122 @@ def main() -> None:
 
     rules = list(tpl.get("rules") or [])
 
-    print(f"📸 Generating snapshot: mode={args.mode}, template={tpl_name}, output={output_path}")
+    # Hashing / ordering / inventory knobs
+    hash_mode = str(args.hash or tpl.get("hash") or tpl.get("hash_mode") or "all").strip().lower()
+    if hash_mode not in {"all", "embedded", "none"}:
+        hash_mode = "all"
 
-    # 1) Collect candidates
-    candidates = _iter_candidates(include_globs)
+    embed_order = str(tpl.get("embed_order", "path")).strip().lower()
+    if embed_order not in {"path", "mode", "smart"}:
+        embed_order = "path"
+
+    pinned = list(tpl.get("pinned") or [])
+
+    inv_cfg = tpl.get("inventory") or {}
+    inv_enabled = bool(inv_cfg.get("enabled", True))
+    inv_scope = str(inv_cfg.get("scope", "all")).strip().lower()
+    inv_limit = int(inv_cfg.get("limit", 700))
+
+    sha_cache_path = DEFAULT_SHA_CACHE_PATH
+    if isinstance(tpl.get("hash_cache"), str) and tpl.get("hash_cache"):
+        sha_cache_path = PROJECT_ROOT / str(tpl.get("hash_cache"))
+
+    sha_cache: Dict[str, Dict[str, Any]] = {}
+    if hash_mode in {"all", "embedded"}:
+        sha_cache = _load_sha_cache(sha_cache_path)
+
+    if not args.plan:
+        print(f"📸 Generating snapshot: mode={args.mode}, template={tpl_name}, output={output_path}")
+
+    # 1) Collect candidates (single walk, already filtered by ignore_files/ignore_globs/ignore_dirs)
+    t_scan0 = time.perf_counter()
+    candidates = _iter_candidates(
+        include_globs,
+        ignore_dirs=ignore_dirs,
+        ignore_files=ignore_files,
+        ignore_globs=ignore_globs,
+    )
+    t_scan_ms = int((time.perf_counter() - t_scan0) * 1000)
 
     records: List[FileRecord] = []
+    t_rec0 = time.perf_counter()
     for p in candidates:
-        if _should_ignore(p, ignore_files, ignore_globs, DEFAULT_IGNORE_DIRS):
-            continue
         rel = _posix_rel(p)
         rule = _pick_rule(rel, rules)
-        mode = str(rule.get("mode", "skip"))
+        mode = str(rule.get("mode", "skip")).strip() or "skip"
+        if mode not in {"full", "interface", "head", "skip"}:
+            mode = "skip"
+
         try:
             size = p.stat().st_size
         except Exception:
             continue
+
+        head_lines = int(rule.get("head_lines", 200))
+        per_file = int(rule.get("max_file_bytes", max_file_bytes))
+
         sha = "-"
-        try:
-            # Hashing is useful, but avoid expensive work for skipped files.
-            if mode != "skip":
-                sha = _sha256_12(p)
-        except Exception:
-            sha = "Unknown"
-        records.append(FileRecord(rel_posix=rel, abs_path=p, size_bytes=size, sha256_12=sha, mode=mode))
+        if hash_mode == "all" and mode != "skip":
+            sha = _sha256_12_cached(p, rel, sha_cache)
+
+        records.append(
+            FileRecord(
+                rel_posix=rel,
+                abs_path=p,
+                size_bytes=size,
+                sha256_12=sha,
+                mode=mode,
+                head_lines=head_lines,
+                per_file_max_bytes=per_file,
+            )
+        )
+
+    t_rec_ms = int((time.perf_counter() - t_rec0) * 1000)
+
+    # Plan mode: emit JSON and exit (no file I/O except optional SHA cache)
+    if args.plan:
+        by_mode: Dict[str, Dict[str, int]] = {}
+        for r in records:
+            d = by_mode.setdefault(r.mode, {"count": 0, "size_bytes": 0})
+            d["count"] += 1
+            d["size_bytes"] += int(r.size_bytes)
+
+        non_skip = [r for r in records if r.mode != "skip"]
+        top_large = sorted(non_skip, key=lambda r: r.size_bytes, reverse=True)[:20]
+
+        plan = {
+            "mode": args.mode,
+            "template": tpl_name,
+            "config_file": str(cfg_path),
+            "output": str(output_path.relative_to(PROJECT_ROOT)),
+            "zip": {
+                "enabled": bool(zip_path is not None),
+                "output": str(zip_path.relative_to(PROJECT_ROOT)) if zip_path is not None else None,
+            },
+            "redact_enabled": redact_enabled,
+            "hash_mode": hash_mode,
+            "embed_order": embed_order,
+            "limits": {"max_file_bytes": max_file_bytes, "max_total_bytes": max_total_bytes},
+            "tree": {"max_depth": tree_max_depth, "max_entries_per_dir": tree_max_entries},
+            "include_globs": include_globs,
+            "ignore_dirs": sorted(ignore_dirs),
+            "ignore_files": sorted(ignore_files),
+            "ignore_globs": ignore_globs,
+            "rules_count": len(rules),
+            "total_candidates": len(candidates),
+            "included_records": len(records),
+            "by_mode": by_mode,
+            "timing_ms": {"scan": t_scan_ms, "records": t_rec_ms, "total": int((time.perf_counter() - t0) * 1000)},
+            "top_largest_non_skip": [
+                {"path": r.rel_posix, "mode": r.mode, "size_bytes": r.size_bytes} for r in top_large
+            ],
+        }
+
+        if hash_mode == "all":
+            _save_sha_cache(sha_cache_path, sha_cache)
+
+        print(json.dumps(plan, ensure_ascii=False, indent=2))
+        return
 
     # 2) Build report
     report: List[str] = []
@@ -806,6 +1160,34 @@ def main() -> None:
     report.append(f"- Generated: {datetime.now().isoformat(timespec='seconds')}")
     report.append(f"- Mode: {args.mode}")
     report.append(f"- Template: {tpl_name}")
+
+    eff = {
+        "mode": args.mode,
+        "template": tpl_name,
+        "config_file": str(cfg_path),
+        "output": str(output_path.relative_to(PROJECT_ROOT)),
+        "zip": {
+            "enabled": bool(zip_path is not None),
+            "output": str(zip_path.relative_to(PROJECT_ROOT)) if zip_path is not None else None,
+        },
+        "redact_enabled": redact_enabled,
+        "hash_mode": hash_mode,
+        "embed_order": embed_order,
+        "limits": {"max_file_bytes": max_file_bytes, "max_total_bytes": max_total_bytes},
+        "tree": {"max_depth": tree_max_depth, "max_entries_per_dir": tree_max_entries},
+        "glob_semantics": {"**": "matches 0..N path segments"},
+        "include_globs": include_globs,
+        "ignore_dirs": sorted(ignore_dirs),
+        "ignore_files": sorted(ignore_files),
+        "ignore_globs": ignore_globs,
+        "rules": rules,
+        "inventory": {"enabled": inv_enabled, "scope": inv_scope, "limit": inv_limit},
+    }
+
+    report.append("\n## 0. Effective Template Config")
+    report.append("```json")
+    report.append(json.dumps(eff, ensure_ascii=False, indent=2))
+    report.append("```")
 
     report.append("\n## 1. Environment Diagnostics")
     report.append("```yaml")
@@ -834,56 +1216,79 @@ def main() -> None:
             depth=0,
             max_depth=tree_max_depth,
             max_entries=tree_max_entries,
-            ignore_dirs=DEFAULT_IGNORE_DIRS,
+            ignore_dirs=ignore_dirs,
             ignore_files=ignore_files,
             ignore_globs=ignore_globs,
         ).rstrip("\n")
     )
     report.append("```")
 
-    report.append("\n## 4. File Inventory")
-    report.append("(mode: full/interface/head/skip; '*' means truncated when rendered)\n")
-    report.append("```text")
-    report.append(_render_file_inventory(records, limit=700))
-    report.append("```")
+    if inv_enabled:
+        report.append("\n## 4. File Inventory")
+        report.append("(mode: full/interface/head/skip; '*' means truncated when rendered)\n")
+        report.append("```text")
+        inv_records: List[FileRecord]
+        if inv_scope in {"included", "non_skip", "nonskip"}:
+            inv_records = [r for r in records if r.mode != "skip"]
+        else:
+            inv_records = records
+        report.append(_render_file_inventory(inv_records, limit=inv_limit))
+        report.append("```")
 
     report.append("\n## 5. File Contents")
 
     # 3) Emit contents within budget
+    t_render0 = time.perf_counter()
     budget = max_total_bytes
     embedded_files = 0
+    approx_total_tokens = 0
 
-    for rec in records:
-        if rec.mode == "skip":
-            continue
+    embed_records = [r for r in records if r.mode != "skip"]
 
+    def mode_prio(m: str) -> int:
+        return {"full": 0, "interface": 1, "head": 2}.get(m, 9)
+
+    if embed_order == "mode":
+        embed_records.sort(key=lambda r: (mode_prio(r.mode), r.rel_posix))
+    elif embed_order == "smart":
+        def pin_rank(r: FileRecord) -> int:
+            if not pinned:
+                return 10_000
+            for i, pat in enumerate(pinned):
+                if pat and _match_glob(r.rel_posix, str(pat)):
+                    return i
+            return 10_000
+        embed_records.sort(key=lambda r: (pin_rank(r), mode_prio(r.mode), r.rel_posix))
+    # else: "path" keeps as-is (already sorted by path)
+
+    for rec in embed_records:
         if _is_probably_binary(rec.abs_path):
             rec.note = "[skipped: binary]"
             continue
 
-        rule = _pick_rule(rec.rel_posix, rules)
         mode = rec.mode
-        head_lines = int(rule.get("head_lines", 200))
-
         content = ""
         truncated = False
 
         if mode == "head":
-            content, truncated = _read_head_lines(rec.abs_path, head_lines=head_lines)
+            content, truncated = _read_head_lines(rec.abs_path, head_lines=rec.head_lines)
         elif mode == "interface":
             if rec.abs_path.suffix.lower() == ".py":
                 content = _extract_python_interface(rec.abs_path)
                 truncated = False
             else:
-                content, truncated = _read_head_lines(rec.abs_path, head_lines=head_lines)
+                content, truncated = _read_head_lines(rec.abs_path, head_lines=rec.head_lines)
         elif mode == "full":
-            per_file = int(rule.get("max_file_bytes", max_file_bytes))
-            content, truncated = _read_text_limited(rec.abs_path, max_bytes=per_file)
+            content, truncated = _read_text_limited(rec.abs_path, max_bytes=rec.per_file_max_bytes)
         else:
             continue
 
         if redact_enabled:
             content = _redact(content)
+
+        # Optionally hash only embedded files
+        if hash_mode == "embedded" and rec.sha256_12 == "-":
+            rec.sha256_12 = _sha256_12_cached(rec.abs_path, rec.rel_posix, sha_cache)
 
         # Rough byte count for budget
         render_blob = content.encode("utf-8", errors="replace")
@@ -899,6 +1304,11 @@ def main() -> None:
         budget -= needed
         rec.rendered_bytes = needed
         rec.truncated = truncated
+
+        tok = _estimate_tokens(content)
+        rec.approx_tokens = tok
+        approx_total_tokens += tok
+
         embedded_files += 1
 
         report.append(f"\n### File: {rec.rel_posix}")
@@ -907,6 +1317,8 @@ def main() -> None:
         report.append(f"- sha256_12: {rec.sha256_12}")
         if truncated:
             report.append(f"- note: TRUNCATED")
+        if rec.note and rec.note not in {"[skipped: binary]"}:
+            report.append(f"- note: {rec.note}")
         report.append("")
 
         # code fence lang
@@ -920,11 +1332,17 @@ def main() -> None:
         report.append(content.rstrip("\n"))
         report.append("```")
 
+    t_render_ms = int((time.perf_counter() - t_render0) * 1000)
+
     report.append("\n## 6. Snapshot Stats")
     report.append("```yaml")
     report.append(f"total_candidates: {len(candidates)}")
     report.append(f"included_records: {len(records)}")
     report.append(f"embedded_files: {embedded_files}")
+    report.append(f"hash_mode: {hash_mode}")
+    report.append(f"embed_order: {embed_order}")
+    report.append(f"timing_ms: {{scan: {t_scan_ms}, records: {t_rec_ms}, render: {t_render_ms}, total: {int((time.perf_counter() - t0) * 1000)}}}")
+    report.append(f"approx_total_tokens: {approx_total_tokens}")
     report.append(f"max_total_bytes: {max_total_bytes}")
     report.append(f"bytes_remaining: {budget}")
     report.append("```")
@@ -933,6 +1351,10 @@ def main() -> None:
     _ensure_parent(output_path)
     output_path.write_text("\n".join(report) + "\n", encoding="utf-8")
     print(f"✅ Snapshot written: {output_path}")
+
+    # Persist SHA cache (optimization only)
+    if hash_mode in {"all", "embedded"}:
+        _save_sha_cache(sha_cache_path, sha_cache)
 
     # 5) Optional zip bundle
     if zip_path is not None:

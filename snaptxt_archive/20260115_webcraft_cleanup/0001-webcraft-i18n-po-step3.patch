@@ -1,0 +1,913 @@
+diff -ruN a/src/webcraft/api.py b/src/webcraft/api.py
+--- a/src/webcraft/api.py	2026-01-14 14:58:39.033374140 +0000
++++ b/src/webcraft/api.py	2026-01-14 14:58:39.047446977 +0000
+@@ -144,6 +144,14 @@
+     else:
+         m.update({"tuning_enabled": False})
+ 
++    # i18n (optional)
++    isvc = getattr(request.app.state, "i18n_service", None)
++    if isvc is not None:
++        try:
++            m.update({"i18n": isvc.public_meta(engine=eng)})
++        except Exception:
++            pass
++
+     return m
+ 
+ 
+@@ -161,6 +169,31 @@
+ 
+     return {"assets": mp, "count": len(mp), "icon": icon_cfg or {"mode": "off", "static_base": "/static/icons", "api_base": "/api/v1/icon"}}
+ 
++@router.get("/i18n")
++def i18n_meta(request: Request):
++    """Return i18n capability + available languages."""
++    svc = getattr(request.app.state, "i18n_service", None)
++    if svc is None:
++        return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
++    try:
++        return svc.public_meta(engine=_get_engine(request))
++    except Exception:
++        return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
++
++
++@router.get("/i18n/names/{lang}")
++def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_store)):
++    """Return id->localized name mapping for items in the current catalog."""
++    svc = getattr(request.app.state, "i18n_service", None)
++    if svc is None:
++        return {"lang": str(lang), "names": {}, "count": 0}
++    try:
++        mp = svc.item_name_map(lang=str(lang), assets=store.assets(), engine=_get_engine(request))
++    except Exception:
++        mp = {}
++    return {"lang": str(lang), "names": mp, "count": len(mp or {})}
++
++
+ @router.get("/items/{item_id}")
+ def item_detail(item_id: str, request: Request, store: CatalogStore = Depends(get_store)):
+     """Return best-effort item-centric view.
+diff -ruN a/src/webcraft/app.py b/src/webcraft/app.py
+--- a/src/webcraft/app.py	2026-01-14 14:58:39.032879406 +0000
++++ b/src/webcraft/app.py	2026-01-14 14:58:39.047827900 +0000
+@@ -13,6 +13,7 @@
+ from .api import router as api_router
+ from .catalog_store import CatalogStore
+ from .icon_service import IconConfig, IconService
++from .i18n_service import I18nConfig, I18nService
+ from .settings import WebCraftSettings
+ from .ui import render_index_html, render_cooking_html, render_catalog_html
+ 
+@@ -75,6 +76,13 @@
+             app.state.engine = None
+     app.state.auto_reload_catalog = bool(auto_reload_catalog)
+ 
++    # i18n (optional; from DST .po language pack)
++    try:
++        i18n_cfg = I18nConfig.from_env()
++        app.state.i18n_service = I18nService(i18n_cfg, engine=getattr(app.state, "engine", None))
++    except Exception:
++        app.state.i18n_service = None
++
+     icons_dir = static_root / "icons"
+     try:
+         icons_dir.mkdir(parents=True, exist_ok=True)
+diff -ruN a/src/webcraft/i18n_service.py b/src/webcraft/i18n_service.py
+--- a/src/webcraft/i18n_service.py	1970-01-01 00:00:00.000000000 +0000
++++ b/src/webcraft/i18n_service.py	2026-01-14 14:58:39.074688797 +0000
+@@ -0,0 +1,424 @@
++# -*- coding: utf-8 -*-
++from __future__ import annotations
++
++import os
++import threading
++from dataclasses import dataclass, field
++from pathlib import Path
++from typing import Any, Dict, Optional, Tuple, List
++
++
++# ----------------------------
++# Minimal PO parser (DST)
++# ----------------------------
++
++def _po_unquote(s: str) -> str:
++    """Unquote a PO string literal line segment.
++
++    PO strings use C-like escapes. We implement a small, predictable subset.
++    """
++    s = (s or "").strip()
++    if not (s.startswith('"') and s.endswith('"')):
++        return ""
++    inner = s[1:-1]
++    out: List[str] = []
++    i = 0
++    while i < len(inner):
++        ch = inner[i]
++        if ch == "\\" and i + 1 < len(inner):
++            nxt = inner[i + 1]
++            if nxt == "n":
++                out.append("\n")
++            elif nxt == "t":
++                out.append("\t")
++            elif nxt == "r":
++                out.append("\r")
++            elif nxt == '"':
++                out.append('"')
++            elif nxt == "\\":
++                out.append("\\")
++            else:
++                # Best-effort: keep the escaped char
++                out.append(nxt)
++            i += 2
++            continue
++        out.append(ch)
++        i += 1
++    return "".join(out)
++
++
++def parse_po(text: str) -> Dict[str, str]:
++    """Parse a PO file and return mapping: msgctxt -> msgstr.
++
++    Notes
++    - We only keep entries with non-empty msgctxt and msgstr.
++    - For plural forms, we only take msgstr[0].
++    """
++    lines = (text or "").splitlines()
++    cur: Dict[str, Any] = {}
++    last_key: Optional[str] = None
++    out: Dict[str, str] = {}
++
++    def commit() -> None:
++        nonlocal cur, last_key
++        ctx = cur.get("msgctxt")
++        msgstr = cur.get("msgstr")
++        if isinstance(ctx, str) and ctx and isinstance(msgstr, str) and msgstr:
++            out[ctx] = msgstr
++        cur = {}
++        last_key = None
++
++    for raw in lines:
++        line = raw.rstrip("\n")
++        s = line.strip()
++        if not s:
++            commit()
++            continue
++        if s.startswith("#"):
++            continue
++
++        if s.startswith("msgctxt "):
++            cur["msgctxt"] = _po_unquote(s[len("msgctxt ") :].strip())
++            last_key = "msgctxt"
++            continue
++
++        if s.startswith("msgid "):
++            # keep for state tracking (and multiline), though we don't use it in output
++            cur["msgid"] = _po_unquote(s[len("msgid ") :].strip())
++            last_key = "msgid"
++            continue
++
++        if s.startswith("msgid_plural "):
++            cur["msgid_plural"] = _po_unquote(s[len("msgid_plural ") :].strip())
++            last_key = "msgid_plural"
++            continue
++
++        if s.startswith("msgstr["):
++            # msgstr[0] "..."
++            rb = s.find("]")
++            idx_s = s[len("msgstr[") : rb].strip() if rb != -1 else ""
++            try:
++                idx = int(idx_s)
++            except Exception:
++                idx = -1
++            if idx == 0:
++                # only take msgstr[0]
++                rest = s[rb + 1 :].strip() if rb != -1 else ""
++                cur["msgstr"] = _po_unquote(rest)
++                last_key = "msgstr"
++            else:
++                last_key = None
++            continue
++
++        if s.startswith("msgstr "):
++            cur["msgstr"] = _po_unquote(s[len("msgstr ") :].strip())
++            last_key = "msgstr"
++            continue
++
++        if s.startswith('"') and last_key:
++            # multiline continuation
++            cur[last_key] = str(cur.get(last_key) or "") + _po_unquote(s)
++            continue
++
++    commit()
++    return out
++
++
++# ----------------------------
++# I18n service
++# ----------------------------
++
++_NAMES_PREFIX = "STRINGS.NAMES."
++
++# Optional override via environment variable:
++# - If set, it takes precedence over engine-mounted scripts source.
++_ENV_LANG_PO = {
++    "zh": ("WAGSTAFF_PO_ZH", "WAGSTAFF_ZH_PO"),
++}
++
++# Default DST language pack locations inside scripts source (zip/folder).
++# NOTE: When mounted via WagstaffEngine, both "scripts/..." and "..." may be accepted,
++# but we keep explicit candidates to avoid relying on internal normalization.
++_ENGINE_PO_CANDIDATES: Dict[str, List[str]] = {
++    "zh": [
++        "scripts/languages/chinese_s.po",
++        "languages/chinese_s.po",
++    ],
++}
++
++
++@dataclass(frozen=True)
++class I18nConfig:
++    """Runtime i18n configuration.
++
++    lang_to_po:
++      - {lang: path_to_po} for external overrides (optional).
++
++    The PO file is expected to contain msgctxt entries like:
++      STRINGS.NAMES.AXE
++    """
++
++    lang_to_po: Dict[str, Path] = field(default_factory=dict)
++
++    @staticmethod
++    def from_env(*, extra: Optional[Dict[str, Path]] = None) -> "I18nConfig":
++        mp: Dict[str, Path] = {}
++
++        for lang, keys in _ENV_LANG_PO.items():
++            for k in keys:
++                v = os.environ.get(k)
++                if not v:
++                    continue
++                p = Path(v).expanduser()
++                if p.exists() and p.is_file():
++                    mp[str(lang).strip().lower()] = p
++                    break
++
++        for k, v in (extra or {}).items():
++            if not k or not v:
++                continue
++            p2 = Path(v).expanduser()
++            if p2.exists() and p2.is_file():
++                mp[str(k).strip().lower()] = p2
++
++        return I18nConfig(lang_to_po=mp)
++
++
++class I18nService:
++    """Load PO translations and expose item-name translation maps.
++
++    Design goals
++    - Keep i18n concerns isolated from CatalogStore.
++    - Prefer engine-mounted scripts.zip (scripts/languages/*.po) if available.
++    - Allow a simple external override via env var / config.
++    - Cache by a source signature to avoid reparsing.
++    """
++
++    def __init__(self, cfg: I18nConfig, *, engine: Any = None):
++        self.cfg = cfg
++        self.engine = engine
++        self._lock = threading.RLock()
++        # lang -> (source_sig, names_map)
++        self._cache: Dict[str, Tuple[str, Dict[str, str]]] = {}
++
++    # ----------------------------
++    # Source resolving
++    # ----------------------------
++
++    def _engine_has(self, eng: Any, inner_path: str) -> bool:
++        """Check whether an inner path exists in the mounted scripts source."""
++        if eng is None or not inner_path:
++            return False
++
++        mode = str(getattr(eng, "mode", "") or "").lower()
++        src = getattr(eng, "source", None)
++
++        if mode == "zip" and src is not None and hasattr(src, "getinfo"):
++            try:
++                src.getinfo(inner_path)
++                return True
++            except Exception:
++                return False
++
++        if mode == "folder":
++            base = getattr(eng, "source", None)
++            if isinstance(base, str) and base:
++                rel = inner_path
++                if rel.startswith("scripts/"):
++                    rel = rel.replace("scripts/", "", 1)
++                p = Path(base) / rel
++                return p.exists() and p.is_file()
++
++        # Fallback: best-effort by trying to read.
++        try:
++            rf = getattr(eng, "read_file", None)
++            if callable(rf):
++                return rf(inner_path) is not None
++        except Exception:
++            return False
++
++        return False
++
++    def _resolve_engine_po_path(self, eng: Any, lang: str) -> Optional[str]:
++        cand = _ENGINE_PO_CANDIDATES.get(lang) or []
++        for p in cand:
++            if self._engine_has(eng, p):
++                return p
++        return None
++
++    def _engine_source_sig(self, eng: Any, inner_path: str) -> str:
++        """Compute a cache signature for a PO file loaded from engine."""
++        mode = str(getattr(eng, "mode", "") or "").lower()
++        src = getattr(eng, "source", None)
++
++        if mode == "zip" and src is not None:
++            zip_path = str(getattr(src, "filename", "") or "")
++            zip_mtime = 0.0
++            zip_size = 0
++            try:
++                st = Path(zip_path).stat()
++                zip_mtime = float(st.st_mtime)
++                zip_size = int(st.st_size)
++            except Exception:
++                pass
++
++            crc = -1
++            fsz = -1
++            dt = None
++            try:
++                info = src.getinfo(inner_path) if hasattr(src, "getinfo") else None
++                if info is not None:
++                    crc = int(getattr(info, "CRC", -1))
++                    fsz = int(getattr(info, "file_size", -1))
++                    dt = getattr(info, "date_time", None)
++            except Exception:
++                pass
++
++            return f"zip:{zip_path}:{zip_mtime}:{zip_size}:{inner_path}:{crc}:{fsz}:{dt}"
++
++        if mode == "folder":
++            base = getattr(eng, "source", None)
++            rel = inner_path
++            if rel.startswith("scripts/"):
++                rel = rel.replace("scripts/", "", 1)
++            try:
++                p = Path(str(base)) / rel
++                st = p.stat()
++                return f"folder:{p}:{float(st.st_mtime)}:{int(st.st_size)}"
++            except Exception:
++                return f"folder:{base}:{inner_path}"
++
++        return f"engine:{id(eng)}:{inner_path}"
++
++    def _read_po_text(self, *, lang: str, engine: Any = None) -> Tuple[Optional[str], Optional[str]]:
++        """Return (source_sig, po_text)."""
++        l = str(lang or "").strip().lower()
++        if not l:
++            return (None, None)
++
++        # 1) External override: explicit path.
++        p = (self.cfg.lang_to_po or {}).get(l)
++        if p:
++            try:
++                st = p.stat()
++                sig = f"file:{p}:{float(st.st_mtime)}:{int(st.st_size)}"
++                txt = p.read_text(encoding="utf-8", errors="replace")
++                return (sig, txt)
++            except Exception:
++                return (None, None)
++
++        # 2) Engine-mounted scripts source.
++        eng = engine if engine is not None else self.engine
++        if eng is None:
++            return (None, None)
++
++        inner = self._resolve_engine_po_path(eng, l)
++        if not inner:
++            return (None, None)
++
++        try:
++            rf = getattr(eng, "read_file", None)
++            txt = rf(inner) if callable(rf) else None
++        except Exception:
++            txt = None
++
++        if not txt:
++            return (None, None)
++
++        sig = self._engine_source_sig(eng, inner)
++        return (sig, str(txt))
++
++    # ----------------------------
++    # Public API
++    # ----------------------------
++
++    def available_langs(self, *, engine: Any = None) -> List[str]:
++        eng = engine if engine is not None else self.engine
++        langs: List[str] = []
++
++        # Config-provided overrides
++        for k in (self.cfg.lang_to_po or {}).keys():
++            kk = str(k or "").strip().lower()
++            if kk and kk not in langs:
++                langs.append(kk)
++
++        # Engine-provided defaults
++        for k in _ENGINE_PO_CANDIDATES.keys():
++            kk = str(k or "").strip().lower()
++            if not kk or kk in langs:
++                continue
++            if eng is not None and self._resolve_engine_po_path(eng, kk):
++                langs.append(kk)
++
++        langs.sort()
++        return langs
++
++    def public_meta(self, *, engine: Any = None) -> Dict[str, Any]:
++        langs = self.available_langs(engine=engine)
++        return {
++            "enabled": bool(langs),
++            "langs": langs,
++            "modes": ["en", "zh", "id"],
++            "default_mode": "en",
++        }
++
++    def _load_names_raw(self, lang: str, *, engine: Any = None) -> Dict[str, str]:
++        l = str(lang or "").strip().lower()
++        if not l:
++            return {}
++
++        sig, txt = self._read_po_text(lang=l, engine=engine)
++        if not sig or not txt:
++            return {}
++
++        with self._lock:
++            cached = self._cache.get(l)
++            if cached and str(cached[0]) == str(sig):
++                return dict(cached[1])
++
++        ctx_map = parse_po(txt)
++        names: Dict[str, str] = {}
++        for ctx, val in ctx_map.items():
++            if not isinstance(ctx, str) or not ctx.startswith(_NAMES_PREFIX):
++                continue
++            key = ctx[len(_NAMES_PREFIX) :].strip()
++            if not key:
++                continue
++            kid = key.strip().lower()
++            if not kid:
++                continue
++            v = str(val).strip()
++            if not v:
++                continue
++            names[kid] = v
++            # Common alt-id: strip underscores
++            if "_" in kid:
++                names.setdefault(kid.replace("_", ""), v)
++
++        with self._lock:
++            self._cache[l] = (str(sig), dict(names))
++
++        return dict(names)
++
++    def item_name_map(self, *, lang: str, assets: Dict[str, Any], engine: Any = None) -> Dict[str, str]:
++        """Build {item_id: localized_name} for item ids present in assets."""
++        l = str(lang or "").strip().lower()
++        if not l or l == "en" or l == "id":
++            return {}
++
++        raw = self._load_names_raw(l, engine=engine)
++        if not raw:
++            return {}
++
++        out: Dict[str, str] = {}
++        for iid in (assets or {}).keys():
++            if not iid:
++                continue
++            k1 = str(iid).strip().lower()
++            if not k1:
++                continue
++            k2 = k1.replace("_", "")
++            v = raw.get(k1) or raw.get(k2)
++            if v:
++                out[str(iid)] = v
++        return out
+diff -ruN a/src/webcraft/ui.py b/src/webcraft/ui.py
+--- a/src/webcraft/ui.py	2026-01-14 14:58:39.033830310 +0000
++++ b/src/webcraft/ui.py	2026-01-14 14:58:39.073753199 +0000
+@@ -94,6 +94,15 @@
+       resize: vertical;
+       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+     }
++    select {
++      background: var(--panel2);
++      color: var(--text);
++      border: 1px solid var(--border);
++      border-radius: 8px;
++      padding: 6px 8px;
++      font-size: 12px;
++      outline: none;
++    }
+     button {
+       background: var(--panel2);
+       border: 1px solid var(--border);
+@@ -236,6 +245,14 @@
+     <a id="navCraft" class="nav active" href="#">Craft</a>
+     <a id="navCooking" class="nav" href="#">Cooking</a>
+     <a id="navCatalog" class="nav" href="#">Catalog</a>
++    <div class="small" style="display:flex; align-items:center; gap:6px;">
++      <span class="muted">Label</span>
++      <select id="labelMode">
++        <option value="en">EN</option>
++        <option value="zh">中文</option>
++        <option value="id">ID</option>
++      </select>
++    </div>
+     <div class="search">
+       <input id="q" type="text" placeholder="Search: axe | ing:twigs | tag:bookbuilder | filter:TOOLS | tab:LIGHT" />
+       <button id="btnSearch" class="primary">Search</button>
+@@ -310,6 +327,12 @@
+       activeRecipeData: null,
+       assets: {},
+       icon: null, // {mode, static_base, api_base}
++
++      // label mode: en | zh | id (persisted in localStorage)
++      labelMode: localStorage.getItem('ws_label_mode') || 'en',
++      i18n: null,         // meta from /api/v1/meta (set in loadMeta)
++      i18nNames: {},      // {lang: {id: name}}
++      i18nLoaded: {},     // {lang: true}
+     };
+ 
+     function setError(msg) {
+@@ -399,15 +422,80 @@
+       }
+     }
+ 
++    function _altId(iid) {
++      if (!iid) return '';
++      const s = String(iid);
++      if (s.includes('_')) return s.replace(/_/g,'');
++      return '';
++    }
++
++    function getI18nName(iid) {
++      const mp = (state.i18nNames && state.i18nNames.zh) ? state.i18nNames.zh : null;
++      if (!mp) return '';
++      const k = String(iid || '').trim();
++      if (!k) return '';
++      const lo = k.toLowerCase();
++      const a1 = _altId(k);
++      const a2 = _altId(lo);
++      return mp[k] || mp[lo] || (a1 ? mp[a1] : '') || (a2 ? mp[a2] : '') || '';
++    }
++
++    async function ensureI18nNames(mode) {
++      if (String(mode || '') !== 'zh') return;
++      if (state.i18nLoaded && state.i18nLoaded.zh) return;
++      const enabled = Boolean(state.i18n && state.i18n.enabled);
++      if (!enabled) return;
++      try {
++        const res = await fetchJson(api('/api/v1/i18n/names/zh'));
++        state.i18nNames.zh = res.names || {};
++        state.i18nLoaded.zh = true;
++      } catch (e) {
++        state.i18nLoaded.zh = false;
++      }
++    }
++
++    function applyLabelModeUI() {
++      const sel = el('labelMode');
++      if (!sel) return;
++      const enabled = Boolean(state.i18n && state.i18n.enabled);
++      const optZh = sel.querySelector('option[value="zh"]');
++      if (optZh) optZh.disabled = !enabled;
++      if (!enabled && state.labelMode === 'zh') {
++        state.labelMode = 'en';
++        try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
++      }
++      sel.value = state.labelMode || 'en';
++    }
++
++    function resolveLabel(iid, enName, zhName) {
++      const mode = String(state.labelMode || 'en');
++      if (mode === 'id') return iid;
++      if (mode === 'zh' && zhName) return zhName;
++      return enName || iid;
++    }
++
++    async function setLabelMode(mode) {
++      state.labelMode = String(mode || 'en');
++      try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
++      applyLabelModeUI();
++      await ensureI18nNames(state.labelMode);
++      renderRecipeList();
++      renderRecipeDetail(state.activeRecipeData);
++    }
++
+     function renderItem(id) {
+       const iid = String(id || '').trim();
+       if (!iid) return '';
+       const m = (state.assets && state.assets[iid]) ? state.assets[iid] : null;
+-      const name = (m && m.name) ? m.name : iid;
+-
+-      const tipParts = [iid];
+-      if (m && m.image) tipParts.push(m.image);
+-      if (m && m.atlas) tipParts.push(m.atlas);
++      const enName = (m && m.name) ? m.name : iid;
++      const zhName = getI18nName(iid);
++      const name = resolveLabel(iid, enName, zhName);
++
++      const tipParts = [`id:${iid}`];
++      if (enName && enName !== iid) tipParts.push(`en:${enName}`);
++      if (zhName && zhName !== enName && zhName !== iid) tipParts.push(`zh:${zhName}`);
++      if (m && m.image) tipParts.push(`img:${m.image}`);
++      if (m && m.atlas) tipParts.push(`atlas:${m.atlas}`);
+       const tip = escHtml(tipParts.join(' | '));
+ 
+       const { src, fallback } = _iconUrls(iid);
+@@ -429,6 +517,7 @@
+       `</span>`;
+     }
+ 
++
+     function renderGroupList() {
+       const box = el('groupList');
+       box.innerHTML = '';
+@@ -629,6 +718,12 @@
+     el('btnPlan').onclick = () => doPlan().catch(e => setError(String(e)));
+     el('btnMissing').onclick = () => doMissing().catch(e => setError(String(e)));
+ 
++    const labelSel = el('labelMode');
++    if (labelSel) {
++      try { labelSel.value = state.labelMode || 'en'; } catch (e) {}
++      labelSel.onchange = () => setLabelMode(labelSel.value).catch(e => setError(String(e)));
++    }
++
+     function initFromUrl() {
+       const params = new URLSearchParams(window.location.search || '');
+       const recipe = params.get('recipe');
+@@ -648,6 +743,7 @@
+       try {
+         await loadMeta();
+         await loadAssets();
++        await ensureI18nNames(state.labelMode);
+         await loadGroups();
+         initFromUrl();
+       } catch (e) {
+@@ -713,6 +809,16 @@
+       user-select: none;
+     }
+     .btn.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
++    select {
++      border: 1px solid var(--border);
++      background: rgba(255,255,255,0.03);
++      color: var(--text);
++      border-radius: 999px;
++      padding: 6px 10px;
++      font-size: 12px;
++      outline: none;
++      cursor: pointer;
++    }
+     .meta { margin-left:auto; font-size: 12px; color: var(--muted); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; max-width: 45vw; }
+ 
+     .wrap {
+@@ -798,6 +904,14 @@
+       <a class="btn" id="navCooking" href="__WAGSTAFF_APP_ROOT__/cooking">Cooking</a>
+       <a class="btn active" id="navCatalog" href="__WAGSTAFF_APP_ROOT__/catalog">Catalog</a>
+     </div>
++    <div class="small" style="display:flex; align-items:center; gap:6px;">
++      <span class="muted">Label</span>
++      <select id="labelMode">
++        <option value="en">EN</option>
++        <option value="zh">中文</option>
++        <option value="id">ID</option>
++      </select>
++    </div>
+     <div class="meta" id="meta">…</div>
+   </div>
+ 
+@@ -860,6 +974,13 @@
+     let icon = null; // {mode, static_base, api_base}
+     let activeId = null;
+ 
++    const state = {
++      labelMode: localStorage.getItem('ws_label_mode') || 'en',
++      i18n: null,         // meta from /api/v1/meta (set in loadMeta)
++      i18nNames: {},      // {lang: {id: name}}
++      i18nLoaded: {},     // {lang: true}
++    };
++
+     // list render state (supports full catalog without freezing)
+     let allKeys = [];
+     let viewKeys = [];
+@@ -933,12 +1054,14 @@
+       for (const k of keys) {
+         const a = assets[k] || {};
+         const name = String(a.name || '').toLowerCase();
++        const zh = String(getI18nName(k) || '').toLowerCase();
+         const id = String(k).toLowerCase();
+         let score = 0;
+         if (id === query) score += 1000;
+         if (id.startsWith(query)) score += 200;
+         if (id.includes(query)) score += 80;
+         if (name.includes(query)) score += 40;
++        if (zh.includes(query)) score += 60;
+         if (score > 0) scored.push([score, k]);
+       }
+       scored.sort((x,y) => (y[0]-x[0]) || x[1].localeCompare(y[1]));
+@@ -1170,6 +1293,8 @@
+ 
+     async function loadMeta() {
+       meta = await fetchJson(api('/api/v1/meta'));
++      state.i18n = (meta && meta.i18n) ? meta.i18n : { enabled: false };
++      applyLabelModeUI();
+       const sha = meta.scripts_sha256_12 ? `sha:${meta.scripts_sha256_12}` : '';
+       const ver = meta.schema_version ? `v${meta.schema_version}` : '';
+       const ae = meta.analyzer_enabled ? 'analyzer:on' : 'analyzer:off';
+@@ -1225,10 +1350,17 @@
+       if (e.key === 'Enter') el('btnSearch').click();
+     });
+ 
++    const labelSel = el('labelMode');
++    if (labelSel) {
++      try { labelSel.value = state.labelMode || 'en'; } catch (e) {}
++      labelSel.onchange = () => setLabelMode(labelSel.value).catch(e => setError(String(e)));
++    }
++
+     (async () => {
+       try {
+         await loadMeta();
+         await loadAssets();
++        await ensureI18nNames(state.labelMode);
+         installInfiniteScroll();
+         renderList(listKeys());
+         initFromUrl();
+@@ -1348,6 +1480,15 @@
+       resize: vertical;
+       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+     }
++    select {
++      background: var(--panel2);
++      color: var(--text);
++      border: 1px solid var(--border);
++      border-radius: 8px;
++      padding: 6px 8px;
++      font-size: 12px;
++      outline: none;
++    }
+     button {
+       background: var(--panel2);
+       border: 1px solid var(--border);
+@@ -1497,6 +1638,14 @@
+       <a id="navCraft" class="nav" href="#">Craft</a>
+       <a class="nav active" href="#">Cooking</a>
+       <a id="navCatalog" class="nav" href="#">Catalog</a>
++      <div class="small" style="display:flex; align-items:center; gap:6px;">
++        <span class="muted">Label</span>
++        <select id="labelMode">
++          <option value="en">EN</option>
++          <option value="zh">中文</option>
++          <option value="id">ID</option>
++        </select>
++      </div>
+     </div>
+     <div class="search">
+       <input id="q" type="text" placeholder="Search: meatballs | ing:berries | tag:honeyed | type:FOODTYPE.MEAT" />
+@@ -1662,15 +1811,80 @@
+       }
+     }
+ 
++    function _altId(iid) {
++      if (!iid) return '';
++      const s = String(iid);
++      if (s.includes('_')) return s.replace(/_/g,'');
++      return '';
++    }
++
++    function getI18nName(iid) {
++      const mp = (state.i18nNames && state.i18nNames.zh) ? state.i18nNames.zh : null;
++      if (!mp) return '';
++      const k = String(iid || '').trim();
++      if (!k) return '';
++      const lo = k.toLowerCase();
++      const a1 = _altId(k);
++      const a2 = _altId(lo);
++      return mp[k] || mp[lo] || (a1 ? mp[a1] : '') || (a2 ? mp[a2] : '') || '';
++    }
++
++    async function ensureI18nNames(mode) {
++      if (String(mode || '') !== 'zh') return;
++      if (state.i18nLoaded && state.i18nLoaded.zh) return;
++      const enabled = Boolean(state.i18n && state.i18n.enabled);
++      if (!enabled) return;
++      try {
++        const res = await fetchJson(api('/api/v1/i18n/names/zh'));
++        state.i18nNames.zh = res.names || {};
++        state.i18nLoaded.zh = true;
++      } catch (e) {
++        state.i18nLoaded.zh = false;
++      }
++    }
++
++    function applyLabelModeUI() {
++      const sel = el('labelMode');
++      if (!sel) return;
++      const enabled = Boolean(state.i18n && state.i18n.enabled);
++      const optZh = sel.querySelector('option[value="zh"]');
++      if (optZh) optZh.disabled = !enabled;
++      if (!enabled && state.labelMode === 'zh') {
++        state.labelMode = 'en';
++        try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
++      }
++      sel.value = state.labelMode || 'en';
++    }
++
++    function resolveLabel(iid, enName, zhName) {
++      const mode = String(state.labelMode || 'en');
++      if (mode === 'id') return iid;
++      if (mode === 'zh' && zhName) return zhName;
++      return enName || iid;
++    }
++
++    async function setLabelMode(mode) {
++      state.labelMode = String(mode || 'en');
++      try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
++      applyLabelModeUI();
++      await ensureI18nNames(state.labelMode);
++      renderRecipeList();
++      renderRecipeDetail(state.activeRecipeData);
++    }
++
+     function renderItem(id) {
+       const iid = String(id || '').trim();
+       if (!iid) return '';
+       const m = (state.assets && state.assets[iid]) ? state.assets[iid] : null;
+-      const name = (m && m.name) ? m.name : iid;
+-
+-      const tipParts = [iid];
+-      if (m && m.image) tipParts.push(m.image);
+-      if (m && m.atlas) tipParts.push(m.atlas);
++      const enName = (m && m.name) ? m.name : iid;
++      const zhName = getI18nName(iid);
++      const name = resolveLabel(iid, enName, zhName);
++
++      const tipParts = [`id:${iid}`];
++      if (enName && enName !== iid) tipParts.push(`en:${enName}`);
++      if (zhName && zhName !== enName && zhName !== iid) tipParts.push(`zh:${zhName}`);
++      if (m && m.image) tipParts.push(`img:${m.image}`);
++      if (m && m.atlas) tipParts.push(`atlas:${m.atlas}`);
+       const tip = escHtml(tipParts.join(' | '));
+ 
+       const { src, fallback } = _iconUrls(iid);
+@@ -1692,6 +1906,7 @@
+       `</span>`;
+     }
+ 
++
+     const state = {
+       mode: 'foodtypes', // foodtypes | tags | all
+       groups: [],
+@@ -1701,6 +1916,12 @@
+       activeRecipeData: null,
+       assets: {},
+       icon: null, // {mode, static_base, api_base}
++
++      // label mode: en | zh | id (persisted in localStorage)
++      labelMode: localStorage.getItem('ws_label_mode') || 'en',
++      i18n: null,         // meta from /api/v1/meta (set in loadMeta)
++      i18nNames: {},      // {lang: {id: name}}
++      i18nLoaded: {},     // {lang: true}
+     };
+ 
+     function renderGroupList() {
+@@ -2004,6 +2225,13 @@
+     const navCatalog = document.getElementById('navCatalog');
+     if (navCatalog) navCatalog.href = APP_ROOT + '/catalog';
+ 
++
++    const labelSel = el('labelMode');
++    if (labelSel) {
++      try { labelSel.value = state.labelMode || 'en'; } catch (e) {}
++      labelSel.onchange = () => setLabelMode(labelSel.value).catch(e => setError(String(e)));
++    }
++
+     el('btnToggle').onclick = toggleMode;
+     el('btnSearch').onclick = () => doSearch().catch(e => setError(String(e)));
+     el('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch().catch(err => setError(String(err))); });
+@@ -2030,6 +2258,7 @@
+       try {
+         await loadMeta();
+         await loadAssets();
++        await ensureI18nNames(state.labelMode);
+         await loadGroups();
+         await showAll();
+         initFromUrl();

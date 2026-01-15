@@ -1,0 +1,13 @@
+--- src/webcraft/app.py	2026-01-14 12:11:20.194541695 +0000
++++ src/webcraft/app.py	2026-01-14 12:04:58.472328333 +0000
+@@ -89,10 +88,6 @@
+     )
+     app.state.icon_service = IconService(cfg)
+ 
+-    # i18n (PO language packs)
+-    i18n_cfg = I18nConfig.from_env()
+-    app.state.i18n_service = I18nService(i18n_cfg, engine=getattr(app.state, "engine", None))
+-
+     # middleware
+     if gzip_minimum_size and gzip_minimum_size > 0:
+         app.add_middleware(GZipMiddleware, minimum_size=int(gzip_minimum_size))

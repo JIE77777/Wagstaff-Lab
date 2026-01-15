@@ -1,0 +1,146 @@
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional, Sequence
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+from .api import router as api_router
+from .catalog_store import CatalogStore
+from .icon_service import IconConfig, IconService
+from .i18n_service import I18nConfig, I18nService
+from .settings import WebCraftSettings
+from .ui import render_index_html, render_cooking_html, render_catalog_html
+
+
+def create_app(
+    catalog_path: Path,
+    *,
+    root_path: str = "",
+    cors_allow_origins: Optional[Sequence[str]] = None,
+    gzip_minimum_size: int = 800,
+    auto_reload_catalog: bool = False,
+    # icons
+    icons_mode: str = "auto",
+    game_data_dir: Optional[Path] = None,
+    icons_unpremultiply: bool = True,
+    static_root_dir: Optional[Path] = None,
+    # analyzer (optional)
+    enable_analyzer: bool = False,
+    analyzer_load_db: bool = False,
+    dst_root: Optional[Path] = None,
+    scripts_zip: Optional[Path] = None,
+    scripts_dir: Optional[Path] = None,
+) -> FastAPI:
+    """FastAPI app factory."""
+
+    rp = WebCraftSettings.normalize_root_path(root_path)
+
+    app = FastAPI(
+        title="Wagstaff WebCraft API",
+        version="1.0",
+        root_path=rp,
+        docs_url="/docs",
+        redoc_url=None,
+    )
+
+    # static (icons live here)
+    project_root = Path(__file__).resolve().parents[2]
+    static_root = Path(static_root_dir) if static_root_dir else (project_root / "data" / "static")
+    try:
+        static_root.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    app.mount("/static", StaticFiles(directory=str(static_root), check_dir=False), name="static")
+
+    # state
+    app.state.store = CatalogStore(Path(catalog_path))
+    # optional live analyzer (mount scripts source for on-demand parsing)
+    app.state.engine = None
+    if enable_analyzer or dst_root or scripts_zip or scripts_dir:
+        try:
+            from engine import WagstaffEngine
+            app.state.engine = WagstaffEngine(
+                load_db=bool(analyzer_load_db),
+                silent=True,
+                dst_root=str(dst_root) if dst_root else None,
+                scripts_zip=str(scripts_zip) if scripts_zip else None,
+                scripts_dir=str(scripts_dir) if scripts_dir else None,
+            )
+        except Exception:
+            app.state.engine = None
+    app.state.auto_reload_catalog = bool(auto_reload_catalog)
+
+    # i18n (optional; from DST .po language pack)
+    try:
+        i18n_cfg = I18nConfig.from_env()
+        app.state.i18n_service = I18nService(i18n_cfg, engine=getattr(app.state, "engine", None))
+    except Exception:
+        app.state.i18n_service = None
+
+    icons_dir = static_root / "icons"
+    try:
+        icons_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    cfg = IconConfig(
+        mode=str(icons_mode or "auto"),
+        static_dir=icons_dir,
+        game_data_dir=(Path(game_data_dir).expanduser().resolve() if game_data_dir else None),
+        unpremultiply=bool(icons_unpremultiply),
+    )
+    app.state.icon_service = IconService(cfg)
+
+    # middleware
+    if gzip_minimum_size and gzip_minimum_size > 0:
+        app.add_middleware(GZipMiddleware, minimum_size=int(gzip_minimum_size))
+
+    if cors_allow_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(cors_allow_origins),
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    # routes
+    app.include_router(api_router)
+
+    @app.on_event("shutdown")
+    def _shutdown() -> None:
+        eng = getattr(app.state, "engine", None)
+        if eng is not None:
+            try:
+                eng.close()
+            except Exception:
+                pass
+
+    @app.get("/healthz")
+    def healthz():
+        return {"ok": True}
+
+    @app.get("/", response_class=HTMLResponse)
+    def index(request: Request):
+        # root_path is already applied by FastAPI; still need it for frontend URL prefixing
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_index_html(app_root=str(root)))
+
+    @app.get("/cooking", response_class=HTMLResponse)
+    def cooking(request: Request):
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_cooking_html(app_root=str(root)))
+
+
+    @app.get("/catalog", response_class=HTMLResponse)
+    def catalog(request: Request):
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_catalog_html(app_root=str(root)))
+
+    return app

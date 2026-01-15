@@ -55,7 +55,7 @@ TOOLS = [
         "file": "snapshot.py",
         "alias": "snap",
         "desc": "生成项目全息代码快照",
-        "usage":  "wagstaff snap [--mode core|full|custom] [--config conf/snapshot_profile.json]",
+        "usage":  "wagstaff snapshot [-h] [--mode {core,archive,custom}] [--template TEMPLATE] [--config CONFIG] [--output OUTPUT] [--list-templates] [--no-redact] [--zip]",
         "type": "Dev",
         "folder": "devtools"
     },

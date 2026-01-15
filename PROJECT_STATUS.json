@@ -12,7 +12,8 @@
     "Hotfix(installer): 优化 wagstaff 包装脚本，修复无参报错并引入 exec 进程替换",
     "Wiki v2.3: 实现交互式搜索 (find) 与详细组件展示",
     "Analyzer: 支持内联掉落表解析 (Krampus) 与 Tuning 递归数值追踪",
-    "PM Tool: 修复 JSON 数据结构并实现自动迁移 (v1->v2)"
+    "PM Tool: 修复 JSON 数据结构并实现自动迁移 (v1->v2)",
+    "WebCraft: Catalog UI 修复 i18n helper 缺失导致的空白与标签切换异常"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
@@ -20,7 +21,15 @@
     "[2026-01-12 16:28] 完成说明书逻辑集成：Registry 补全 usage 字段并同步至 Guide UI",
     "[2026-01-12 18:32] 架构验收：src/registry.py 单一数据源功能确认正常",
     "[2026-01-12 18:45] 应用 v2.2.1 补丁：增强工具链健壮性 (pm.py & installer.py)",
-    "[2026-01-13 14:53] Release v2.3: 完成 Wagstaff Lab 交互式升级。Wiki 新增 TUI 翻页模式，Analyzer 具备深度语义理解能力，工具链 (pm.py) 升级为健壮版本。"
+    "[2026-01-13 14:53] Release v2.3: 完成 Wagstaff Lab 交互式升级。Wiki 新增 TUI 翻页模式，Analyzer 具备深度语义理解能力，工具链 (pm.py) 升级为健壮版本。",
+    "[2026-01-15 12:50] WebCraft: 修复中文切换灰态问题，补全 meta.i18n 初始化与预加载。",
+    "[2026-01-15 12:50] WebCraft: 修复 icon/id 对应问题，添加图标别名回退并允许 static 模式 API fallback。",
+    "[2026-01-15 13:54] WebCraft: 修复 icon 静态路径未挂载 root_path 导致错误图标的问题。",
+    "[2026-01-15 14:01] build_icons: 优先使用本地 inventoryimages.xml，避免与松散 tex 版本不匹配导致图标错位。",
+    "[2026-01-15 14:27] build_icons/icon_service: 修正 v 坐标翻转默认逻辑，避免图标上下错位导致错配。",
+    "[2026-01-15 14:40] Tuning: 支持解析 Tune() 函数内的 TUNING 表，输出完整链路与数值。",
+    "[2026-01-15 16:13] WebCraft: Catalog UI 补全 i18n helper，修复 applyLabelModeUI 未定义导致的页面空白。",
+    "[2026-01-15 16:13] Repo: 归档 patch 残留与 *.orig/*.rej 临时文件。"
   ],
   "DEV_MANIFESTO": [
     "架构分层：Engine负责底层I/O，Tool负责交互，禁止UI混入底层",

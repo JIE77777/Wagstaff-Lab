@@ -1,0 +1,894 @@
+diff --git a/src/webcraft/api.py b/src/webcraft/api.py
+index eb82d7f..61eb78b 100644
+--- a/src/webcraft/api.py
++++ b/src/webcraft/api.py
+@@ -148,7 +148,8 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
+     isvc = getattr(request.app.state, "i18n_service", None)
+     if isvc is not None:
+         try:
+-            m.update({"i18n": isvc.public_meta(engine=eng)})
++            scripts_zip_hint = str((m or {}).get("scripts_zip") or "").strip() or None
++            m.update({"i18n": isvc.public_meta(engine=eng, scripts_zip_hint=scripts_zip_hint)})
+         except Exception:
+             pass
+ 
+@@ -170,13 +171,18 @@ def assets(request: Request, store: CatalogStore = Depends(get_store)):
+     return {"assets": mp, "count": len(mp), "icon": icon_cfg or {"mode": "off", "static_base": "/static/icons", "api_base": "/api/v1/icon"}}
+ 
+ @router.get("/i18n")
+-def i18n_meta(request: Request):
++def i18n_meta(request: Request, store: CatalogStore = Depends(get_store)):
+     """Return i18n capability + available languages."""
+     svc = getattr(request.app.state, "i18n_service", None)
+     if svc is None:
+         return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+     try:
+-        return svc.public_meta(engine=_get_engine(request))
++        scripts_zip_hint = None
++        try:
++            scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
++        except Exception:
++            scripts_zip_hint = None
++        return svc.public_meta(engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
+     except Exception:
+         return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+ 
+@@ -188,7 +194,12 @@ def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_st
+     if svc is None:
+         return {"lang": str(lang), "names": {}, "count": 0}
+     try:
+-        mp = svc.item_name_map(lang=str(lang), assets=store.assets(), engine=_get_engine(request))
++        scripts_zip_hint = None
++        try:
++            scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
++        except Exception:
++            scripts_zip_hint = None
++        mp = svc.item_name_map(lang=str(lang), assets=store.assets(), engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
+     except Exception:
+         mp = {}
+     return {"lang": str(lang), "names": mp, "count": len(mp or {})}
+diff --git a/src/webcraft/app.py b/src/webcraft/app.py
+index 28192b7..1b311ca 100644
+--- a/src/webcraft/app.py
++++ b/src/webcraft/app.py
+@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
+ from .api import router as api_router
+ from .catalog_store import CatalogStore
+ from .icon_service import IconConfig, IconService
++from .i18n_service import I18nConfig, I18nService
+ from .settings import WebCraftSettings
+ from .ui import render_index_html, render_cooking_html, render_catalog_html
+ 
+@@ -76,9 +77,40 @@ def create_app(
+     app.state.auto_reload_catalog = bool(auto_reload_catalog)
+ 
+     # i18n (optional; from DST .po language pack)
++    #
++    # Notes
++    # - analyzer engine may mount a "no language" scripts bundle (fast iteration)
++    # - catalog meta (store.meta()['scripts_zip']) usually points to DST's scripts.zip that contains languages
++    # - we precompile a small id->zh_name JSON into static/i18n so the UI can enable 中文 immediately
+     try:
+         i18n_cfg = I18nConfig.from_env()
+-        app.state.i18n_service = I18nService(i18n_cfg, engine=getattr(app.state, "engine", None))
++
++        scripts_zip_hint = None
++        try:
++            scripts_zip_hint = str((app.state.store.meta() or {}).get("scripts_zip") or "").strip() or None
++        except Exception:
++            scripts_zip_hint = None
++
++        i18n_dir = static_root / "i18n"
++        isvc = I18nService(
++            i18n_cfg,
++            engine=getattr(app.state, "engine", None),
++            static_dir=i18n_dir,
++            scripts_zip_hint=scripts_zip_hint,
++        )
++
++        # best-effort warmup (do not crash server if language pack is missing)
++        try:
++            isvc.warmup(
++                assets=app.state.store.assets(),
++                engine=getattr(app.state, "engine", None),
++                scripts_zip_hint=scripts_zip_hint,
++                langs=["zh"],
++            )
++        except Exception:
++            pass
++
++        app.state.i18n_service = isvc
+     except Exception:
+         app.state.i18n_service = None
+ 
+diff --git a/src/webcraft/i18n_service.py b/src/webcraft/i18n_service.py
+new file mode 100644
+index 0000000..c3515b2
+--- /dev/null
++++ b/src/webcraft/i18n_service.py
+@@ -0,0 +1,785 @@
++# -*- coding: utf-8 -*-
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import threading
++import zipfile
++from dataclasses import dataclass, field
++from pathlib import Path
++from typing import Any, Dict, Optional, Tuple, List
++
++
++# ----------------------------
++# Minimal PO parser (DST)
++# ----------------------------
++
++
++def _po_unquote(s: str) -> str:
++    """Unquote a PO string literal line segment.
++
++    PO strings use C-like escapes. We implement a small, predictable subset.
++    """
++
++    s = (s or "").strip()
++    if not (s.startswith('"') and s.endswith('"')):
++        return ""
++    inner = s[1:-1]
++    out: List[str] = []
++    i = 0
++    while i < len(inner):
++        ch = inner[i]
++        if ch == "\\" and i + 1 < len(inner):
++            nxt = inner[i + 1]
++            if nxt == "n":
++                out.append("\n")
++            elif nxt == "t":
++                out.append("\t")
++            elif nxt == "r":
++                out.append("\r")
++            elif nxt == '"':
++                out.append('"')
++            elif nxt == "\\":
++                out.append("\\")
++            else:
++                # Best-effort: keep the escaped char
++                out.append(nxt)
++            i += 2
++            continue
++        out.append(ch)
++        i += 1
++    return "".join(out)
++
++
++def parse_po(text: str) -> Dict[str, str]:
++    """Parse a PO file and return mapping: msgctxt -> msgstr.
++
++    Notes
++    - We only keep entries with non-empty msgctxt and msgstr.
++    - For plural forms, we only take msgstr[0].
++    """
++
++    lines = (text or "").splitlines()
++    cur: Dict[str, Any] = {}
++    last_key: Optional[str] = None
++    out: Dict[str, str] = {}
++
++    def commit() -> None:
++        nonlocal cur, last_key
++        ctx = cur.get("msgctxt")
++        msgstr = cur.get("msgstr")
++        if isinstance(ctx, str) and ctx and isinstance(msgstr, str) and msgstr:
++            out[ctx] = msgstr
++        cur = {}
++        last_key = None
++
++    for raw in lines:
++        line = raw.rstrip("\n")
++        s = line.strip()
++        if not s:
++            commit()
++            continue
++        if s.startswith("#"):
++            continue
++
++        if s.startswith("msgctxt "):
++            cur["msgctxt"] = _po_unquote(s[len("msgctxt ") :].strip())
++            last_key = "msgctxt"
++            continue
++
++        if s.startswith("msgid "):
++            # keep for state tracking (and multiline), though we don't use it in output
++            cur["msgid"] = _po_unquote(s[len("msgid ") :].strip())
++            last_key = "msgid"
++            continue
++
++        if s.startswith("msgid_plural "):
++            cur["msgid_plural"] = _po_unquote(s[len("msgid_plural ") :].strip())
++            last_key = "msgid_plural"
++            continue
++
++        if s.startswith("msgstr["):
++            # msgstr[0] "..."
++            rb = s.find("]")
++            idx_s = s[len("msgstr[") : rb].strip() if rb != -1 else ""
++            try:
++                idx = int(idx_s)
++            except Exception:
++                idx = -1
++            if idx == 0:
++                # only take msgstr[0]
++                rest = s[rb + 1 :].strip() if rb != -1 else ""
++                cur["msgstr"] = _po_unquote(rest)
++                last_key = "msgstr"
++            else:
++                last_key = None
++            continue
++
++        if s.startswith("msgstr "):
++            cur["msgstr"] = _po_unquote(s[len("msgstr ") :].strip())
++            last_key = "msgstr"
++            continue
++
++        if s.startswith('"') and last_key:
++            # multiline continuation
++            cur[last_key] = str(cur.get(last_key) or "") + _po_unquote(s)
++            continue
++
++    commit()
++    return out
++
++
++# ----------------------------
++# I18n service
++# ----------------------------
++
++_NAMES_PREFIX = "STRINGS.NAMES."
++
++# Optional override via environment variable:
++# - If set, it takes precedence over engine-mounted scripts source.
++_ENV_LANG_PO = {
++    "zh": ("WAGSTAFF_PO_ZH", "WAGSTAFF_ZH_PO"),
++}
++
++# Default DST language pack locations inside scripts source (zip/folder).
++# NOTE: When mounted via WagstaffEngine, both "scripts/..." and "..." may be accepted,
++# but we keep explicit candidates to avoid relying on internal normalization.
++_ENGINE_PO_CANDIDATES: Dict[str, List[str]] = {
++    "zh": [
++        "scripts/languages/chinese_s.po",
++        "languages/chinese_s.po",
++    ],
++}
++
++
++def _norm_lang(lang: str) -> str:
++    return str(lang or "").strip().lower()
++
++
++def _assets_sig(assets: Dict[str, Any]) -> str:
++    """Stable signature for a catalog's assets keys.
++
++    Used to know when a compiled id->name mapping should be refreshed.
++    """
++
++    keys = sorted([str(k) for k in (assets or {}).keys() if k])
++    h = hashlib.sha1()
++    for k in keys:
++        h.update(k.encode("utf-8", errors="ignore"))
++        h.update(b"\n")
++    return f"assets:{len(keys)}:{h.hexdigest()}"
++
++
++def _atomic_write_text(path: Path, text: str) -> bool:
++    try:
++        path.parent.mkdir(parents=True, exist_ok=True)
++    except Exception:
++        pass
++
++    tmp = path.with_suffix(path.suffix + ".tmp")
++    try:
++        tmp.write_text(text, encoding="utf-8")
++        tmp.replace(path)
++        return True
++    except Exception:
++        try:
++            if tmp.exists():
++                tmp.unlink()
++        except Exception:
++            pass
++        return False
++
++
++@dataclass(frozen=True)
++class I18nConfig:
++    """Runtime i18n configuration.
++
++    lang_to_po:
++      - {lang: path_to_po} for external overrides (optional).
++
++    The PO file is expected to contain msgctxt entries like:
++      STRINGS.NAMES.AXE
++    """
++
++    lang_to_po: Dict[str, Path] = field(default_factory=dict)
++
++    @staticmethod
++    def from_env(*, extra: Optional[Dict[str, Path]] = None) -> "I18nConfig":
++        mp: Dict[str, Path] = {}
++
++        for lang, keys in _ENV_LANG_PO.items():
++            for k in keys:
++                v = os.environ.get(k)
++                if not v:
++                    continue
++                p = Path(v).expanduser()
++                if p.exists() and p.is_file():
++                    mp[_norm_lang(lang)] = p
++                    break
++
++        for k, v in (extra or {}).items():
++            kk = _norm_lang(str(k))
++            if not kk or not v:
++                continue
++            p2 = Path(v).expanduser()
++            if p2.exists() and p2.is_file():
++                mp[kk] = p2
++
++        return I18nConfig(lang_to_po=mp)
++
++
++@dataclass(frozen=True)
++class _PoSource:
++    kind: str  # 'file' | 'engine' | 'zip'
++    file_path: Optional[Path] = None
++    engine: Any = None
++    zip_path: Optional[Path] = None
++    inner_path: Optional[str] = None
++
++
++class I18nService:
++    """Load PO translations and expose item-name translation maps.
++
++    Key behavior
++    - Prefer explicit external PO path (env/config)
++    - Else try analyzer engine (mounted scripts source)
++    - Else try catalog's scripts.zip hint (store.meta['scripts_zip'])
++    - Optionally cache compiled id->name mapping to static_dir (served under /static)
++
++    Design goals
++    - Keep i18n concerns isolated from CatalogStore.
++    - Work even when analyzer engine mounts a "no language" scripts bundle.
++    - Keep runtime fast by compiling once and reusing a static JSON.
++    """
++
++    def __init__(
++        self,
++        cfg: I18nConfig,
++        *,
++        engine: Any = None,
++        static_dir: Optional[Path] = None,
++        scripts_zip_hint: Optional[str] = None,
++        encoding: str = "utf-8",
++    ):
++        self.cfg = cfg
++        self.engine = engine
++        self.scripts_zip_hint = str(scripts_zip_hint) if scripts_zip_hint else None
++        self.encoding = str(encoding or "utf-8")
++
++        self.static_dir: Optional[Path] = None
++        if static_dir is not None:
++            try:
++                sd = Path(static_dir).expanduser().resolve()
++                sd.mkdir(parents=True, exist_ok=True)
++                self.static_dir = sd
++            except Exception:
++                self.static_dir = None
++
++        self._lock = threading.RLock()
++
++        # Raw name cache: lang -> (po_sig, {normalized_key -> zh_name})
++        self._raw_cache: Dict[str, Tuple[str, Dict[str, str]]] = {}
++
++        # Item mapping cache: lang -> (assets_sig, po_sig_or_none, {item_id -> name})
++        self._item_cache: Dict[str, Tuple[str, Optional[str], Dict[str, str]]] = {}
++
++    # ----------------------------
++    # Engine helpers
++    # ----------------------------
++
++    def _engine_has(self, eng: Any, inner_path: str) -> bool:
++        """Check whether an inner path exists in the mounted scripts source."""
++
++        if eng is None or not inner_path:
++            return False
++
++        mode = str(getattr(eng, "mode", "") or "").lower()
++        src = getattr(eng, "source", None)
++
++        if mode == "zip" and src is not None and hasattr(src, "getinfo"):
++            try:
++                src.getinfo(inner_path)
++                return True
++            except Exception:
++                return False
++
++        if mode == "folder":
++            base = getattr(eng, "source", None)
++            if isinstance(base, str) and base:
++                rel = inner_path
++                if rel.startswith("scripts/"):
++                    rel = rel.replace("scripts/", "", 1)
++                p = Path(base) / rel
++                return p.exists() and p.is_file()
++
++        # Fallback: best-effort by trying to read.
++        try:
++            rf = getattr(eng, "read_file", None)
++            if callable(rf):
++                return rf(inner_path) is not None
++        except Exception:
++            return False
++
++        return False
++
++    def _resolve_engine_po_path(self, eng: Any, lang: str) -> Optional[str]:
++        cand = _ENGINE_PO_CANDIDATES.get(lang) or []
++        for p in cand:
++            if self._engine_has(eng, p):
++                return p
++        return None
++
++    def _engine_source_sig(self, eng: Any, inner_path: str) -> str:
++        """Compute a cache signature for a PO file loaded from engine."""
++
++        mode = str(getattr(eng, "mode", "") or "").lower()
++        src = getattr(eng, "source", None)
++
++        if mode == "zip" and src is not None:
++            zip_path = str(getattr(src, "filename", "") or "")
++            zip_mtime = 0.0
++            zip_size = 0
++            try:
++                st = Path(zip_path).stat()
++                zip_mtime = float(st.st_mtime)
++                zip_size = int(st.st_size)
++            except Exception:
++                pass
++
++            crc = -1
++            fsz = -1
++            dt = None
++            try:
++                info = src.getinfo(inner_path) if hasattr(src, "getinfo") else None
++                if info is not None:
++                    crc = int(getattr(info, "CRC", -1))
++                    fsz = int(getattr(info, "file_size", -1))
++                    dt = getattr(info, "date_time", None)
++            except Exception:
++                pass
++
++            return f"enginezip:{zip_path}:{zip_mtime}:{zip_size}:{inner_path}:{crc}:{fsz}:{dt}"
++
++        if mode == "folder":
++            base = getattr(eng, "source", None)
++            rel = inner_path
++            if rel.startswith("scripts/"):
++                rel = rel.replace("scripts/", "", 1)
++            try:
++                p = Path(str(base)) / rel
++                st = p.stat()
++                return f"enginefolder:{p}:{float(st.st_mtime)}:{int(st.st_size)}"
++            except Exception:
++                return f"enginefolder:{base}:{inner_path}"
++
++        return f"engine:{id(eng)}:{inner_path}"
++
++    # ----------------------------
++    # scripts.zip (hint) helpers
++    # ----------------------------
++
++    @staticmethod
++    def _zip_has(z: zipfile.ZipFile, inner: str) -> bool:
++        try:
++            z.getinfo(inner)
++            return True
++        except Exception:
++            return False
++
++    def _resolve_zip_po_path(self, zip_path: Path, lang: str) -> Optional[str]:
++        cand = _ENGINE_PO_CANDIDATES.get(lang) or []
++        if not cand:
++            return None
++        try:
++            with zipfile.ZipFile(str(zip_path), "r") as z:
++                for p in cand:
++                    if self._zip_has(z, p):
++                        return p
++        except Exception:
++            return None
++        return None
++
++    def _zip_source_sig(self, zip_path: Path, inner_path: str) -> str:
++        zip_mtime = 0.0
++        zip_size = 0
++        try:
++            st = Path(zip_path).stat()
++            zip_mtime = float(st.st_mtime)
++            zip_size = int(st.st_size)
++        except Exception:
++            pass
++
++        crc = -1
++        fsz = -1
++        dt = None
++        try:
++            with zipfile.ZipFile(str(zip_path), "r") as z:
++                info = z.getinfo(inner_path)
++                crc = int(getattr(info, "CRC", -1))
++                fsz = int(getattr(info, "file_size", -1))
++                dt = getattr(info, "date_time", None)
++        except Exception:
++            pass
++
++        return f"zipfile:{zip_path}:{zip_mtime}:{zip_size}:{inner_path}:{crc}:{fsz}:{dt}"
++
++    # ----------------------------
++    # Compiled static mapping helpers
++    # ----------------------------
++
++    def _compiled_path(self, lang: str) -> Optional[Path]:
++        if self.static_dir is None:
++            return None
++        l = _norm_lang(lang)
++        if not l:
++            return None
++        return self.static_dir / f"names_{l}.json"
++
++    def _read_compiled(self, lang: str) -> Tuple[Optional[str], Optional[str], Dict[str, str]]:
++        """Return (po_sig, assets_sig, names) from compiled file."""
++
++        p = self._compiled_path(lang)
++        if p is None or not p.exists() or not p.is_file():
++            return (None, None, {})
++
++        try:
++            doc = json.loads(p.read_text(encoding="utf-8", errors="replace"))
++        except Exception:
++            return (None, None, {})
++
++        # Backward-compatible: allow file to be just a dict of names.
++        if isinstance(doc, dict) and "names" in doc:
++            names = doc.get("names")
++            if not isinstance(names, dict):
++                names = {}
++            return (
++                str(doc.get("po_sig") or "") or None,
++                str(doc.get("assets_sig") or "") or None,
++                {str(k): str(v) for k, v in (names or {}).items() if k and v},
++            )
++
++        if isinstance(doc, dict):
++            return (None, None, {str(k): str(v) for k, v in doc.items() if k and v})
++
++        return (None, None, {})
++
++    def _write_compiled(self, *, lang: str, po_sig: Optional[str], assets_sig: str, names: Dict[str, str]) -> None:
++        p = self._compiled_path(lang)
++        if p is None:
++            return
++
++        doc = {
++            "lang": _norm_lang(lang),
++            "po_sig": str(po_sig or "") or None,
++            "assets_sig": str(assets_sig or ""),
++            "count": int(len(names or {})),
++            "names": dict(names or {}),
++        }
++        txt = json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
++        _atomic_write_text(p, txt)
++
++    # ----------------------------
++    # PO source resolving
++    # ----------------------------
++
++    def _resolve_po_source(
++        self,
++        *,
++        lang: str,
++        engine: Any = None,
++        scripts_zip_hint: Optional[str] = None,
++    ) -> Optional[_PoSource]:
++        l = _norm_lang(lang)
++        if not l:
++            return None
++
++        # 1) External override: explicit path.
++        p = (self.cfg.lang_to_po or {}).get(l)
++        if p:
++            try:
++                if p.exists() and p.is_file():
++                    return _PoSource(kind="file", file_path=p)
++            except Exception:
++                pass
++
++        # 2) Engine-mounted scripts source.
++        eng = engine if engine is not None else self.engine
++        if eng is not None:
++            inner = self._resolve_engine_po_path(eng, l)
++            if inner:
++                return _PoSource(kind="engine", engine=eng, inner_path=inner)
++
++        # 3) Catalog-provided scripts.zip hint (usually DST's scripts.zip with languages).
++        hint = str(scripts_zip_hint or self.scripts_zip_hint or "").strip()
++        if hint:
++            zp = Path(hint).expanduser()
++            try:
++                if zp.exists() and zp.is_file():
++                    inner2 = self._resolve_zip_po_path(zp, l)
++                    if inner2:
++                        return _PoSource(kind="zip", zip_path=zp, inner_path=inner2)
++            except Exception:
++                pass
++
++        return None
++
++    def _po_sig(self, *, lang: str, engine: Any = None, scripts_zip_hint: Optional[str] = None) -> Optional[str]:
++        src = self._resolve_po_source(lang=lang, engine=engine, scripts_zip_hint=scripts_zip_hint)
++        if src is None:
++            return None
++
++        if src.kind == "file" and src.file_path is not None:
++            try:
++                st = src.file_path.stat()
++                return f"file:{src.file_path}:{float(st.st_mtime)}:{int(st.st_size)}"
++            except Exception:
++                return None
++
++        if src.kind == "engine" and src.engine is not None and src.inner_path:
++            try:
++                return self._engine_source_sig(src.engine, src.inner_path)
++            except Exception:
++                return None
++
++        if src.kind == "zip" and src.zip_path is not None and src.inner_path:
++            try:
++                return self._zip_source_sig(src.zip_path, src.inner_path)
++            except Exception:
++                return None
++
++        return None
++
++    def _read_po_text(
++        self,
++        *,
++        lang: str,
++        engine: Any = None,
++        scripts_zip_hint: Optional[str] = None,
++    ) -> Tuple[Optional[str], Optional[str]]:
++        """Return (po_sig, po_text)."""
++
++        src = self._resolve_po_source(lang=lang, engine=engine, scripts_zip_hint=scripts_zip_hint)
++        if src is None:
++            return (None, None)
++
++        sig = self._po_sig(lang=lang, engine=engine, scripts_zip_hint=scripts_zip_hint)
++
++        if src.kind == "file" and src.file_path is not None:
++            try:
++                txt = src.file_path.read_text(encoding=self.encoding, errors="replace")
++                return (sig, txt)
++            except Exception:
++                return (None, None)
++
++        if src.kind == "engine" and src.engine is not None and src.inner_path:
++            try:
++                rf = getattr(src.engine, "read_file", None)
++                txt = rf(src.inner_path) if callable(rf) else None
++                if isinstance(txt, bytes):
++                    try:
++                        txt = txt.decode(self.encoding, errors="replace")
++                    except Exception:
++                        txt = txt.decode("utf-8", errors="replace")
++                if not txt:
++                    return (None, None)
++                return (sig, str(txt))
++            except Exception:
++                return (None, None)
++
++        if src.kind == "zip" and src.zip_path is not None and src.inner_path:
++            try:
++                with zipfile.ZipFile(str(src.zip_path), "r") as z:
++                    data = z.read(src.inner_path)
++                try:
++                    txt2 = data.decode(self.encoding, errors="replace")
++                except Exception:
++                    txt2 = data.decode("utf-8", errors="replace")
++                return (sig, txt2)
++            except Exception:
++                return (None, None)
++
++        return (None, None)
++
++    # ----------------------------
++    # Public API
++    # ----------------------------
++
++    def available_langs(self, *, engine: Any = None, scripts_zip_hint: Optional[str] = None) -> List[str]:
++        eng = engine if engine is not None else self.engine
++        langs: List[str] = []
++
++        # 1) Config-provided overrides
++        for k in (self.cfg.lang_to_po or {}).keys():
++            kk = _norm_lang(str(k))
++            if kk and kk not in langs:
++                langs.append(kk)
++
++        # 2) Compiled static files
++        for k in _ENGINE_PO_CANDIDATES.keys():
++            kk = _norm_lang(str(k))
++            if not kk or kk in langs:
++                continue
++            p = self._compiled_path(kk)
++            if p is not None and p.exists():
++                # only enable if it has some names
++                _, _, mp = self._read_compiled(kk)
++                if mp:
++                    langs.append(kk)
++
++        # 3) Engine-provided defaults
++        for k in _ENGINE_PO_CANDIDATES.keys():
++            kk = _norm_lang(str(k))
++            if not kk or kk in langs:
++                continue
++            if eng is not None and self._resolve_engine_po_path(eng, kk):
++                langs.append(kk)
++
++        # 4) scripts.zip hint
++        hint = str(scripts_zip_hint or self.scripts_zip_hint or "").strip()
++        if hint:
++            zp = Path(hint).expanduser()
++            for k in _ENGINE_PO_CANDIDATES.keys():
++                kk = _norm_lang(str(k))
++                if not kk or kk in langs:
++                    continue
++                try:
++                    if zp.exists() and zp.is_file() and self._resolve_zip_po_path(zp, kk):
++                        langs.append(kk)
++                except Exception:
++                    continue
++
++        langs.sort()
++        return langs
++
++    def public_meta(self, *, engine: Any = None, scripts_zip_hint: Optional[str] = None) -> Dict[str, Any]:
++        langs = self.available_langs(engine=engine, scripts_zip_hint=scripts_zip_hint)
++        return {
++            "enabled": bool(langs),
++            "langs": langs,
++            "modes": ["en", "zh", "id"],
++            "default_mode": "en",
++        }
++
++    def _load_names_raw(self, lang: str, *, engine: Any = None, scripts_zip_hint: Optional[str] = None) -> Tuple[Optional[str], Dict[str, str]]:
++        """Return (po_sig, {normalized_key -> localized_name})."""
++
++        l = _norm_lang(lang)
++        if not l:
++            return (None, {})
++
++        sig, txt = self._read_po_text(lang=l, engine=engine, scripts_zip_hint=scripts_zip_hint)
++        if not sig or not txt:
++            return (None, {})
++
++        with self._lock:
++            cached = self._raw_cache.get(l)
++            if cached and str(cached[0]) == str(sig):
++                return (str(sig), dict(cached[1]))
++
++        ctx_map = parse_po(txt)
++        names: Dict[str, str] = {}
++        for ctx, val in ctx_map.items():
++            if not isinstance(ctx, str) or not ctx.startswith(_NAMES_PREFIX):
++                continue
++            key = ctx[len(_NAMES_PREFIX) :].strip()
++            if not key:
++                continue
++            kid = key.strip().lower()
++            if not kid:
++                continue
++            v = str(val).strip()
++            if not v:
++                continue
++            names[kid] = v
++            # Common alt-id: strip underscores
++            if "_" in kid:
++                names.setdefault(kid.replace("_", ""), v)
++
++        with self._lock:
++            self._raw_cache[l] = (str(sig), dict(names))
++
++        return (str(sig), dict(names))
++
++    def item_name_map(
++        self,
++        *,
++        lang: str,
++        assets: Dict[str, Any],
++        engine: Any = None,
++        scripts_zip_hint: Optional[str] = None,
++    ) -> Dict[str, str]:
++        """Build {item_id: localized_name} for item ids present in assets.
++
++        If static_dir is configured, it will also compile/cache the mapping as:
++          <static_dir>/names_<lang>.json
++        """
++
++        l = _norm_lang(lang)
++        if not l or l in ("en", "id"):
++            return {}
++
++        aset_sig = _assets_sig(assets)
++
++        with self._lock:
++            ic = self._item_cache.get(l)
++            if ic and str(ic[0]) == str(aset_sig):
++                return dict(ic[2] or {})
++
++        # 1) If we have a compiled file, use it (and verify freshness when possible).
++        po_sig_file, aset_sig_file, compiled = self._read_compiled(l)
++        if compiled:
++            if not aset_sig_file or str(aset_sig_file) == str(aset_sig):
++                # If we can compute current po sig, ensure it matches; otherwise trust compiled.
++                cur_po_sig = self._po_sig(lang=l, engine=engine, scripts_zip_hint=scripts_zip_hint)
++                if (not cur_po_sig) or (po_sig_file and str(po_sig_file) == str(cur_po_sig)):
++                    with self._lock:
++                        self._item_cache[l] = (str(aset_sig), po_sig_file or cur_po_sig, dict(compiled))
++                    return dict(compiled)
++
++        # 2) Rebuild from PO (engine or scripts.zip hint or explicit file).
++        po_sig, raw = self._load_names_raw(l, engine=engine, scripts_zip_hint=scripts_zip_hint)
++        if not raw:
++            # No source now; fall back to compiled content if any (filter to current assets if possible).
++            if compiled:
++                out2 = {iid: compiled[iid] for iid in (assets or {}).keys() if iid in compiled}
++                with self._lock:
++                    self._item_cache[l] = (str(aset_sig), po_sig_file, dict(out2))
++                return out2
++            return {}
++
++        out: Dict[str, str] = {}
++        for iid in (assets or {}).keys():
++            if not iid:
++                continue
++            k1 = str(iid).strip().lower()
++            if not k1:
++                continue
++            k2 = k1.replace("_", "")
++            v = raw.get(k1) or raw.get(k2)
++            if v:
++                out[str(iid)] = v
++
++        # 3) Persist compiled mapping (best-effort).
++        try:
++            self._write_compiled(lang=l, po_sig=po_sig, assets_sig=aset_sig, names=out)
++        except Exception:
++            pass
++
++        with self._lock:
++            self._item_cache[l] = (str(aset_sig), po_sig, dict(out))
++
++        return out
++
++    def warmup(self, *, assets: Dict[str, Any], engine: Any = None, scripts_zip_hint: Optional[str] = None, langs: Optional[List[str]] = None) -> None:
++        """Best-effort precompile.
++
++        This is safe to call at server startup.
++        """
++
++        ls = langs or ["zh"]
++        for l in ls:
++            try:
++                self.item_name_map(lang=str(l), assets=assets, engine=engine, scripts_zip_hint=scripts_zip_hint)
++            except Exception:
++                continue

@@ -4,7 +4,7 @@
     "mode_to_template": {
       "core": "core",
       "archive": "archive",
-      "custom": "core"
+      "custom": "gui"
     },
     "notes": [
       "规则按顺序匹配：第一条命中即生效（first-match-wins）。",
@@ -23,7 +23,10 @@
       "include_reports": true,
       "max_file_bytes": 200000,
       "max_total_bytes": 1500000,
-      "tree": {"max_depth": 8, "max_entries_per_dir": 250},
+      "tree": {
+        "max_depth": 8,
+        "max_entries_per_dir": 250
+      },
       "include_globs": [
         "README.md",
         "PROJECT_STATUS.json",
@@ -71,26 +74,83 @@
         "**/*.key"
       ],
       "rules": [
-        {"match": "devtools/snapshot.py", "mode": "full"},
-        {"match": "src/engine.py", "mode": "full"},
-        {"match": "src/analyzer.py", "mode": "full"},
-        {"match": "src/explorer.py", "mode": "full"},
-        {"match": "src/wiki.py", "mode": "full"},
-        {"match": "src/registry.py", "mode": "full"},
-        {"match": "src/**/*.py", "mode": "full"},
-        {"match": "devtools/**/*.py", "mode": "interface"},
-        {"match": "tests/**/*.py", "mode": "head", "head_lines": 220},
-        {"match": "bin/**", "mode": "head", "head_lines": 160},
-        {"match": "conf/**", "mode": "full"},
-        {"match": "data/reports/**/*.md", "mode": "head", "head_lines": 260},
-        {"match": "data/samples/**/*.md", "mode": "head", "head_lines": 340},
-        {"match": "data/samples/**/*.json", "mode": "head", "head_lines": 160},
-        {"match": "*.md", "mode": "head", "head_lines": 240},
-        {"match": "*.txt", "mode": "head", "head_lines": 240},
-        {"match": "**/*", "mode": "skip"}
+        {
+          "match": "devtools/snapshot.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/engine.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/analyzer.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/explorer.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/wiki.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/registry.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/**/*.py",
+          "mode": "full"
+        },
+        {
+          "match": "devtools/**/*.py",
+          "mode": "interface"
+        },
+        {
+          "match": "tests/**/*.py",
+          "mode": "head",
+          "head_lines": 220
+        },
+        {
+          "match": "bin/**",
+          "mode": "head",
+          "head_lines": 160
+        },
+        {
+          "match": "conf/**",
+          "mode": "full"
+        },
+        {
+          "match": "data/reports/**/*.md",
+          "mode": "head",
+          "head_lines": 260
+        },
+        {
+          "match": "data/samples/**/*.md",
+          "mode": "head",
+          "head_lines": 340
+        },
+        {
+          "match": "data/samples/**/*.json",
+          "mode": "head",
+          "head_lines": 160
+        },
+        {
+          "match": "*.md",
+          "mode": "head",
+          "head_lines": 240
+        },
+        {
+          "match": "*.txt",
+          "mode": "head",
+          "head_lines": 240
+        },
+        {
+          "match": "**/*",
+          "mode": "skip"
+        }
       ]
     },
-
     "archive": {
       "desc": "Archival snapshot：尽量完整导出 + 生成 zip 归档（适合长期留存/回溯）。",
       "output": "data/snapshots/archive_{timestamp}.md",
@@ -100,8 +160,13 @@
       "include_reports": true,
       "max_file_bytes": 500000,
       "max_total_bytes": 20000000,
-      "tree": {"max_depth": 30, "max_entries_per_dir": 1000},
-      "include_globs": ["**/*"],
+      "tree": {
+        "max_depth": 30,
+        "max_entries_per_dir": 1000
+      },
+      "include_globs": [
+        "**/*"
+      ],
       "ignore_files": [
         "project_context.txt",
         ".DS_Store",
@@ -137,10 +202,12 @@
         "**/*.key"
       ],
       "rules": [
-        {"match": "**/*", "mode": "full"}
+        {
+          "match": "**/*",
+          "mode": "full"
+        }
       ]
     },
-
     "focus_analyzer": {
       "desc": "聚焦：增强 analyzer 对更多 DST 数据类型的解析，并同步到 explorer/wiki。",
       "output": "project_context.focus_analyzer.txt",
@@ -148,7 +215,10 @@
       "include_reports": true,
       "max_file_bytes": 260000,
       "max_total_bytes": 2200000,
-      "tree": {"max_depth": 10, "max_entries_per_dir": 300},
+      "tree": {
+        "max_depth": 10,
+        "max_entries_per_dir": 300
+      },
       "include_globs": [
         "PROJECT_STATUS.json",
         "README.md",
@@ -194,24 +264,435 @@
         "**/*.key"
       ],
       "rules": [
-        {"match": "src/analyzer.py", "mode": "full"},
-        {"match": "src/engine.py", "mode": "full"},
-        {"match": "src/explorer.py", "mode": "full"},
-        {"match": "src/wiki.py", "mode": "full"},
-        {"match": "src/utils.py", "mode": "full"},
-        {"match": "src/registry.py", "mode": "full"},
-        {"match": "tests/**/*.py", "mode": "full"},
-        {"match": "devtools/sampler.py", "mode": "full"},
-        {"match": "devtools/codemap.py", "mode": "full"},
-        {"match": "devtools/reporter.py", "mode": "interface"},
-        {"match": "devtools/snapshot.py", "mode": "interface"},
-        {"match": "devtools/**/*.py", "mode": "interface"},
-        {"match": "conf/**", "mode": "full"},
-        {"match": "data/reports/**/*.md", "mode": "full"},
-        {"match": "data/samples/**/*.md", "mode": "head", "head_lines": 420},
-        {"match": "data/samples/**/*.json", "mode": "head", "head_lines": 220},
-        {"match": "bin/**", "mode": "skip"},
-        {"match": "**/*", "mode": "skip"}
+        {
+          "match": "src/analyzer.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/engine.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/explorer.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/wiki.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/utils.py",
+          "mode": "full"
+        },
+        {
+          "match": "src/registry.py",
+          "mode": "full"
+        },
+        {
+          "match": "tests/**/*.py",
+          "mode": "full"
+        },
+        {
+          "match": "devtools/sampler.py",
+          "mode": "full"
+        },
+        {
+          "match": "devtools/codemap.py",
+          "mode": "full"
+        },
+        {
+          "match": "devtools/reporter.py",
+          "mode": "interface"
+        },
+        {
+          "match": "devtools/snapshot.py",
+          "mode": "interface"
+        },
+        {
+          "match": "devtools/**/*.py",
+          "mode": "interface"
+        },
+        {
+          "match": "conf/**",
+          "mode": "full"
+        },
+        {
+          "match": "data/reports/**/*.md",
+          "mode": "full"
+        },
+        {
+          "match": "data/samples/**/*.md",
+          "mode": "head",
+          "head_lines": 420
+        },
+        {
+          "match": "data/samples/**/*.json",
+          "mode": "head",
+          "head_lines": 220
+        },
+        {
+          "match": "bin/**",
+          "mode": "skip"
+        },
+        {
+          "match": "**/*",
+          "mode": "skip"
+        }
+      ]
+    },
+    "gui": {
+      "desc": "GUI generated template",
+      "output": "project_context.txt",
+      "redact": true,
+      "include_reports": true,
+      "max_file_bytes": 200000,
+      "max_total_bytes": 1200000,
+      "tree": {
+        "max_depth": 8,
+        "max_entries_per_dir": 250
+      },
+      "include_globs": [
+        "**/*"
+      ],
+      "ignore_files": [
+        ".DS_Store",
+        "id_ed25519",
+        "id_rsa",
+        "known_hosts",
+        "project_context.txt"
+      ],
+      "ignore_globs": [
+        "data/snapshots/**",
+        "**/*.swp",
+        "**/*.swo",
+        "**/*.tmp",
+        "**/*.bak",
+        "**/*.log",
+        "**/*.zip",
+        "**/*.tar",
+        "**/*.tar.gz",
+        "**/*.gz",
+        "**/*.7z",
+        "**/*.rar",
+        "**/*.png",
+        "**/*.jpg",
+        "**/*.jpeg",
+        "**/*.webp",
+        "**/*.pdf",
+        "**/*.mp4",
+        "**/*.mov",
+        "**/*.sqlite",
+        "**/*.db",
+        "**/.env",
+        "**/.env.*",
+        "**/*.pem",
+        "**/*.key"
+      ],
+      "hash": "embedded",
+      "embed_order": "smart",
+      "inventory": {
+        "enabled": true,
+        "scope": "all",
+        "limit": 700
+      },
+      "rules": [
+        {
+          "match": "data/reports/recipe_distribution.md",
+          "mode": "skip"
+        },
+        {
+          "match": "data/reports/catalog_summary.md",
+          "mode": "skip"
+        },
+        {
+          "match": "data/reports/asset_registry.md",
+          "mode": "skip"
+        },
+        {
+          "match": "data/reports/dst_codemap.json",
+          "mode": "skip"
+        },
+        {
+          "match": "data/reports/dst_codemap.md",
+          "mode": "skip"
+        },
+        {
+          "match": "conf/snapshot_templates.json",
+          "mode": "interface"
+        },
+        {
+          "match": "src/klei_atlas_tex.py",
+          "mode": "interface"
+        },
+        {
+          "match": "bin/.dst_tool.sh.swp",
+          "mode": "skip"
+        },
+        {
+          "match": "conf/settings.ini",
+          "mode": "interface"
+        },
+        {
+          "match": "bin/Wagstaff-Lab",
+          "mode": "skip"
+        },
+        {
+          "match": "bin/dst_tool.sh",
+          "mode": "skip"
+        },
+        {
+          "match": "src/explorer.py",
+          "mode": "interface"
+        },
+        {
+          "match": "src/registry.py",
+          "mode": "interface"
+        },
+        {
+          "match": "src/doctor.py",
+          "mode": "interface"
+        },
+        {
+          "match": "bin/wagstaff",
+          "mode": "skip"
+        },
+        {
+          "match": "src/guide.py",
+          "mode": "skip"
+        },
+        {
+          "match": "bin/boot.sh",
+          "mode": "skip"
+        },
+        {
+          "match": "src/wiki.py",
+          "mode": "interface"
+        },
+        {
+          "match": "bin/pm",
+          "mode": "skip"
+        },
+        {
+          "match": "PROJECT_STATUS.json",
+          "mode": "skip"
+        },
+        {
+          "match": ".gitignore",
+          "mode": "interface"
+        },
+        {
+          "match": "README.md",
+          "mode": "skip"
+        },
+        {
+          "match": "setup.sh",
+          "mode": "skip"
+        },
+        {
+          "match": "data/snapshots/**",
+          "mode": "skip"
+        },
+        {
+          "match": "conf/samples/**",
+          "mode": "interface"
+        },
+        {
+          "match": "data/reports/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/samples/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/static/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/index/**",
+          "mode": "head",
+          "head_lines": 200
+        },
+        {
+          "match": "tests/**",
+          "mode": "skip"
+        },
+        {
+          "match": "conf/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/**",
+          "mode": "interface"
+        },
+        {
+          "match": "docs/**",
+          "mode": "interface"
+        },
+        {
+          "match": "bin/**",
+          "mode": "skip"
+        },
+        {
+          "match": "src/**",
+          "mode": "full"
+        },
+        {
+          "match": "**/*",
+          "mode": "interface"
+        }
+      ]
+    },
+    "llm_best": {
+      "desc": "LLM best (balanced): core code full + surrounding head/interface, low-noise inventory.",
+      "output": "project_context.txt",
+      "redact": true,
+      "include_reports": true,
+      "max_file_bytes": 250000,
+      "max_total_bytes": 3000000,
+      "tree": {
+        "max_depth": 10,
+        "max_entries_per_dir": 400
+      },
+      "include_globs": [
+        "PROJECT_STATUS.json",
+        "README.md",
+        "bin/**/*",
+        "conf/**/*",
+        "conf/snapshot_templates.json",
+        "data/index/**/*",
+        "data/reports/**/*",
+        "devtools/**/*",
+        "docs/**/*",
+        "gitignore",
+        "src/**/*",
+        "tests/**/*"
+      ],
+      "ignore_files": [
+        ".DS_Store",
+        "id_ed25519",
+        "id_rsa",
+        "known_hosts",
+        "project_context.txt"
+      ],
+      "ignore_globs": [
+        "data/snapshots/**",
+        "**/*.swp",
+        "**/*.swo",
+        "**/*.tmp",
+        "**/*.bak",
+        "**/*.log",
+        "**/*.zip",
+        "**/*.tar",
+        "**/*.tar.gz",
+        "**/*.gz",
+        "**/*.7z",
+        "**/*.rar",
+        "**/*.png",
+        "**/*.jpg",
+        "**/*.jpeg",
+        "**/*.webp",
+        "**/*.pdf",
+        "**/*.mp4",
+        "**/*.mov",
+        "**/*.sqlite",
+        "**/*.db",
+        "**/.env",
+        "**/.env.*",
+        "**/*.pem",
+        "**/*.key"
+      ],
+      "hash": "embedded",
+      "embed_order": "smart",
+      "inventory": {
+        "enabled": true,
+        "scope": "included",
+        "limit": 700
+      },
+      "rules": [
+        {
+          "match": "conf/snapshot_templates.json",
+          "mode": "head",
+          "head_lines": 10
+        },
+        {
+          "match": "PROJECT_STATUS.json",
+          "mode": "head",
+          "head_lines": 260
+        },
+        {
+          "match": "README.md",
+          "mode": "head",
+          "head_lines": 260
+        },
+        {
+          "match": "gitignore",
+          "mode": "head",
+          "head_lines": 120
+        },
+        {
+          "match": "data/reports/**",
+          "mode": "head",
+          "head_lines": 50
+        },
+        {
+          "match": "data/samples/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/static/**",
+          "mode": "skip"
+        },
+        {
+          "match": "data/index/**",
+          "mode": "head",
+          "head_lines": 100
+        },
+        {
+          "match": "devtools/**",
+          "mode": "interface"
+        },
+        {
+          "match": "tests/**",
+          "mode": "head",
+          "head_lines": 220
+        },
+        {
+          "match": "conf/**",
+          "mode": "full"
+        },
+        {
+          "match": "docs/**",
+          "mode": "head",
+          "head_lines": 240
+        },
+        {
+          "match": "src/**",
+          "mode": "full"
+        },
+        {
+          "match": "bin/**",
+          "mode": "interface"
+        },
+        {
+          "match": "**/*",
+          "mode": "skip"
+        }
+      ],
+      "pinned": [
+        "README.md",
+        "PROJECT_STATUS.json",
+        "conf/settings.ini",
+        "conf/snapshot_templates.json",
+        "src/registry.py",
+        "src/engine.py",
+        "src/analyzer.py",
+        "src/wiki.py",
+        "src/explorer.py",
+        "src/webcraft/app.py",
+        "src/webcraft/api.py",
+        "src/webcraft/catalog_store.py",
+        "src/webcraft/planner.py"
       ]
     }
   }
