@@ -5,7 +5,9 @@ echo "🔧 正在执行项目初始化..."
 
 # 1. 恢复执行权限 (Git 可能会丢失 chmod +x)
 chmod +x bin/*.sh
-chmod +x src/*.py
+chmod +x core/*.py
+chmod +x apps/cli/*.py
+chmod +x apps/webcraft/*.py
 chmod +x devtools/*.py
 echo "✅ 脚本权限已修复"
 

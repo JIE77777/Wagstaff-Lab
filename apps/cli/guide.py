@@ -8,11 +8,12 @@ from rich.table import Table
 from pathlib import Path
 
 # 引入配置和注册表
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+CLI_DIR = Path(__file__).resolve().parent
+sys.path.append(str(CLI_DIR))
 from registry import get_tools
 
 console = Console()
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def load_status():
     status_path = PROJECT_ROOT / "PROJECT_STATUS.json"

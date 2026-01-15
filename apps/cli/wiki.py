@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""src/wiki.py
+"""apps/cli/wiki.py
 
 CLI-oriented "wiki" front-end.
 
@@ -13,6 +13,7 @@ import math
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Dict
 
 from rich.console import Console
@@ -21,7 +22,12 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.tree import Tree
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CORE_DIR = PROJECT_ROOT / "core"
+CLI_DIR = Path(__file__).resolve().parent
+for p in (str(CORE_DIR), str(CLI_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 from engine import WagstaffEngine  # noqa: E402
 from analyzer import LuaAnalyzer, LootParser  # noqa: E402
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""src/catalog.py
+"""core/catalog.py
 
 Catalog = stable, UI-agnostic, versioned index for downstream apps.
 

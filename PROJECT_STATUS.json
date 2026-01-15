@@ -1,25 +1,26 @@
 {
-  "OBJECTIVE": "Wagstaff Lab v2.0 架构升级与情报持久化",
+  "OBJECTIVE": "Wagstaff Lab v3.0 架构重构：core/apps 分层与 WebCraft 服务化",
   "TASKS_TODO": [],
   "TASKS_DONE": [
     "重构 Wiki 和 Explorer 使用 Engine",
     "实现情报扫描结果保存到 data/reports/",
-    "创建 src/guide.py 项目概况面板",
+    "创建 apps/cli/guide.py 项目概况面板",
     "创建 devtools/installer.py 并封装 bin/wagstaff 命令",
     "文档化：在 README.md 中记录新工具接入 SOP",
-    "重构工具注册逻辑：引入 src/registry.py 实现单一数据源",
+    "重构工具注册逻辑：引入 apps/cli/registry.py 实现单一数据源",
     "Hotfix(pm): 修复 STATUS_FILE 路径依赖并实现原子化写入 (.tmp -> rename)",
     "Hotfix(installer): 优化 wagstaff 包装脚本，修复无参报错并引入 exec 进程替换",
     "Wiki v2.3: 实现交互式搜索 (find) 与详细组件展示",
     "Analyzer: 支持内联掉落表解析 (Krampus) 与 Tuning 递归数值追踪",
     "PM Tool: 修复 JSON 数据结构并实现自动迁移 (v1->v2)",
-    "WebCraft: Catalog UI 修复 i18n helper 缺失导致的空白与标签切换异常"
+    "WebCraft: Catalog UI 修复 i18n helper 缺失导致的空白与标签切换异常",
+    "Refactor: core/apps 拆分，CLI 与 WebCraft 应用层分离"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
     "[2026-01-12 16:12] 建立 Wagstaff-Lab 新工具接入标准流程 (SOP)",
     "[2026-01-12 16:28] 完成说明书逻辑集成：Registry 补全 usage 字段并同步至 Guide UI",
-    "[2026-01-12 18:32] 架构验收：src/registry.py 单一数据源功能确认正常",
+    "[2026-01-12 18:32] 架构验收：apps/cli/registry.py 单一数据源功能确认正常",
     "[2026-01-12 18:45] 应用 v2.2.1 补丁：增强工具链健壮性 (pm.py & installer.py)",
     "[2026-01-13 14:53] Release v2.3: 完成 Wagstaff Lab 交互式升级。Wiki 新增 TUI 翻页模式，Analyzer 具备深度语义理解能力，工具链 (pm.py) 升级为健壮版本。",
     "[2026-01-15 12:50] WebCraft: 修复中文切换灰态问题，补全 meta.i18n 初始化与预加载。",
@@ -29,12 +30,19 @@
     "[2026-01-15 14:27] build_icons/icon_service: 修正 v 坐标翻转默认逻辑，避免图标上下错位导致错配。",
     "[2026-01-15 14:40] Tuning: 支持解析 Tune() 函数内的 TUNING 表，输出完整链路与数值。",
     "[2026-01-15 16:13] WebCraft: Catalog UI 补全 i18n helper，修复 applyLabelModeUI 未定义导致的页面空白。",
-    "[2026-01-15 16:13] Repo: 归档 patch 残留与 *.orig/*.rej 临时文件。"
+    "[2026-01-15 16:13] Repo: 归档 patch 残留与 *.orig/*.rej 临时文件。",
+    "[2026-01-15 16:13] Refactor: 拆分 core/apps 目录，WebCraft 迁移到 apps/webcraft。",
+    "[2026-01-15 16:13] Cleanup: 移除旧快照与 snaptxt 遗留，收敛历史包袱。",
+    "[2026-01-15 17:21] Snapshot: 优化 LLM 快照输出与 sections/focus 规范，同步更新开发规范。",
+    "[2026-01-15 17:26] DevGuide: 增加 snapshot 友好开发规范，指导后续代码结构与文档习惯。"
   ],
   "DEV_MANIFESTO": [
-    "架构分层：Engine负责底层I/O，Tool负责交互，禁止UI混入底层",
-    "单文件可用：脚本必须原子化，能独立运行，拒绝强耦合",
-    "路径自适应：禁止硬编码绝对路径，必须通过 __file__ 动态定位",
-    "数据持久化：扫描结果和日志必须写入文件，不仅限于控制台输出"
+    "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",
+    "单向依赖：apps/devtools 可以依赖 core，core 不依赖上层",
+    "数据契约：对外数据统一落盘 data/，版本化命名并携带元信息",
+    "路径自适应：禁止硬编码绝对路径，统一通过 __file__ 推导",
+    "可追溯与可复用：产物记录来源 hash，核心能力被 CLI/Web 共享",
+    "稳健降级：优先 scripts.zip，缺失时降级 scripts/ 目录",
+    "LLM 快照规范：snapshot.py 作为统一导出入口，模板与 sections 控制噪声"
   ]
 }

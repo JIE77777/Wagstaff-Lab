@@ -16,7 +16,9 @@ import webbrowser
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT / "src"))
+for p in (PROJECT_ROOT / "core", PROJECT_ROOT / "apps"):
+    if str(p) not in sys.path:
+        sys.path.append(str(p))
 
 import uvicorn  # type: ignore
 

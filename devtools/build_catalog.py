@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(PROJECT_ROOT / "core"))
 
 from engine import WagstaffEngine  # noqa: E402
 from catalog import WagstaffCatalog  # noqa: E402

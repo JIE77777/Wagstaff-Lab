@@ -2,17 +2,20 @@
   "version": 1,
   "defaults": {
     "mode_to_template": {
+      "llm": "core",
       "core": "core",
       "archive": "archive",
       "custom": "gui"
     },
     "notes": [
       "规则按顺序匹配：第一条命中即生效（first-match-wins）。",
-      "match 使用 glob（相对项目根目录），示例：src/**/*.py。",
+      "match 使用 glob（相对项目根目录），示例：core/**/*.py, apps/**/*.py。",
       "mode 支持：full | interface | head | skip。",
       "head 模式默认导出前 head_lines 行。",
       "interface 仅对 .py 做 AST 接口提取；其他文件降级为 head。",
-      "archive 模板默认会额外生成 zip 归档（make_zip=true）。"
+      "archive 模板默认会额外生成 zip 归档（make_zip=true）。",
+      "sections 支持 config/env/overview/tree/inventory/contents/stats 的输出开关。",
+      "snapshot.py 支持 --focus 路径/通配符以聚焦导出（可多次传入）。"
     ]
   },
   "templates": {
@@ -21,6 +24,30 @@
       "output": "project_context.txt",
       "redact": true,
       "include_reports": true,
+      "hash": "embedded",
+      "embed_order": "smart",
+      "sections": {
+        "config": false,
+        "env": true,
+        "overview": true,
+        "tree": true,
+        "inventory": true,
+        "contents": true,
+        "stats": true
+      },
+      "inventory": {
+        "enabled": true,
+        "scope": "included",
+        "limit": 700
+      },
+      "pinned": [
+        "PROJECT_STATUS.json",
+        "README.md",
+        "conf/settings.ini",
+        "docs/DEV_GUIDE.md",
+        "docs/ROADMAP.md",
+        "apps/cli/registry.py"
+      ],
       "max_file_bytes": 200000,
       "max_total_bytes": 1500000,
       "tree": {
@@ -32,8 +59,10 @@
         "PROJECT_STATUS.json",
         ".gitignore",
         "conf/**/*.ini",
-        "src/**/*.py",
+        "core/**/*.py",
+        "apps/**/*.py",
         "devtools/**/*.py",
+        "docs/**/*.md",
         "tests/**/*.py",
         "bin/**",
         "data/reports/**/*.md",
@@ -79,32 +108,41 @@
           "mode": "full"
         },
         {
-          "match": "src/engine.py",
+          "match": "core/engine.py",
           "mode": "full"
         },
         {
-          "match": "src/analyzer.py",
+          "match": "core/analyzer.py",
           "mode": "full"
         },
         {
-          "match": "src/explorer.py",
+          "match": "apps/cli/explorer.py",
           "mode": "full"
         },
         {
-          "match": "src/wiki.py",
+          "match": "apps/cli/wiki.py",
           "mode": "full"
         },
         {
-          "match": "src/registry.py",
+          "match": "apps/cli/registry.py",
           "mode": "full"
         },
         {
-          "match": "src/**/*.py",
+          "match": "core/**/*.py",
+          "mode": "full"
+        },
+        {
+          "match": "apps/**/*.py",
           "mode": "full"
         },
         {
           "match": "devtools/**/*.py",
           "mode": "interface"
+        },
+        {
+          "match": "docs/**/*.md",
+          "mode": "head",
+          "head_lines": 240
         },
         {
           "match": "tests/**/*.py",
@@ -158,6 +196,22 @@
       "zip_output": "data/snapshots/archive_{timestamp}.zip",
       "redact": true,
       "include_reports": true,
+      "hash": "all",
+      "embed_order": "path",
+      "sections": {
+        "config": true,
+        "env": true,
+        "overview": true,
+        "tree": true,
+        "inventory": true,
+        "contents": true,
+        "stats": true
+      },
+      "inventory": {
+        "enabled": true,
+        "scope": "all",
+        "limit": 2000
+      },
       "max_file_bytes": 500000,
       "max_total_bytes": 20000000,
       "tree": {
@@ -213,6 +267,22 @@
       "output": "project_context.focus_analyzer.txt",
       "redact": true,
       "include_reports": true,
+      "hash": "embedded",
+      "embed_order": "smart",
+      "sections": {
+        "config": false,
+        "env": true,
+        "overview": true,
+        "tree": true,
+        "inventory": true,
+        "contents": true,
+        "stats": true
+      },
+      "inventory": {
+        "enabled": true,
+        "scope": "included",
+        "limit": 900
+      },
       "max_file_bytes": 260000,
       "max_total_bytes": 2200000,
       "tree": {
@@ -223,7 +293,8 @@
         "PROJECT_STATUS.json",
         "README.md",
         "conf/**/*.ini",
-        "src/**/*.py",
+        "core/**/*.py",
+        "apps/**/*.py",
         "tests/**/*.py",
         "devtools/**/*.py",
         "data/reports/**/*.md",
@@ -265,27 +336,27 @@
       ],
       "rules": [
         {
-          "match": "src/analyzer.py",
+          "match": "core/analyzer.py",
           "mode": "full"
         },
         {
-          "match": "src/engine.py",
+          "match": "core/engine.py",
           "mode": "full"
         },
         {
-          "match": "src/explorer.py",
+          "match": "apps/cli/explorer.py",
           "mode": "full"
         },
         {
-          "match": "src/wiki.py",
+          "match": "apps/cli/wiki.py",
           "mode": "full"
         },
         {
-          "match": "src/utils.py",
+          "match": "core/utils.py",
           "mode": "full"
         },
         {
-          "match": "src/registry.py",
+          "match": "apps/cli/registry.py",
           "mode": "full"
         },
         {
@@ -345,6 +416,15 @@
       "output": "project_context.txt",
       "redact": true,
       "include_reports": true,
+      "sections": {
+        "config": true,
+        "env": true,
+        "overview": true,
+        "tree": true,
+        "inventory": true,
+        "contents": true,
+        "stats": true
+      },
       "max_file_bytes": 200000,
       "max_total_bytes": 1200000,
       "tree": {
@@ -421,7 +501,7 @@
           "mode": "interface"
         },
         {
-          "match": "src/klei_atlas_tex.py",
+          "match": "core/klei_atlas_tex.py",
           "mode": "interface"
         },
         {
@@ -441,15 +521,15 @@
           "mode": "skip"
         },
         {
-          "match": "src/explorer.py",
+          "match": "apps/cli/explorer.py",
           "mode": "interface"
         },
         {
-          "match": "src/registry.py",
+          "match": "apps/cli/registry.py",
           "mode": "interface"
         },
         {
-          "match": "src/doctor.py",
+          "match": "apps/cli/doctor.py",
           "mode": "interface"
         },
         {
@@ -457,7 +537,7 @@
           "mode": "skip"
         },
         {
-          "match": "src/guide.py",
+          "match": "apps/cli/guide.py",
           "mode": "skip"
         },
         {
@@ -465,7 +545,7 @@
           "mode": "skip"
         },
         {
-          "match": "src/wiki.py",
+          "match": "apps/cli/wiki.py",
           "mode": "interface"
         },
         {
@@ -534,7 +614,11 @@
           "mode": "skip"
         },
         {
-          "match": "src/**",
+          "match": "core/**",
+          "mode": "full"
+        },
+        {
+          "match": "apps/**",
           "mode": "full"
         },
         {
@@ -548,6 +632,15 @@
       "output": "project_context.txt",
       "redact": true,
       "include_reports": true,
+      "sections": {
+        "config": false,
+        "env": true,
+        "overview": true,
+        "tree": true,
+        "inventory": true,
+        "contents": true,
+        "stats": true
+      },
       "max_file_bytes": 250000,
       "max_total_bytes": 3000000,
       "tree": {
@@ -564,8 +657,9 @@
         "data/reports/**/*",
         "devtools/**/*",
         "docs/**/*",
-        "gitignore",
-        "src/**/*",
+        ".gitignore",
+        "core/**/*",
+        "apps/**/*",
         "tests/**/*"
       ],
       "ignore_files": [
@@ -667,7 +761,11 @@
           "head_lines": 240
         },
         {
-          "match": "src/**",
+          "match": "core/**",
+          "mode": "full"
+        },
+        {
+          "match": "apps/**",
           "mode": "full"
         },
         {
@@ -684,15 +782,15 @@
         "PROJECT_STATUS.json",
         "conf/settings.ini",
         "conf/snapshot_templates.json",
-        "src/registry.py",
-        "src/engine.py",
-        "src/analyzer.py",
-        "src/wiki.py",
-        "src/explorer.py",
-        "src/webcraft/app.py",
-        "src/webcraft/api.py",
-        "src/webcraft/catalog_store.py",
-        "src/webcraft/planner.py"
+        "apps/cli/registry.py",
+        "core/engine.py",
+        "core/analyzer.py",
+        "apps/cli/wiki.py",
+        "apps/cli/explorer.py",
+        "apps/webcraft/app.py",
+        "apps/webcraft/api.py",
+        "apps/webcraft/catalog_store.py",
+        "apps/webcraft/planner.py"
       ]
     }
   }

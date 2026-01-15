@@ -295,7 +295,7 @@ restore_backup() {
 
 # --- Wagstaff 工具箱集成 ---
 run_explorer() {
-    local script_path="$PROJECT_ROOT/src/explorer.py"
+    local script_path="$PROJECT_ROOT/apps/cli/explorer.py"
     if [ -f "$script_path" ]; then
         "$PYTHON_EXEC" "$script_path"
     else
@@ -305,7 +305,7 @@ run_explorer() {
 }
 
 run_wiki() {
-    local script_path="$PROJECT_ROOT/src/wiki.py"
+    local script_path="$PROJECT_ROOT/apps/cli/wiki.py"
     if [ ! -f "$script_path" ]; then
         echo -e "${RED}❌ 找不到 Wiki 脚本: $script_path${NC}"; pause; return
     fi

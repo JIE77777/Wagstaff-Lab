@@ -9,7 +9,7 @@
 - 数据源：data/index/wagstaff_catalog_v1.json（M2 索引产物）
 
 ## 目录结构
-- src/webcraft/
+- apps/webcraft/
   - app.py          FastAPI app factory
   - api.py          REST API 路由（/api/v1）
   - catalog_store.py  catalog 装载 + 内存索引

@@ -4,34 +4,34 @@ Wagstaff-Lab 工具注册中心 (v2.3)
 """
 
 TOOLS = [
-    # --- 核心/业务工具 (src/) ---
+    # --- CLI 工具 (apps/cli) ---
     {
         "file": "guide.py",
         "alias": None,
         "desc": "Wagstaff-Lab 控制台主面板",
         "usage": "Wagstaff-Lab",
-        "type": "Core"
+        "type": "CLI"
     },
     {
         "file": "doctor.py",
         "alias": "doctor",
         "desc": "环境配置与依赖健康检查",
         "usage": "wagstaff doctor",
-        "type": "Src"
+        "type": "CLI"
     },
     {
         "file": "wiki.py",
         "alias": "wiki",
         "desc": "物品/配方/数值查询百科",
         "usage": "wagstaff wiki <item_code>",
-        "type": "Src"
+        "type": "CLI"
     },
     {
         "file": "explorer.py",
         "alias": "exp",
         "desc": "源码结构浏览与深度分析",
         "usage": "wagstaff exp",
-        "type": "Src"
+        "type": "CLI"
     },
 
     # --- 开发工具 (devtools/) ---
@@ -54,8 +54,8 @@ TOOLS = [
     {
         "file": "snapshot.py",
         "alias": "snap",
-        "desc": "生成项目全息代码快照",
-        "usage":  "wagstaff snapshot [-h] [--mode {core,archive,custom}] [--template TEMPLATE] [--config CONFIG] [--output OUTPUT] [--list-templates] [--no-redact] [--zip]",
+        "desc": "生成 LLM 友好代码快照",
+        "usage":  "wagstaff snapshot [-h] [--mode {llm,core,archive,custom}] [--template TEMPLATE] [--config CONFIG] [--output OUTPUT] [--focus PATH|GLOB ...] [--list-templates] [--no-redact] [--zip] [--no-tree] [--no-inventory] [--no-contents] [--no-stats] [--verbose] [--plan]",
         "type": "Dev",
         "folder": "devtools"
     },

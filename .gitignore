@@ -1,9 +1,11 @@
 # 忽略 Python 缓存
 __pycache__/
 *.py[cod]
+*.pyo
 
 # 忽略日志
 logs/*
+*.log
 
 # 忽略个人配置 (保留模板)
 conf/settings.ini
@@ -13,9 +15,40 @@ conf/settings.ini
 env/
 venv/
 .conda/
+.python-version
 
 # 忽略系统文件
 .DS_Store
 /bin/wagstaff
 /bin/pm
 /bin/Wagstaff-Lab
+
+# 忽略构建/缓存
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# 忽略编辑器/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# 忽略前端与依赖缓存
+node_modules/
+
+# 忽略生成产物 (保留 samples)
+data/index/
+data/reports/
+data/snapshots/
+data/static/

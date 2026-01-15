@@ -26,7 +26,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Optional project config (exists in repo under src/utils.py)
+# Optional project config (exists in repo under core/utils.py)
 try:
     from utils import wagstaff_config  # type: ignore
 except Exception:  # pragma: no cover
@@ -108,14 +108,14 @@ class WagstaffEngine:
         """Best-effort repo root.
 
         - Prefer wagstaff_config.project_root when available.
-        - Fallback to src/.. (engine.py is expected under src/).
+        - Fallback to core/.. (engine.py is expected under core/).
         """
         if wagstaff_config is not None and hasattr(wagstaff_config, "project_root"):
             try:
                 return Path(str(wagstaff_config.project_root)).resolve()
             except Exception:
                 pass
-        # engine.py is usually src/engine.py
+        # engine.py is usually core/engine.py
         return Path(__file__).resolve().parent.parent
 
     def _detect_candidates(self, dst_root: Optional[str], prefer_local_bundles: bool) -> Tuple[List[str], List[str]]:

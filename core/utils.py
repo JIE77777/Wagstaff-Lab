@@ -4,7 +4,7 @@ from pathlib import Path
 
 class ConfigLoader:
     def __init__(self):
-        # 自动定位项目根目录 (假设 utils.py 在 src/ 下)
+        # 自动定位项目根目录 (假设 utils.py 在 core/ 下)
         self.project_root = Path(__file__).resolve().parent.parent
         self.config_path = self.project_root / "conf" / "settings.ini"
         

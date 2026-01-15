@@ -42,7 +42,7 @@ def _find_project_root(start: Path) -> Path:
 
     Strategy:
     - Walk up a few levels looking for typical repo markers:
-      - conf/ and src/
+      - conf/ and core/
       - PROJECT_STATUS.json
       - .git/
     """
@@ -51,7 +51,7 @@ def _find_project_root(start: Path) -> Path:
         p = p.parent
 
     for _ in range(8):
-        if (p / "conf").is_dir() and (p / "src").is_dir():
+        if (p / "conf").is_dir() and (p / "core").is_dir():
             return p
         if (p / "PROJECT_STATUS.json").exists():
             return p
@@ -239,22 +239,23 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "PROJECT_STATUS.json",
             "conf/settings.ini",
             "conf/snapshot_templates.json",
-            "src/registry.py",
-            "src/engine.py",
-            "src/analyzer.py",
-            "src/wiki.py",
-            "src/explorer.py",
-            "src/webcraft/app.py",
-            "src/webcraft/api.py",
-            "src/webcraft/catalog_store.py",
-            "src/webcraft/planner.py",
+            "apps/cli/registry.py",
+            "core/engine.py",
+            "core/analyzer.py",
+            "apps/cli/wiki.py",
+            "apps/cli/explorer.py",
+            "apps/webcraft/app.py",
+            "apps/webcraft/api.py",
+            "apps/webcraft/catalog_store.py",
+            "apps/webcraft/planner.py",
         ],
         "overrides": [
             {"path": "README.md", "mode": "head", "head_lines": 260},
             {"path": "PROJECT_STATUS.json", "mode": "head", "head_lines": 260},
             {"path": ".gitignore", "mode": "head", "head_lines": 120},
             {"path": "conf/", "mode": "full"},
-            {"path": "src/", "mode": "full"},
+            {"path": "core/", "mode": "full"},
+            {"path": "apps/", "mode": "full"},
             {"path": "devtools/", "mode": "interface"},
             {"path": "docs/", "mode": "head", "head_lines": 240},
             {"path": "tests/", "mode": "head", "head_lines": 220},
@@ -281,9 +282,9 @@ PRESETS: Dict[str, Dict[str, Any]] = {
         "pinned": [
             "README.md",
             "PROJECT_STATUS.json",
-            "src/registry.py",
-            "src/engine.py",
-            "src/analyzer.py",
+            "apps/cli/registry.py",
+            "core/engine.py",
+            "core/analyzer.py",
             "devtools/snapshot.py",
             "devtools/snapshot_gui.py",
         ],
@@ -291,7 +292,8 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             {"path": "README.md", "mode": "head", "head_lines": 320},
             {"path": "PROJECT_STATUS.json", "mode": "head", "head_lines": 320},
             {"path": "conf/", "mode": "full"},
-            {"path": "src/", "mode": "full"},
+            {"path": "core/", "mode": "full"},
+            {"path": "apps/", "mode": "full"},
             {"path": "devtools/", "mode": "full"},
             {"path": "docs/", "mode": "head", "head_lines": 300},
             {"path": "tests/", "mode": "interface"},
@@ -1073,7 +1075,7 @@ class SnapshotGUI(tk.Tk):
             "Pinned paths are listed first when embed_order=smart.\n"
             "One relative path per line, e.g.:\n"
             "  README.md\n"
-            "  src/engine.py\n"
+            "  core/engine.py\n"
         )
         ttk.Label(frm, text=info, justify="left").grid(row=0, column=0, columnspan=3, sticky="w")
 

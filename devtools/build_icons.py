@@ -38,15 +38,15 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 import xml.etree.ElementTree as ET
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.append(str(SRC_DIR))
+CORE_DIR = PROJECT_ROOT / "core"
+if str(CORE_DIR) not in sys.path:
+    sys.path.append(str(CORE_DIR))
 
 try:
     from klei_atlas_tex import decode_ktex_to_image  # type: ignore
 except Exception as e:  # pragma: no cover
     raise SystemExit(
-        "ERROR: cannot import klei_atlas_tex.decode_ktex_to_image. Ensure src/ is on PYTHONPATH.\n"
+        "ERROR: cannot import klei_atlas_tex.decode_ktex_to_image. Ensure core/ is on PYTHONPATH.\n"
         f"{e}"
     )
 

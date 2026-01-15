@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""src/craft_recipes.py
+"""core/craft_recipes.py
 
 Crafting recipes (Recipe/Recipe2/AddRecipe2) + recipe filter organization.
 
@@ -8,7 +8,7 @@ Why this module exists
 - UI layers (wiki/GUI/web) need a stable, query-friendly Python representation.
 
 Design goals (M0)
-- Reuse `src/analyzer.py` Lua parsing primitives (single source of truth).
+- Reuse `core/analyzer.py` Lua parsing primitives (single source of truth).
 - Keep outputs JSON-serializable for catalog/index (M2).
 
 Public API (expected by existing CLI)
@@ -849,4 +849,3 @@ class CraftRecipeDB:
 
     def dumps(self, *, indent: int = 2, ensure_ascii: bool = False) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=ensure_ascii, indent=indent)
-

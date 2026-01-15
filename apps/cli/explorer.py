@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
@@ -8,6 +9,13 @@ from rich.panel import Panel
 from rich.prompt import Prompt, IntPrompt
 from rich.syntax import Syntax
 from rich import box
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CORE_DIR = PROJECT_ROOT / "core"
+CLI_DIR = Path(__file__).resolve().parent
+for p in (str(CORE_DIR), str(CLI_DIR)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 from engine import WagstaffEngine
 
 console = Console()

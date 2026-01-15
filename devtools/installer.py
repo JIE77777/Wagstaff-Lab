@@ -5,7 +5,7 @@ from pathlib import Path
 from rich.console import Console
 
 # 引入注册表
-sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../apps/cli"))
 from registry import get_tools
 
 console = Console()
@@ -13,7 +13,7 @@ console = Console()
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parent.parent
 BIN_DIR = PROJECT_ROOT / "bin"
-SRC_DIR = PROJECT_ROOT / "src"
+CLI_DIR = PROJECT_ROOT / "apps" / "cli"
 DEV_DIR = PROJECT_ROOT / "devtools"
 
 def get_shell_config():
@@ -28,7 +28,7 @@ def create_wrappers():
     main_wrapper = BIN_DIR / "Wagstaff-Lab"
     with open(main_wrapper, 'w') as f:
         f.write('#!/bin/bash\n')
-        f.write(f'python3 "{SRC_DIR}/guide.py" "$@"\n')
+        f.write(f'python3 "{CLI_DIR}/guide.py" "$@"\n')
     os.chmod(main_wrapper, 0o755)
     
     # 2. 创建 'pm' 快捷指令
@@ -65,8 +65,8 @@ def create_wrappers():
             alias = tool.get('alias')
             if not alias: continue # 跳过没有别名的工具
             
-            folder = tool.get('folder', 'src')
-            if folder == 'src': abs_path = SRC_DIR
+            folder = tool.get('folder', 'apps/cli')
+            if folder == 'apps/cli': abs_path = CLI_DIR
             elif folder == 'devtools': abs_path = DEV_DIR
             else: abs_path = PROJECT_ROOT / folder
             

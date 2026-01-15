@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Wagstaff-Lab Snapshot (v4.2)
+"""Wagstaff-Lab Snapshot (v4.4)
 
 Goal:
+- Provide LLM-friendly snapshots by default.
 - Provide two primary modes:
-  - core: LLM-friendly snapshot (project overview + core code full + non-core interfaces/head)
+  - llm: LLM-friendly snapshot (project overview + core/apps full + non-core interfaces/head)
   - archive: archival snapshot (full content as much as possible + optional zip bundle)
 - Provide custom templates via JSON config (growth-friendly).
 
 Default behavior:
-- `wagstaff snap` => core template => writes project_context.txt
+- `wagstaff snap` => llm template (LLM-friendly) => writes project_context.txt
+- Use --focus to narrow the snapshot scope (repeatable).
+- Use section switches to reduce noise.
 
 Template config:
 - Default path: conf/snapshot_templates.json
@@ -19,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import fnmatch
 import hashlib
 import json
@@ -89,42 +93,79 @@ DEFAULT_IGNORE_GLOBS = [
     "**/*.key",
 ]
 
+# Snapshot section switches (can be overridden per template).
+DEFAULT_SECTIONS = {
+    "config": True,
+    "env": True,
+    "overview": True,
+    "tree": True,
+    "inventory": True,
+    "contents": True,
+    "stats": True,
+}
+
+# LLM-friendly defaults (less noise).
+LLM_SECTIONS = {
+    "config": False,
+    "env": True,
+    "overview": True,
+    "tree": True,
+    "inventory": True,
+    "contents": True,
+    "stats": True,
+}
+
 # Minimal built-in templates (used if conf/snapshot_templates.json is missing).
+_LLM_TEMPLATE = {
+    "desc": "Builtin LLM-friendly template",
+    "output": "project_context.txt",
+    "redact": True,
+    "include_reports": True,
+    "hash": "embedded",
+    "embed_order": "smart",
+    "sections": dict(LLM_SECTIONS),
+    "inventory": {"enabled": True, "scope": "included", "limit": 700},
+    "pinned": [
+        "PROJECT_STATUS.json",
+        "README.md",
+        "conf/settings.ini",
+        "docs/DEV_GUIDE.md",
+        "docs/ROADMAP.md",
+        "apps/cli/registry.py",
+    ],
+    "max_file_bytes": 200000,
+    "max_total_bytes": 1200000,
+    "tree": {"max_depth": 8, "max_entries_per_dir": 250},
+    "include_globs": [
+        "README.md",
+        "PROJECT_STATUS.json",
+        ".gitignore",
+        "conf/**/*.ini",
+        "core/**/*.py",
+        "apps/**/*.py",
+        "devtools/**/*.py",
+        "docs/**/*.md",
+        "tests/**/*.py",
+        "bin/**",
+        "data/reports/**/*.md",
+        "data/samples/**/*",
+    ],
+    "ignore_files": sorted(DEFAULT_IGNORE_FILES),
+    "ignore_globs": list(DEFAULT_IGNORE_GLOBS),
+    "rules": [
+        {"match": "core/**/*.py", "mode": "full"},
+        {"match": "apps/**/*.py", "mode": "full"},
+        {"match": "devtools/**/*.py", "mode": "interface"},
+        {"match": "docs/**/*.md", "mode": "head", "head_lines": 240},
+        {"match": "bin/**", "mode": "head", "head_lines": 160},
+        {"match": "data/reports/**/*.md", "mode": "head", "head_lines": 260},
+        {"match": "**/*", "mode": "skip"},
+    ],
+}
+
 BUILTIN_TEMPLATES = {
-    "core": {
-        "desc": "Builtin core template",
-        "output": "project_context.txt",
-        "redact": True,
-        "include_reports": True,
-        "hash": "embedded",
-        "embed_order": "smart",
-        "inventory": {"enabled": True, "scope": "all", "limit": 700},
-        "pinned": ["PROJECT_STATUS.json", "README.md", "conf/settings.ini", "conf/snapshot_templates.json", "src/registry.py"],
-        "max_file_bytes": 200000,
-        "max_total_bytes": 1200000,
-        "tree": {"max_depth": 8, "max_entries_per_dir": 250},
-        "include_globs": [
-            "README.md",
-            "PROJECT_STATUS.json",
-            ".gitignore",
-            "conf/**/*.ini",
-            "src/**/*.py",
-            "devtools/**/*.py",
-            "tests/**/*.py",
-            "bin/**",
-            "data/reports/**/*.md",
-            "data/samples/**/*",
-        ],
-        "ignore_files": sorted(DEFAULT_IGNORE_FILES),
-        "ignore_globs": list(DEFAULT_IGNORE_GLOBS),
-        "rules": [
-            {"match": "src/**/*.py", "mode": "full"},
-            {"match": "devtools/**/*.py", "mode": "interface"},
-            {"match": "bin/**", "mode": "head", "head_lines": 160},
-            {"match": "data/reports/**/*.md", "mode": "head", "head_lines": 260},
-            {"match": "**/*", "mode": "skip"},
-        ],
-    },
+    "llm": _LLM_TEMPLATE,
+    "core": copy.deepcopy(_LLM_TEMPLATE),
     "archive": {
         "desc": "Builtin archive template",
         "output": "data/snapshots/archive_{timestamp}.md",
@@ -134,6 +175,7 @@ BUILTIN_TEMPLATES = {
         "include_reports": True,
         "hash": "all",
         "embed_order": "path",
+        "sections": dict(DEFAULT_SECTIONS),
         "inventory": {"enabled": True, "scope": "all", "limit": 2000},
         "max_file_bytes": 500000,
         "max_total_bytes": 20000000,
@@ -387,7 +429,14 @@ def _load_templates(config_path: Path) -> Dict[str, Any]:
     # Fallback
     return {
         "version": 1,
-        "defaults": {"mode_to_template": {"core": "core", "archive": "archive", "custom": "core"}},
+        "defaults": {
+            "mode_to_template": {
+                "llm": "llm",
+                "core": "llm",
+                "archive": "archive",
+                "custom": "llm",
+            }
+        },
         "templates": BUILTIN_TEMPLATES,
     }
 
@@ -407,12 +456,55 @@ def _resolve_template(templates_doc: Dict[str, Any], mode: str, template_name: O
     if mode in templates:
         return mode, templates[mode]
 
+    # Compatibility: allow llm/core aliasing when only one exists.
+    if mode == "core" and "llm" in templates:
+        return "llm", templates["llm"]
+    if mode == "llm" and "core" in templates:
+        return "core", templates["core"]
+
     # Fallback to core
     return "core", templates.get("core", BUILTIN_TEMPLATES["core"])
 
 
 def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _dedupe_list(items: Iterable[str]) -> List[str]:
+    out: List[str] = []
+    seen: set[str] = set()
+    for item in items:
+        s = str(item)
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+    return out
+
+
+def _normalize_focus_globs(raw: Iterable[str]) -> List[str]:
+    globs: List[str] = []
+    for val in raw:
+        s = str(val).strip()
+        if not s:
+            continue
+        s = s.replace("\\", "/").lstrip("/")
+        if re.search(r"[*?\[]", s):
+            globs.append(s)
+            continue
+        p = (PROJECT_ROOT / s).resolve()
+        try:
+            rel = p.relative_to(PROJECT_ROOT).as_posix()
+        except Exception:
+            rel = s
+        if p.exists():
+            if p.is_dir():
+                globs.append(rel.rstrip("/") + "/**")
+            else:
+                globs.append(rel)
+        else:
+            globs.append(s)
+    return _dedupe_list(globs)
 
 
 def _simplify_include_globs(include_globs: List[str]) -> List[str]:
@@ -811,7 +903,7 @@ def _render_tree(root: Path, prefix: str, depth: int, max_depth: int, max_entrie
 
 
 def _extract_registry_tools() -> Optional[List[Dict[str, Any]]]:
-    reg_path = PROJECT_ROOT / "src" / "registry.py"
+    reg_path = PROJECT_ROOT / "apps" / "cli" / "registry.py"
     if not reg_path.exists():
         return None
     try:
@@ -874,23 +966,44 @@ def _render_project_status() -> str:
         return "Error reading project status."
 
     lines: List[str] = []
-    if data.get("guidelines"):
+
+    manifesto = data.get("DEV_MANIFESTO") or data.get("guidelines") or []
+    if isinstance(manifesto, list) and manifesto:
         lines.append("DEV MANIFESTO:")
-        for rule in data["guidelines"]:
+        for rule in manifesto:
             lines.append(f"* {rule}")
         lines.append("-" * 20)
 
-    lines.append(f"OBJECTIVE: {data.get('objective')}")
+    objective = data.get("OBJECTIVE") or data.get("objective")
+    lines.append(f"OBJECTIVE: {objective}")
 
-    tasks = data.get("tasks", [])
-    if tasks:
-        lines.append("\nTASKS:")
-        for i, t in enumerate(tasks):
-            mark = "[x]" if t.get("status") == "done" else "[ ]"
-            lines.append(f"{i}. {mark} {t.get('desc')}")
+    tasks_todo = data.get("TASKS_TODO")
+    tasks_done = data.get("TASKS_DONE")
+    if isinstance(tasks_todo, list) or isinstance(tasks_done, list):
+        todo_list = tasks_todo if isinstance(tasks_todo, list) else []
+        done_list = tasks_done if isinstance(tasks_done, list) else []
+        if todo_list:
+            lines.append("\nTASKS TODO:")
+            for t in todo_list:
+                lines.append(f"- {t}")
+        if done_list:
+            lines.append("\nTASKS DONE:")
+            for t in done_list:
+                lines.append(f"- {t}")
+    else:
+        tasks = data.get("tasks", [])
+        if isinstance(tasks, list) and tasks:
+            lines.append("\nTASKS:")
+            for i, t in enumerate(tasks):
+                if isinstance(t, dict):
+                    mark = "[x]" if t.get("status") == "done" else "[ ]"
+                    desc = t.get("desc")
+                    lines.append(f"{i}. {mark} {desc}")
+                else:
+                    lines.append(f"- {t}")
 
-    logs = data.get("logs", [])
-    if logs:
+    logs = data.get("RECENT_LOGS") or data.get("logs") or []
+    if isinstance(logs, list) and logs:
         lines.append("\nRECENT LOGS:")
         for l in logs[-5:]:
             lines.append(f"- {l}")
@@ -963,15 +1076,23 @@ def _write_zip(zip_path: Path, records: List[FileRecord]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Wagstaff-Lab snapshot generator (core/archive/custom via templates).")
-    parser.add_argument("--mode", choices=["core", "archive", "custom"], default="core")
+    parser = argparse.ArgumentParser(description="Wagstaff-Lab snapshot generator (llm/archive/custom via templates).")
+    parser.add_argument("--mode", choices=["llm", "core", "archive", "custom"], default="llm")
     parser.add_argument("--template", help="Template name from conf/snapshot_templates.json")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Path to snapshot template config JSON")
     parser.add_argument("--output", help="Override output path")
     parser.add_argument("--list-templates", action="store_true", help="List available templates and exit")
+    parser.add_argument("--focus", action="append", help="Limit snapshot to specific paths/globs (repeatable)")
     parser.add_argument("--no-redact", action="store_true", help="Disable secret redaction")
     parser.add_argument("--zip", action="store_true", help="Force creating zip bundle when supported")
     parser.add_argument("--hash", choices=["all", "embedded", "none"], help="Override hashing mode (all/embedded/none)")
+    parser.add_argument("--no-env", action="store_true", help="Disable environment diagnostics section")
+    parser.add_argument("--no-overview", action="store_true", help="Disable project overview section")
+    parser.add_argument("--no-tree", action="store_true", help="Disable project tree section")
+    parser.add_argument("--no-inventory", action="store_true", help="Disable file inventory section")
+    parser.add_argument("--no-contents", action="store_true", help="Disable file contents section")
+    parser.add_argument("--no-stats", action="store_true", help="Disable snapshot stats section")
+    parser.add_argument("--verbose", action="store_true", help="Include template config section")
     parser.add_argument("--plan", action="store_true", help="Print a JSON plan summary and exit (no snapshot written)")
 
     args = parser.parse_args()
@@ -1006,7 +1127,12 @@ def main() -> None:
             zip_path = output_path.with_suffix(".zip")
 
     # Template controls
+    focus_globs = _normalize_focus_globs(args.focus or [])
     include_globs = _simplify_include_globs(list(tpl.get("include_globs") or []))
+    if focus_globs:
+        include_globs = _simplify_include_globs(
+            ["PROJECT_STATUS.json", "README.md", "conf/settings.ini"] + focus_globs
+        )
 
     ignore_dirs = set(DEFAULT_IGNORE_DIRS) | set(tpl.get("ignore_dirs") or [])
     ignore_files = set(tpl.get("ignore_files") or list(DEFAULT_IGNORE_FILES))
@@ -1035,6 +1161,9 @@ def main() -> None:
     tree_max_entries = int(tree_cfg.get("max_entries_per_dir", 250))
 
     rules = list(tpl.get("rules") or [])
+    if focus_globs:
+        focus_rules = [{"match": pat, "mode": "full"} for pat in focus_globs]
+        rules = focus_rules + rules
 
     # Hashing / ordering / inventory knobs
     hash_mode = str(args.hash or tpl.get("hash") or tpl.get("hash_mode") or "all").strip().lower()
@@ -1046,9 +1175,35 @@ def main() -> None:
         embed_order = "path"
 
     pinned = list(tpl.get("pinned") or [])
+    if focus_globs:
+        pinned = _dedupe_list(focus_globs + pinned)
+
+    tpl_sections = tpl.get("sections")
+    if isinstance(tpl_sections, dict):
+        sections = dict(DEFAULT_SECTIONS)
+        for key, val in tpl_sections.items():
+            if key in sections:
+                sections[key] = bool(val)
+    else:
+        sections = dict(LLM_SECTIONS if args.mode in {"llm", "core"} else DEFAULT_SECTIONS)
+
+    if args.verbose:
+        sections["config"] = True
+    if args.no_env:
+        sections["env"] = False
+    if args.no_overview:
+        sections["overview"] = False
+    if args.no_tree:
+        sections["tree"] = False
+    if args.no_inventory:
+        sections["inventory"] = False
+    if args.no_contents:
+        sections["contents"] = False
+    if args.no_stats:
+        sections["stats"] = False
 
     inv_cfg = tpl.get("inventory") or {}
-    inv_enabled = bool(inv_cfg.get("enabled", True))
+    inv_enabled = bool(inv_cfg.get("enabled", True)) and sections["inventory"]
     inv_scope = str(inv_cfg.get("scope", "all")).strip().lower()
     inv_limit = int(inv_cfg.get("limit", 700))
 
@@ -1131,6 +1286,8 @@ def main() -> None:
             "redact_enabled": redact_enabled,
             "hash_mode": hash_mode,
             "embed_order": embed_order,
+            "sections": sections,
+            "focus": focus_globs,
             "limits": {"max_file_bytes": max_file_bytes, "max_total_bytes": max_total_bytes},
             "tree": {"max_depth": tree_max_depth, "max_entries_per_dir": tree_max_entries},
             "include_globs": include_globs,
@@ -1160,6 +1317,15 @@ def main() -> None:
     report.append(f"- Generated: {datetime.now().isoformat(timespec='seconds')}")
     report.append(f"- Mode: {args.mode}")
     report.append(f"- Template: {tpl_name}")
+    if focus_globs:
+        report.append(f"- Focus: {', '.join(focus_globs)}")
+
+    section_idx = 0
+
+    def add_section(title: str) -> None:
+        nonlocal section_idx
+        section_idx += 1
+        report.append(f"\n## {section_idx}. {title}")
 
     eff = {
         "mode": args.mode,
@@ -1181,50 +1347,57 @@ def main() -> None:
         "ignore_files": sorted(ignore_files),
         "ignore_globs": ignore_globs,
         "rules": rules,
+        "sections": sections,
+        "focus": focus_globs,
         "inventory": {"enabled": inv_enabled, "scope": inv_scope, "limit": inv_limit},
+        "pinned": pinned,
     }
 
-    report.append("\n## 0. Effective Template Config")
-    report.append("```json")
-    report.append(json.dumps(eff, ensure_ascii=False, indent=2))
-    report.append("```")
+    if sections["config"]:
+        add_section("Effective Template Config")
+        report.append("```json")
+        report.append(json.dumps(eff, ensure_ascii=False, indent=2))
+        report.append("```")
 
-    report.append("\n## 1. Environment Diagnostics")
-    report.append("```yaml")
-    report.append(get_system_fingerprint())
-    report.append("-" * 20)
-    report.append(get_git_status())
-    report.append("```")
+    if sections["env"]:
+        add_section("Environment Diagnostics")
+        report.append("```yaml")
+        report.append(get_system_fingerprint())
+        report.append("-" * 20)
+        report.append(get_git_status())
+        report.append("```")
 
-    report.append("\n## 2. Project Overview")
-    report.append("### 2.1 Toolbox (src/registry.py)")
-    report.append("```text")
-    report.append(_render_tools_overview(_extract_registry_tools()))
-    report.append("```")
+    if sections["overview"]:
+        add_section("Project Overview")
+        report.append("### Toolbox (apps/cli/registry.py)")
+        report.append("```text")
+        report.append(_render_tools_overview(_extract_registry_tools()))
+        report.append("```")
 
-    report.append("\n### 2.2 Project Context (PROJECT_STATUS.json)")
-    report.append("```text")
-    report.append(_render_project_status())
-    report.append("```")
+        report.append("\n### Project Context (PROJECT_STATUS.json)")
+        report.append("```text")
+        report.append(_render_project_status())
+        report.append("```")
 
-    report.append("\n## 3. Project Structure")
-    report.append("```text")
-    report.append(
-        _render_tree(
-            PROJECT_ROOT,
-            prefix="",
-            depth=0,
-            max_depth=tree_max_depth,
-            max_entries=tree_max_entries,
-            ignore_dirs=ignore_dirs,
-            ignore_files=ignore_files,
-            ignore_globs=ignore_globs,
-        ).rstrip("\n")
-    )
-    report.append("```")
+    if sections["tree"]:
+        add_section("Project Structure")
+        report.append("```text")
+        report.append(
+            _render_tree(
+                PROJECT_ROOT,
+                prefix="",
+                depth=0,
+                max_depth=tree_max_depth,
+                max_entries=tree_max_entries,
+                ignore_dirs=ignore_dirs,
+                ignore_files=ignore_files,
+                ignore_globs=ignore_globs,
+            ).rstrip("\n")
+        )
+        report.append("```")
 
     if inv_enabled:
-        report.append("\n## 4. File Inventory")
+        add_section("File Inventory")
         report.append("(mode: full/interface/head/skip; '*' means truncated when rendered)\n")
         report.append("```text")
         inv_records: List[FileRecord]
@@ -1235,117 +1408,121 @@ def main() -> None:
         report.append(_render_file_inventory(inv_records, limit=inv_limit))
         report.append("```")
 
-    report.append("\n## 5. File Contents")
-
-    # 3) Emit contents within budget
-    t_render0 = time.perf_counter()
+    t_render_ms = 0
     budget = max_total_bytes
     embedded_files = 0
     approx_total_tokens = 0
 
-    embed_records = [r for r in records if r.mode != "skip"]
+    if sections["contents"]:
+        add_section("File Contents")
 
-    def mode_prio(m: str) -> int:
-        return {"full": 0, "interface": 1, "head": 2}.get(m, 9)
+        # 3) Emit contents within budget
+        t_render0 = time.perf_counter()
 
-    if embed_order == "mode":
-        embed_records.sort(key=lambda r: (mode_prio(r.mode), r.rel_posix))
-    elif embed_order == "smart":
-        def pin_rank(r: FileRecord) -> int:
-            if not pinned:
+        embed_records = [r for r in records if r.mode != "skip"]
+
+        def mode_prio(m: str) -> int:
+            return {"full": 0, "interface": 1, "head": 2}.get(m, 9)
+
+        if embed_order == "mode":
+            embed_records.sort(key=lambda r: (mode_prio(r.mode), r.rel_posix))
+        elif embed_order == "smart":
+            def pin_rank(r: FileRecord) -> int:
+                if not pinned:
+                    return 10_000
+                for i, pat in enumerate(pinned):
+                    if pat and _match_glob(r.rel_posix, str(pat)):
+                        return i
                 return 10_000
-            for i, pat in enumerate(pinned):
-                if pat and _match_glob(r.rel_posix, str(pat)):
-                    return i
-            return 10_000
-        embed_records.sort(key=lambda r: (pin_rank(r), mode_prio(r.mode), r.rel_posix))
-    # else: "path" keeps as-is (already sorted by path)
+            embed_records.sort(key=lambda r: (pin_rank(r), mode_prio(r.mode), r.rel_posix))
+        # else: "path" keeps as-is (already sorted by path)
 
-    for rec in embed_records:
-        if _is_probably_binary(rec.abs_path):
-            rec.note = "[skipped: binary]"
-            continue
+        for rec in embed_records:
+            if _is_probably_binary(rec.abs_path):
+                rec.note = "[skipped: binary]"
+                continue
 
-        mode = rec.mode
-        content = ""
-        truncated = False
+            mode = rec.mode
+            content = ""
+            truncated = False
 
-        if mode == "head":
-            content, truncated = _read_head_lines(rec.abs_path, head_lines=rec.head_lines)
-        elif mode == "interface":
-            if rec.abs_path.suffix.lower() == ".py":
-                content = _extract_python_interface(rec.abs_path)
-                truncated = False
-            else:
+            if mode == "head":
                 content, truncated = _read_head_lines(rec.abs_path, head_lines=rec.head_lines)
-        elif mode == "full":
-            content, truncated = _read_text_limited(rec.abs_path, max_bytes=rec.per_file_max_bytes)
-        else:
-            continue
+            elif mode == "interface":
+                if rec.abs_path.suffix.lower() == ".py":
+                    content = _extract_python_interface(rec.abs_path)
+                    truncated = False
+                else:
+                    content, truncated = _read_head_lines(rec.abs_path, head_lines=rec.head_lines)
+            elif mode == "full":
+                content, truncated = _read_text_limited(rec.abs_path, max_bytes=rec.per_file_max_bytes)
+            else:
+                continue
 
-        if redact_enabled:
-            content = _redact(content)
+            if redact_enabled:
+                content = _redact(content)
 
-        # Optionally hash only embedded files
-        if hash_mode == "embedded" and rec.sha256_12 == "-":
-            rec.sha256_12 = _sha256_12_cached(rec.abs_path, rec.rel_posix, sha_cache)
+            # Optionally hash only embedded files
+            if hash_mode == "embedded" and rec.sha256_12 == "-":
+                rec.sha256_12 = _sha256_12_cached(rec.abs_path, rec.rel_posix, sha_cache)
 
-        # Rough byte count for budget
-        render_blob = content.encode("utf-8", errors="replace")
-        needed = len(render_blob)
+            # Rough byte count for budget
+            render_blob = content.encode("utf-8", errors="replace")
+            needed = len(render_blob)
 
-        # Keep a small overhead for section headers
-        needed += 200
+            # Keep a small overhead for section headers
+            needed += 200
 
-        if budget - needed < 0:
-            rec.note = "[omitted: total budget exceeded]"
-            continue
+            if budget - needed < 0:
+                rec.note = "[omitted: total budget exceeded]"
+                continue
 
-        budget -= needed
-        rec.rendered_bytes = needed
-        rec.truncated = truncated
+            budget -= needed
+            rec.rendered_bytes = needed
+            rec.truncated = truncated
 
-        tok = _estimate_tokens(content)
-        rec.approx_tokens = tok
-        approx_total_tokens += tok
+            tok = _estimate_tokens(content)
+            rec.approx_tokens = tok
+            approx_total_tokens += tok
 
-        embedded_files += 1
+            embedded_files += 1
 
-        report.append(f"\n### File: {rec.rel_posix}")
-        report.append(f"- mode: {mode}")
-        report.append(f"- size_bytes: {rec.size_bytes}")
-        report.append(f"- sha256_12: {rec.sha256_12}")
-        if truncated:
-            report.append(f"- note: TRUNCATED")
-        if rec.note and rec.note not in {"[skipped: binary]"}:
-            report.append(f"- note: {rec.note}")
-        report.append("")
+            report.append(f"\n### File: {rec.rel_posix}")
+            report.append(f"- mode: {mode}")
+            report.append(f"- size_bytes: {rec.size_bytes}")
+            report.append(f"- sha256_12: {rec.sha256_12}")
+            if truncated:
+                report.append("- note: TRUNCATED")
+            if rec.note and rec.note not in {"[skipped: binary]"}:
+                report.append(f"- note: {rec.note}")
+            report.append("")
 
-        # code fence lang
-        lang = rec.abs_path.suffix.lstrip(".")
-        if lang == "ini":
-            lang = "toml"
-        if mode == "interface":
-            lang = "py"
+            # code fence lang
+            lang = rec.abs_path.suffix.lstrip(".")
+            if lang == "ini":
+                lang = "toml"
+            if mode == "interface":
+                lang = "py"
 
-        report.append(f"```{lang}")
-        report.append(content.rstrip("\n"))
+            report.append(f"```{lang}")
+            report.append(content.rstrip("\n"))
+            report.append("```")
+
+        t_render_ms = int((time.perf_counter() - t_render0) * 1000)
+
+    if sections["stats"]:
+        add_section("Snapshot Stats")
+        report.append("```yaml")
+        report.append(f"total_candidates: {len(candidates)}")
+        report.append(f"included_records: {len(records)}")
+        report.append(f"embedded_files: {embedded_files}")
+        report.append(f"hash_mode: {hash_mode}")
+        report.append(f"embed_order: {embed_order}")
+        report.append(f"timing_ms: {{scan: {t_scan_ms}, records: {t_rec_ms}, render: {t_render_ms}, total: {int((time.perf_counter() - t0) * 1000)}}}")
+        report.append(f"approx_total_tokens: {approx_total_tokens}")
+        report.append(f"max_total_bytes: {max_total_bytes}")
+        report.append(f"bytes_remaining: {budget}")
         report.append("```")
-
-    t_render_ms = int((time.perf_counter() - t_render0) * 1000)
-
-    report.append("\n## 6. Snapshot Stats")
-    report.append("```yaml")
-    report.append(f"total_candidates: {len(candidates)}")
-    report.append(f"included_records: {len(records)}")
-    report.append(f"embedded_files: {embedded_files}")
-    report.append(f"hash_mode: {hash_mode}")
-    report.append(f"embed_order: {embed_order}")
-    report.append(f"timing_ms: {{scan: {t_scan_ms}, records: {t_rec_ms}, render: {t_render_ms}, total: {int((time.perf_counter() - t0) * 1000)}}}")
-    report.append(f"approx_total_tokens: {approx_total_tokens}")
-    report.append(f"max_total_bytes: {max_total_bytes}")
-    report.append(f"bytes_remaining: {budget}")
-    report.append("```")
 
     # 4) Write output
     _ensure_parent(output_path)

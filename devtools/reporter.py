@@ -6,8 +6,8 @@ from collections import Counter, defaultdict
 from rich.console import Console
 from rich.progress import track
 
-# 挂载 src 并引入引擎
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+# 挂载 core 并引入引擎
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "core"))
 from engine import WagstaffEngine
 
 console = Console()

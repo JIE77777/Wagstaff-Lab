@@ -10,7 +10,7 @@ Outputs
 - data/samples/samples_<timestamp>.manifest.json
 
 Notes
-- 读取数据源来自 DST 的 scripts.zip / scripts/ 目录（通过 src/engine.py）。
+- 读取数据源来自 DST 的 scripts.zip / scripts/ 目录（通过 core/engine.py）。
 - 样本选择优先参考 data/reports/asset_registry.md（如果存在）。
 """
 
@@ -28,9 +28,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-# Mount src/
+# Mount core/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT / "src"))
+sys.path.append(str(PROJECT_ROOT / "core"))
 
 from engine import WagstaffEngine  # type: ignore
 
