@@ -2,7 +2,7 @@
 """WebCraft (GUI/Web Crafting) service package.
 
 - Backend: FastAPI (ASGI)
-- Data: wagstaff_catalog_v1.json (M2 output)
+- Data: wagstaff_catalog_v2.json (item-centric)
 - UI: lightweight single-page HTML (served by backend)
 """
 

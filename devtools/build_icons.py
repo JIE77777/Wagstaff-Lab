@@ -67,7 +67,7 @@ def _ensure_dir(p: Path) -> None:
 
 
 def _default_catalog_path() -> Path:
-    return PROJECT_ROOT / "data" / "index" / "wagstaff_catalog_v1.json"
+    return PROJECT_ROOT / "data" / "index" / "wagstaff_catalog_v2.json"
 
 
 def _default_out_dir() -> Path:
@@ -463,6 +463,24 @@ def _collect_catalog_ids(catalog_path: Path) -> Set[str]:
     except Exception:
         return ids
 
+    items = doc.get("items")
+    if isinstance(items, dict) and items:
+        for k, v in items.items():
+            if isinstance(k, str):
+                ids.add(k)
+            if isinstance(v, dict):
+                vid = v.get("id")
+                if isinstance(vid, str):
+                    ids.add(vid)
+        assets = doc.get("assets") or {}
+        if isinstance(assets, dict):
+            for k in assets.keys():
+                if isinstance(k, str):
+                    ids.add(k)
+
+        out = {x for x in ids if re.match(r"^[a-z0-9_]+$", x or "")}
+        return out
+
     craft = (doc.get("craft") or {}).get("recipes") or {}
     for rname, r in craft.items():
         if isinstance(rname, str):
@@ -482,6 +500,12 @@ def _collect_catalog_ids(catalog_path: Path) -> Set[str]:
         for row in (c or {}).get("card_ingredients") or []:
             if isinstance(row, list) and row and isinstance(row[0], str):
                 ids.add(row[0])
+
+    assets = doc.get("assets") or {}
+    if isinstance(assets, dict):
+        for k in assets.keys():
+            if isinstance(k, str):
+                ids.add(k)
 
     out = {x for x in ids if re.match(r"^[a-z0-9_]+$", x or "")}
     return out

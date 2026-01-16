@@ -58,7 +58,7 @@ source ~/.bashrc
 
 - **代码落点**：`core/` 只放领域解析与索引；`apps/cli` 放交互命令；`apps/webcraft` 放 API+UI；`devtools/` 放构建/清理/报告。
 - **导入约定**：入口脚本负责挂载 `core/`（必要时 `apps/`）到 `sys.path`；核心模块不得自行修改 `sys.path`。
-- **数据产物**：全部落盘到 `data/`，并带版本后缀（例如 `wagstaff_catalog_v1.json`）。
+- **数据产物**：全部落盘到 `data/`，并带版本后缀（例如 `wagstaff_catalog_v2.json`）。
 - **WebCraft**：UI 只通过 API 读取数据；API 不绕过索引产物直读脚本。
 - **变更同步**：重要重构必须同步更新 `README.md`、`PROJECT_STATUS.json` 与相关文档。
 - 详细规范与路线图：`docs/DEV_GUIDE.md`、`docs/ROADMAP.md`。

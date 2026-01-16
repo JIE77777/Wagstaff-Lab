@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
   "generated_from": {
-    "catalog": "/home/steam/Wagstaff-Lab/data/index/wagstaff_catalog_v1.json",
+    "catalog": "/home/steam/Wagstaff-Lab/data/index/wagstaff_catalog_v2.json",
     "bundles": [
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/images.zip",
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/anim_dynamic.zip",
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/bigportraits.zip",
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/fonts.zip",
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/klump.zip",
-      "/home/steam/dontstarvetogether_dedicated_server/data/databundles/shaders.zip"
+      "../dontstarvetogether_dedicated_server/data/databundles/images.zip",
+      "../dontstarvetogether_dedicated_server/data/databundles/anim_dynamic.zip",
+      "../dontstarvetogether_dedicated_server/data/databundles/bigportraits.zip",
+      "../dontstarvetogether_dedicated_server/data/databundles/fonts.zip",
+      "../dontstarvetogether_dedicated_server/data/databundles/klump.zip",
+      "../dontstarvetogether_dedicated_server/data/databundles/shaders.zip"
     ],
-    "data_dir": "/home/steam/dontstarvetogether_dedicated_server/data",
+    "data_dir": "../dontstarvetogether_dedicated_server/data",
     "mode": "all-elements"
   },
   "counts": {

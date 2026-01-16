@@ -246,7 +246,7 @@ _INDEX_TEMPLATE = r"""<!doctype html>
     <a id="navCooking" class="nav" href="#">Cooking</a>
     <a id="navCatalog" class="nav" href="#">Catalog</a>
     <div class="small" style="display:flex; align-items:center; gap:6px;">
-      <span class="muted">Label</span>
+      <span class="muted" id="labelModeLabel">Label</span>
       <select id="labelMode">
         <option value="en">EN</option>
         <option value="zh">中文</option>
@@ -278,17 +278,17 @@ _INDEX_TEMPLATE = r"""<!doctype html>
     </div>
 
     <div class="panel">
-      <h2>Details</h2>
+      <h2 id="detailTitle">Details</h2>
       <div class="detail">
         <div id="detail"></div>
 
         <div>
-          <div class="small muted">Inventory (for missing/planning)</div>
+          <div class="small muted" id="inventoryHelp">Inventory (for missing/planning)</div>
           <textarea id="inv" placeholder="twigs=2, flint=1
 rocks=10"></textarea>
           <div class="grid2" style="margin-top:8px;">
             <div>
-              <div class="small muted">builder_tag (optional)</div>
+              <div class="small muted" id="builderTagLabel">builder_tag (optional)</div>
               <input id="builderTag" type="text" placeholder="bookbuilder / handyperson / ..." />
             </div>
             <div style="display:flex; gap:8px; align-items:flex-end;">
@@ -333,6 +333,8 @@ rocks=10"></textarea>
       i18n: null,         // meta from /api/v1/meta (set in loadMeta)
       i18nNames: {},      // {lang: {id: name}}
       i18nLoaded: {},     // {lang: true}
+      uiStrings: {},      // {lang: {key: text}}
+      uiLoaded: {},       // {lang: true}
     };
 
     function setError(msg) {
@@ -457,6 +459,87 @@ rocks=10"></textarea>
       }
     }
 
+    function uiLang() {
+      return (state.labelMode === 'zh') ? 'zh' : 'en';
+    }
+
+    async function ensureUiStrings(lang) {
+      const l = String(lang || '').trim();
+      if (!l) return;
+      if (state.uiLoaded && state.uiLoaded[l]) return;
+      try {
+        const res = await fetchJson(api(`/api/v1/i18n/ui/${encodeURIComponent(l)}`));
+        state.uiStrings[l] = res.strings || {};
+        state.uiLoaded[l] = true;
+      } catch (e) {
+        state.uiStrings[l] = {};
+        state.uiLoaded[l] = false;
+      }
+    }
+
+    function t(key, fallback) {
+      const l = uiLang();
+      const mp = (state.uiStrings && state.uiStrings[l]) ? state.uiStrings[l] : {};
+      return (mp && mp[key]) ? mp[key] : (fallback || key || '');
+    }
+
+    function applyUiStrings() {
+      const navCraft = el('navCraft');
+      if (navCraft) navCraft.textContent = t('nav.craft', 'Craft');
+      const navCooking = el('navCooking');
+      if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
+      const navCatalog = el('navCatalog');
+      if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
+      const label = el('labelModeLabel');
+      if (label) label.textContent = t('label.mode', 'Label');
+      const btnSearch = el('btnSearch');
+      if (btnSearch) btnSearch.textContent = t('btn.search', 'Search');
+      const btnPlan = el('btnPlan');
+      if (btnPlan) btnPlan.textContent = t('btn.plan', 'Plan');
+      const btnMissing = el('btnMissing');
+      if (btnMissing) btnMissing.textContent = t('btn.missing', 'Missing');
+      const btnToggle = el('btnToggle');
+      if (btnToggle) btnToggle.textContent = t('btn.toggle', 'Toggle');
+      const listTitle = el('listTitle');
+      if (listTitle) {
+        const txt = listTitle.textContent || '';
+        if (!txt.includes(':') && !txt.includes('(')) {
+          listTitle.textContent = t('craft.list.recipes', txt || 'Recipes');
+        }
+      }
+      const groupTitle = el('groupTitle');
+      if (groupTitle) {
+        if (state.mode === 'filters') groupTitle.textContent = t('craft.group.filters', 'Filters');
+        else if (state.mode === 'tabs') groupTitle.textContent = t('craft.group.tabs', 'Tabs');
+        else groupTitle.textContent = t('craft.group.tags', 'Tags');
+      }
+      const detailTitle = el('detailTitle');
+      if (detailTitle) detailTitle.textContent = t('craft.detail.title', 'Details');
+      const invHelp = el('inventoryHelp');
+      if (invHelp) invHelp.textContent = t('craft.inventory.help', 'Inventory (for missing/planning)');
+      const builderLabel = el('builderTagLabel');
+      if (builderLabel) builderLabel.textContent = t('craft.builder_tag.label', 'builder_tag (optional)');
+      const input = el('q');
+      if (input) input.placeholder = t('craft.search.placeholder', input.placeholder || '');
+      const inv = el('inv');
+      if (inv) inv.placeholder = t('craft.inventory.placeholder', inv.placeholder || '');
+      const builderTag = el('builderTag');
+      if (builderTag) builderTag.placeholder = t('craft.builder_tag.placeholder', builderTag.placeholder || '');
+    }
+
+    async function fetchTuningTrace(prefix) {
+      if (!state.tuningTraceEnabled) return {};
+      const pfx = String(prefix || '').trim();
+      if (!pfx) return {};
+      const res = await fetchJson(api(`/api/v1/tuning/trace?prefix=${encodeURIComponent(pfx)}`));
+      const traces = res.traces || {};
+      for (const k in traces) {
+        if (!Object.prototype.hasOwnProperty.call(traces, k)) continue;
+        state.tuningTrace[k] = traces[k];
+      }
+      return traces;
+    }
+
     function applyLabelModeUI() {
       const sel = el('labelMode');
       if (!sel) return;
@@ -482,6 +565,8 @@ rocks=10"></textarea>
       try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
       applyLabelModeUI();
       await ensureI18nNames(state.labelMode);
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       renderRecipeList();
       renderRecipeDetail(state.activeRecipeData);
     }
@@ -548,7 +633,7 @@ rocks=10"></textarea>
 
     function renderRecipeDetail(rec) {
       if (!rec) {
-        el('detail').innerHTML = '<div class="muted">Select a recipe.</div>';
+        el('detail').innerHTML = `<div class="muted">${escHtml(t('craft.detail.empty', 'Select a recipe.'))}</div>`;
         return;
       }
       const filters = (rec.filters || []).map(x => `<span class="chip">${x}</span>`).join('');
@@ -567,24 +652,24 @@ rocks=10"></textarea>
           <div class="small muted">${String(rec.tab || '').replace('RECIPETABS.','')}</div>
         </div>
         <div class="kv">
-          <div class="k">Product</div><div>${rec.product ? renderItem(rec.product) : ''}</div>
-          <div class="k">Tech</div><div class="mono">${String(rec.tech || '').replace('TECH.','')}</div>
-          <div class="k">Station</div><div class="mono">${rec.station_tag || ''}</div>
-          <div class="k">Builder skill</div><div class="mono">${rec.builder_skill || ''}</div>
+          <div class="k">${escHtml(t('craft.detail.product', 'Product'))}</div><div>${rec.product ? renderItem(rec.product) : ''}</div>
+          <div class="k">${escHtml(t('craft.detail.tech', 'Tech'))}</div><div class="mono">${String(rec.tech || '').replace('TECH.','')}</div>
+          <div class="k">${escHtml(t('craft.detail.station', 'Station'))}</div><div class="mono">${rec.station_tag || ''}</div>
+          <div class="k">${escHtml(t('craft.detail.builder_skill', 'Builder skill'))}</div><div class="mono">${rec.builder_skill || ''}</div>
         </div>
         <div>
-          <div class="small muted">Filters</div>
+          <div class="small muted">${escHtml(t('craft.detail.filters', 'Filters'))}</div>
           <div class="chips">${filters || '<span class="muted">-</span>'}</div>
         </div>
         <div>
-          <div class="small muted">Builder tags</div>
+          <div class="small muted">${escHtml(t('craft.detail.builder_tags', 'Builder tags'))}</div>
           <div class="chips">${tags || '<span class="muted">-</span>'}</div>
         </div>
         <div>
-          <div class="small muted">Ingredients</div>
+          <div class="small muted">${escHtml(t('craft.detail.ingredients', 'Ingredients'))}</div>
           ${ings || '<div class="muted">-</div>'}
           ${(rec.ingredients_unresolved && rec.ingredients_unresolved.length)
-            ? `<div class="muted small">Unresolved: ${rec.ingredients_unresolved.join(', ')}</div>`
+            ? `<div class="muted small">${escHtml(t('craft.detail.unresolved', 'Unresolved'))}: ${rec.ingredients_unresolved.join(', ')}</div>`
             : ''}
         </div>
       `;
@@ -593,7 +678,10 @@ rocks=10"></textarea>
     async function loadMeta() {
       const m = await fetchJson(api('/api/v1/meta'));
       state.i18n = (m && m.i18n) ? m.i18n : { enabled: false };
+      state.tuningTraceEnabled = Boolean(m && m.tuning_trace_enabled);
       applyLabelModeUI();
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       const sha = m.scripts_sha256_12 ? `sha:${m.scripts_sha256_12}` : '';
       const ae = m.analyzer_enabled ? 'analyzer:on' : 'analyzer:off';
       const te = m.tuning_enabled ? 'tuning:on' : 'tuning:off';
@@ -603,16 +691,16 @@ rocks=10"></textarea>
     async function loadGroups() {
       setError('');
       if (state.mode === 'filters') {
-        el('groupTitle').textContent = 'Filters';
+        el('groupTitle').textContent = t('craft.group.filters', 'Filters');
         const res = await fetchJson(api('/api/v1/craft/filters'));
         const order = res.order || [];
         state.groups = order.map(n => ({ name: n, count: '' }));
       } else if (state.mode === 'tabs') {
-        el('groupTitle').textContent = 'Tabs';
+        el('groupTitle').textContent = t('craft.group.tabs', 'Tabs');
         const res = await fetchJson(api('/api/v1/craft/tabs'));
         state.groups = (res.tabs || []).map(t => ({ name: t.name, count: t.count }));
       } else {
-        el('groupTitle').textContent = 'Tags';
+        el('groupTitle').textContent = t('craft.group.tags', 'Tags');
         const res = await fetchJson(api('/api/v1/craft/tags'));
         state.groups = (res.tags || []).map(t => ({ name: t.name, count: t.count }));
       }
@@ -641,7 +729,7 @@ rocks=10"></textarea>
       state.activeRecipe = null;
       state.activeRecipeData = null;
 
-      el('listTitle').textContent = 'Recipes';
+      el('listTitle').textContent = t('craft.list.recipes', 'Recipes');
       renderRecipeList();
       renderRecipeDetail(null);
     }
@@ -668,7 +756,7 @@ rocks=10"></textarea>
       renderGroupList();
       renderRecipeList();
       renderRecipeDetail(null);
-      el('listTitle').textContent = `Search: ${q}`;
+      el('listTitle').textContent = `${t('label.search', 'Search')}: ${q}`;
     }
 
     async function doPlan() {
@@ -683,15 +771,15 @@ rocks=10"></textarea>
       });
       const craftable = res.craftable || [];
       el('planOut').innerHTML = craftable.length
-        ? `<div class="ok">Craftable (${craftable.length})</div><div>${craftable.slice(0,120).map(n => renderItem(n)).join(', ')}</div>`
-        : '<div class="muted">No craftable recipes with current inventory.</div>';
+        ? `<div class="ok">${escHtml(t('craft.plan.craftable', 'Craftable'))} (${craftable.length})</div><div>${craftable.slice(0,120).map(n => renderItem(n)).join(', ')}</div>`
+        : `<div class="muted">${escHtml(t('craft.plan.none', 'No craftable recipes with current inventory.'))}</div>`;
     }
 
     async function doMissing() {
       setError('');
       const nm = state.activeRecipe;
       if (!nm) {
-        setError('Select a recipe first.');
+        setError(t('craft.error.select_recipe', 'Select a recipe first.'));
         return;
       }
       const inv = parseInventory(el('inv').value);
@@ -702,11 +790,14 @@ rocks=10"></textarea>
       });
       const miss = res.missing || [];
       if (!miss.length) {
-        el('planOut').innerHTML = '<div class="ok">No missing materials.</div>';
+        el('planOut').innerHTML = `<div class="ok">${escHtml(t('craft.missing.none', 'No missing materials.'))}</div>`;
         return;
       }
-      const lines = miss.map(m => `• ${renderItem(m.item)} need:${escHtml(m.need)} have:${escHtml(m.have)} (${escHtml(m.reason)})`).join('<br/>');
-      el('planOut').innerHTML = `<div class="muted">Missing (${miss.length})</div><div class="mono">${lines}</div>`;
+      const needLabel = t('label.need', 'need');
+      const haveLabel = t('label.have', 'have');
+      const reasonLabel = t('label.reason', 'reason');
+      const lines = miss.map(m => `• ${renderItem(m.item)} ${escHtml(needLabel)}:${escHtml(m.need)} ${escHtml(haveLabel)}:${escHtml(m.have)} (${escHtml(reasonLabel)}:${escHtml(m.reason)})`).join('<br/>');
+      el('planOut').innerHTML = `<div class="muted">${escHtml(t('craft.missing.title', 'Missing'))} (${miss.length})</div><div class="mono">${lines}</div>`;
     }
 
     function toggleMode() {
@@ -910,7 +1001,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       <a class="btn active" id="navCatalog" href="__WAGSTAFF_APP_ROOT__/catalog">Catalog</a>
     </div>
     <div class="small" style="display:flex; align-items:center; gap:6px;">
-      <span class="muted">Label</span>
+      <span class="muted" id="labelModeLabel">Label</span>
       <select id="labelMode">
         <option value="en">EN</option>
         <option value="zh">中文</option>
@@ -928,6 +1019,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
           <button class="btn" id="btnSearch">Search</button>
           <button class="btn" id="btnAll">All</button>
         </div>
+        <div class="small muted" id="searchHelp">Hints: kind:structure cat:weapon src:craft tag:monster comp:equippable slot:head</div>
         <div class="small" id="stats"></div>
       </div>
       <div class="list" id="list"></div>
@@ -935,7 +1027,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
 
     <div class="panel right">
       <div class="pbody" id="detail">
-        <div class="muted">Select an item.</div>
+        <div class="muted" id="detailEmpty">Select an item.</div>
       </div>
     </div>
   </div>
@@ -984,6 +1076,10 @@ _CATALOG_TEMPLATE = """<!doctype html>
       i18n: null,         // meta from /api/v1/meta (set in loadMeta)
       i18nNames: {},      // {lang: {id: name}}
       i18nLoaded: {},     // {lang: true}
+      tuningTrace: {},    // {trace_key: trace}
+      tuningTraceEnabled: false,
+      uiStrings: {},      // {lang: {key: text}}
+      uiLoaded: {},       // {lang: true}
     };
 
     // list render state (supports full catalog without freezing)
@@ -1058,6 +1154,64 @@ _CATALOG_TEMPLATE = """<!doctype html>
         state.i18nLoaded.zh = false;
       }
     }
+    // ui i18n (catalog)
+    function uiLang() {
+      return (state.labelMode === 'zh') ? 'zh' : 'en';
+    }
+
+    async function ensureUiStrings(lang) {
+      const l = String(lang || '').trim();
+      if (!l) return;
+      if (state.uiLoaded && state.uiLoaded[l]) return;
+      try {
+        const res = await fetchJson(api(`/api/v1/i18n/ui/${encodeURIComponent(l)}`));
+        state.uiStrings[l] = res.strings || {};
+        state.uiLoaded[l] = true;
+      } catch (e) {
+        state.uiStrings[l] = {};
+        state.uiLoaded[l] = false;
+      }
+    }
+
+    function t(key, fallback) {
+      const l = uiLang();
+      const mp = (state.uiStrings && state.uiStrings[l]) ? state.uiStrings[l] : {};
+      return (mp && mp[key]) ? mp[key] : (fallback || key || '');
+    }
+
+    function applyUiStrings() {
+      const navCraft = el('navCraft');
+      if (navCraft) navCraft.textContent = t('nav.craft', 'Craft');
+      const navCooking = el('navCooking');
+      if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
+      const navCatalog = el('navCatalog');
+      if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
+      const label = el('labelModeLabel');
+      if (label) label.textContent = t('label.mode', 'Label');
+      const btnSearch = el('btnSearch');
+      if (btnSearch) btnSearch.textContent = t('btn.search', 'Search');
+      const btnAll = el('btnAll');
+      if (btnAll) btnAll.textContent = t('btn.all', 'All');
+      const input = el('q');
+      if (input) input.placeholder = t('catalog.search.placeholder', input.placeholder || '');
+      const hint = el('searchHelp');
+      if (hint) hint.textContent = t('catalog.search.hint', hint.textContent || '');
+      const detailEmpty = el('detailEmpty');
+      if (detailEmpty) detailEmpty.textContent = t('catalog.detail.empty', 'Select an item.');
+    }
+
+    async function fetchTuningTrace(prefix) {
+      if (!state.tuningTraceEnabled) return {};
+      const pfx = String(prefix || '').trim();
+      if (!pfx) return {};
+      const res = await fetchJson(api(`/api/v1/tuning/trace?prefix=${encodeURIComponent(pfx)}`));
+      const traces = res.traces || {};
+      for (const k in traces) {
+        if (!Object.prototype.hasOwnProperty.call(traces, k)) continue;
+        state.tuningTrace[k] = traces[k];
+      }
+      return traces;
+    }
 
     function applyLabelModeUI() {
       const sel = el('labelMode');
@@ -1084,6 +1238,8 @@ _CATALOG_TEMPLATE = """<!doctype html>
       try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
       applyLabelModeUI();
       await ensureI18nNames(state.labelMode);
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       const q = el('q').value;
       renderList(q ? searchKeys(q) : listKeys());
     }
@@ -1115,23 +1271,86 @@ _CATALOG_TEMPLATE = """<!doctype html>
       return allKeys;
     }
 
+    function splitQuery(q) {
+      const tokens = String(q || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const filters = [];
+      const words = [];
+      for (const tok of tokens) {
+        const idx = tok.indexOf(':');
+        if (idx > 0) {
+          const key = tok.slice(0, idx).trim();
+          const val = tok.slice(idx + 1).trim();
+          if (key && val) filters.push([key, val]);
+          else words.push(tok);
+        } else {
+          words.push(tok);
+        }
+      }
+      return { filters, words };
+    }
+
     function searchKeys(q) {
-      const query = String(q || '').trim().toLowerCase();
+      const query = String(q || '').trim();
       if (!query) return [];
+      const { filters, words } = splitQuery(query);
       const keys = listKeys();
-      // prefer startsWith on id; then name match
       const scored = [];
       for (const k of keys) {
         const a = assets[k] || {};
+        const id = String(k).toLowerCase();
+
+        if (filters.length) {
+          const kind = String(a.kind || '').toLowerCase();
+          const cats = (a.categories || []).map(v => String(v).toLowerCase());
+          const behs = (a.behaviors || []).map(v => String(v).toLowerCase());
+          const srcs = (a.sources || []).map(v => String(v).toLowerCase());
+          const tags = (a.tags || []).map(v => String(v).toLowerCase());
+          const comps = (a.components || []).map(v => String(v).toLowerCase());
+          const slots = (a.slots || []).map(v => String(v).toLowerCase());
+
+          let ok = true;
+          for (const [keyRaw, valRaw] of filters) {
+            const key = String(keyRaw || '').toLowerCase();
+            const vals = String(valRaw || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+            if (!vals.length) continue;
+            const hit = (list) => vals.some(v => list.includes(v));
+
+            if (key === 'kind' || key === 'type') {
+              if (!vals.includes(kind)) { ok = false; break; }
+            } else if (key === 'cat' || key === 'category') {
+              if (!hit(cats)) { ok = false; break; }
+            } else if (key === 'beh' || key === 'behavior') {
+              if (!hit(behs)) { ok = false; break; }
+            } else if (key === 'src' || key === 'source') {
+              if (!hit(srcs)) { ok = false; break; }
+            } else if (key === 'tag') {
+              if (!hit(tags)) { ok = false; break; }
+            } else if (key === 'comp' || key === 'component') {
+              if (!hit(comps)) { ok = false; break; }
+            } else if (key === 'slot') {
+              if (!hit(slots)) { ok = false; break; }
+            } else {
+              // unknown filter: ignore
+            }
+          }
+          if (!ok) continue;
+        }
+
         const name = String(a.name || '').toLowerCase();
         const zh = String(getI18nName(k) || '').toLowerCase();
-        const id = String(k).toLowerCase();
         let score = 0;
-        if (id === query) score += 1000;
-        if (id.startsWith(query)) score += 200;
-        if (id.includes(query)) score += 80;
-        if (name.includes(query)) score += 40;
-        if (zh.includes(query)) score += 60;
+        if (!words.length) {
+          score = 1;
+        } else {
+          for (const w of words) {
+            if (!w) continue;
+            if (id === w) score += 1000;
+            if (id.startsWith(w)) score += 200;
+            if (id.includes(w)) score += 80;
+            if (name.includes(w)) score += 40;
+            if (zh.includes(w)) score += 60;
+          }
+        }
         if (score > 0) scored.push([score, k]);
       }
       scored.sort((x,y) => (y[0]-x[0]) || x[1].localeCompare(y[1]));
@@ -1148,13 +1367,19 @@ _CATALOG_TEMPLATE = """<!doctype html>
       for (let i = renderPos; i < end; i++) {
         const k = viewKeys[i];
         const a = assets[k] || {};
-        const label = a.name || k;
+        const zh = getI18nName(k);
+        const label = resolveLabel(k, a.name || k, zh);
         const div = document.createElement('div');
         div.className = 'li' + (k === activeId ? ' active' : '');
         div.dataset.id = k;
 
         const iconHtml = iconHtmlFor(k, 28);
-        div.innerHTML = `${iconHtml}<div><div>${escHtml(label)}</div><div class="small mono">${escHtml(k)}</div></div>`;
+        const metaBits = [];
+        if (a.kind) metaBits.push(a.kind);
+        if (a.categories && a.categories.length) metaBits.push(a.categories.slice(0, 2).join(','));
+        if (a.sources && a.sources.length) metaBits.push(a.sources.slice(0, 2).join(','));
+        const metaLine = metaBits.length ? `<div class="small muted">${escHtml(metaBits.join(' · '))}</div>` : '';
+        div.innerHTML = `${iconHtml}<div><div>${escHtml(label)}</div><div class="small mono">${escHtml(k)}</div>${metaLine}</div>`;
         div.onclick = () => openItem(k).catch(e => setError(String(e)));
         frag.appendChild(div);
       }
@@ -1213,6 +1438,22 @@ _CATALOG_TEMPLATE = """<!doctype html>
         (arr.length > 80 ? `<div class="muted">… +${arr.length-80} more</div>` : '');
     }
 
+    function renderChips(list, extraClass) {
+      const arr = (list || []).filter(Boolean);
+      if (!arr.length) return '<span class="muted">-</span>';
+      const cls = extraClass ? ` ${extraClass}` : '';
+      return arr.slice(0, 80).map(v => `<span class="chip${cls}">${escHtml(v)}</span>`).join('');
+    }
+
+    function renderMonoLines(list, limit) {
+      const arr = (list || []).filter(Boolean);
+      if (!arr.length) return '<span class="muted">-</span>';
+      const cap = Math.max(1, Number(limit || 8));
+      const lines = arr.slice(0, cap).map(v => `<div class="mono">${escHtml(v)}</div>`).join('');
+      const more = arr.length > cap ? `<div class="muted small">… +${arr.length - cap} more</div>` : '';
+      return lines + more;
+    }
+
     function renderAnalysis(rep) {
       if (!rep) return '<span class="muted">-</span>';
       const brain = rep.brain ? `<span class="chip mono">${escHtml(rep.brain)}</span>` : '<span class="muted">-</span>';
@@ -1223,28 +1464,28 @@ _CATALOG_TEMPLATE = """<!doctype html>
 
       return `
         <div class="section">
-          <div class="small muted">Brain</div>
+          <div class="small muted">${escHtml(t('catalog.analysis.brain', 'Brain'))}</div>
           <div class="chips">${brain}</div>
         </div>
         <div class="section">
-          <div class="small muted">Stategraph</div>
+          <div class="small muted">${escHtml(t('catalog.analysis.stategraph', 'Stategraph'))}</div>
           <div class="chips">${sg}</div>
         </div>
         <div class="section">
-          <div class="small muted">Components</div>
+          <div class="small muted">${escHtml(t('catalog.analysis.components', 'Components'))}</div>
           <div class="chips">${comps}</div>
         </div>
         <div class="section">
-          <div class="small muted">Tags</div>
+          <div class="small muted">${escHtml(t('catalog.analysis.tags', 'Tags'))}</div>
           <div class="chips">${tags}</div>
         </div>
         <div class="section">
-          <div class="small muted">Events</div>
+          <div class="small muted">${escHtml(t('catalog.analysis.events', 'Events'))}</div>
           <div class="chips">${evs}</div>
         </div>
         <div class="section">
           <details>
-            <summary>Raw report (JSON)</summary>
+            <summary>${escHtml(t('catalog.analysis.raw_report', 'Raw report (JSON)'))}</summary>
             <pre>${escHtml(JSON.stringify(rep, null, 2))}</pre>
           </details>
         </div>
@@ -1258,36 +1499,166 @@ _CATALOG_TEMPLATE = """<!doctype html>
       setActiveInList(q);
 
       const data = await fetchJson(api(`/api/v1/items/${encodeURIComponent(q)}`));
+      const item = data.item || {};
       const asset = data.asset || {};
       const craft = data.craft || {};
       const cooking = data.cooking || {};
       const iconHtml = iconHtmlFor(q, 54);
 
-      const aName = asset?.name || '';
+      const zh = getI18nName(q);
+      const label = resolveLabel(q, item?.name || asset?.name || q, zh);
       const atlas = asset?.atlas || '';
       const image = asset?.image || '';
-      const pf = asset?.prefab_file || '';
+      const iconPath = asset?.icon || '';
+
+      const kind = item?.kind || '';
+      const categories = item?.categories || [];
+      const behaviors = item?.behaviors || [];
+      const sources = item?.sources || [];
+      const slots = item?.slots || [];
+      const components = item?.components || [];
+      const tags = item?.tags || [];
+      const prefabFiles = item?.prefab_files || [];
+      const brains = item?.brains || [];
+      const stategraphs = item?.stategraphs || [];
+      const helpers = item?.helpers || [];
+      const prefabAssets = item?.prefab_assets || [];
+      const stats = item?.stats || {};
+
+      const kindRow = [];
+      if (kind) kindRow.push(kind);
+      (sources || []).forEach((s) => kindRow.push(`src:${s}`));
+      (slots || []).forEach((s) => kindRow.push(`slot:${s}`));
 
       const cookRec = cooking.as_recipe;
 
-      const cookTuning = (cookRec && cookRec._tuning) ? cookRec._tuning : {};
+      function cookTraceForField(field) {
+        if (!cookRec) return null;
+        const v = cookRec[field];
+        if (v && typeof v === 'object' && (v.trace || v.expr || v.value !== undefined)) return v;
+        if (cookRec._tuning && cookRec._tuning[field]) return cookRec._tuning[field];
+        const key = `cooking:${cookRec.name || q}:${field}`;
+        return state.tuningTrace[key] || null;
+      }
+
       function cookStat(field) {
         if (!cookRec) return '';
-        const tr = cookTuning ? cookTuning[field] : null;
+        const tr = cookTraceForField(field);
         if (tr && tr.value !== null && tr.value !== undefined) return tr.value;
-        return cookRec[field] ?? '';
+        const val = cookRec[field];
+        if (val && typeof val === 'object') {
+          if (val.value !== undefined && val.value !== null) return val.value;
+          if (val.expr !== undefined) return val.expr;
+        }
+        return val ?? '';
+      }
+
+      function renderCookStatRow(field) {
+        if (!cookRec) return '<span class="muted">-</span>';
+        const tr = cookTraceForField(field);
+        const val = cookStat(field);
+        const expr = tr ? (tr.expr ?? '') : '';
+        const showExpr = expr && String(expr) !== String(val);
+        const key = `cooking:${cookRec.name || q}:${field}`;
+        const canTrace = Boolean(key);
+        const enabled = Boolean(state.tuningTraceEnabled);
+        const btn = canTrace
+          ? `<button class="btn" data-cook-trace="${escHtml(field)}" ${enabled ? '' : 'disabled'} style="margin-left:6px; padding:2px 6px; font-size:11px;">${escHtml(t('btn.trace', 'Trace'))}</button>`
+          : '';
+        const details = tr
+          ? `<details style="margin-top:4px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(tr, null, 2))}</pre></details>`
+          : '';
+        return `<div><span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}</div>`;
+      }
+
+      const STAT_LABELS = {
+        weapon_damage: 'Weapon Damage',
+        weapon_range: 'Weapon Range',
+        weapon_range_min: 'Weapon Range (min)',
+        weapon_range_max: 'Weapon Range (max)',
+        combat_damage: 'Combat Damage',
+        attack_period: 'Attack Period',
+        attack_range: 'Attack Range',
+        attack_range_max: 'Attack Range (max)',
+        area_damage: 'Area Damage',
+        uses_max: 'Max Uses',
+        uses: 'Uses',
+        armor_condition: 'Armor Condition',
+        armor_absorption: 'Armor Absorption',
+        edible_health: 'Edible Health',
+        edible_hunger: 'Edible Hunger',
+        edible_sanity: 'Edible Sanity',
+        perish_time: 'Perish Time',
+        fuel_level: 'Fuel Level',
+        fuel_max: 'Max Fuel',
+        dapperness: 'Dapperness',
+        insulation: 'Insulation',
+        insulation_winter: 'Insulation (Winter)',
+        insulation_summer: 'Insulation (Summer)',
+        waterproof: 'Waterproof',
+        light_radius: 'Light Radius',
+        light_intensity: 'Light Intensity',
+        light_falloff: 'Light Falloff',
+        stack_size: 'Stack Size',
+        health_max: 'Max Health',
+        sanity_max: 'Max Sanity',
+        sanity_rate: 'Sanity Rate',
+        sanity_aura: 'Sanity Aura',
+        hunger_max: 'Max Hunger',
+        hunger_rate: 'Hunger Rate',
+        walk_speed: 'Walk Speed',
+        run_speed: 'Run Speed',
+        speed_multiplier: 'Speed Multiplier',
+        recharge_time: 'Recharge Time',
+        heat: 'Heat',
+        heat_radius: 'Heat Radius',
+        planar_damage_base: 'Planar Damage (base)',
+        planar_damage_bonus: 'Planar Damage (bonus)',
+        planar_damage: 'Planar Damage',
+        planar_absorption: 'Planar Absorption',
+        planar_absorption_base: 'Planar Absorption (base)',
+        work_left: 'Work Left',
+      };
+
+      function renderStatRow(statKey, entry) {
+        const key = String(statKey || '');
+        const label = t(`stat.${key}`, STAT_LABELS[key] || key);
+        const val = entry?.value ?? entry?.expr ?? '';
+        const expr = entry?.expr ?? '';
+        const showExpr = expr && String(expr) !== String(val);
+        const traceKey = entry?.trace_key || `item:${q}:stat:${key}`;
+        const trace = entry?.trace || state.tuningTrace[traceKey];
+        const enabled = Boolean(state.tuningTraceEnabled);
+        const btn = traceKey
+          ? `<button class="btn" data-item-trace="${escHtml(traceKey)}" ${enabled ? '' : 'disabled'} style="margin-left:6px; padding:2px 6px; font-size:11px;">${escHtml(t('btn.trace', 'Trace'))}</button>`
+          : '';
+        const details = trace
+          ? `<details style="margin-top:4px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(trace, null, 2))}</pre></details>`
+          : '';
+        return `<div class="row" style="justify-content:space-between; align-items:flex-start;"><div class="small muted">${escHtml(label)}</div><div><span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}</div></div>`;
+      }
+
+      function renderStats(statsObj) {
+        const entries = Object.entries(statsObj || {});
+        if (!entries.length) return '<span class="muted">-</span>';
+        return entries.map(([k, v]) => renderStatRow(k, v)).join('');
       }
 
       const cookBrief = cookRec ? `
         <div class="section">
-          <div class="small muted">Cooking recipe</div>
+          <div class="small muted">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
           <div>• <a class="mono" href="${recipeLinkCooking(cookRec.name || q)}">${escHtml(cookRec.name || q)}</a></div>
-          <div class="small muted">Hunger/Health/Sanity: <span class="mono">${escHtml(cookStat('hunger'))}</span> / <span class="mono">${escHtml(cookStat('health'))}</span> / <span class="mono">${escHtml(cookStat('sanity'))}</span></div>
-          ${(cookRec && cookRec._tuning) ? `<details style="margin-top:6px;"><summary>Trace</summary><pre>${escHtml(JSON.stringify(cookRec._tuning, null, 2))}</pre></details>` : ''}
+          <div class="kv" style="margin-top:6px;">
+            <div class="k">${escHtml(t('label.hunger', 'Hunger'))}</div><div>${renderCookStatRow('hunger')}</div>
+            <div class="k">${escHtml(t('label.health', 'Health'))}</div><div>${renderCookStatRow('health')}</div>
+            <div class="k">${escHtml(t('label.sanity', 'Sanity'))}</div><div>${renderCookStatRow('sanity')}</div>
+            <div class="k">${escHtml(t('label.perish', 'Perish'))}</div><div>${renderCookStatRow('perishtime')}</div>
+            <div class="k">${escHtml(t('label.cooktime', 'Cooktime'))}</div><div>${renderCookStatRow('cooktime')}</div>
+          </div>
         </div>
       ` : `
         <div class="section">
-          <div class="small muted">Cooking recipe</div>
+          <div class="small muted">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
           <div class="muted">-</div>
         </div>
       `;
@@ -1296,16 +1667,16 @@ _CATALOG_TEMPLATE = """<!doctype html>
       const analyzerBox = analyzerEnabled ? `
         <div class="section">
           <div class="row" style="justify-content:space-between;">
-            <div class="small muted">Prefab analysis</div>
-            <button class="btn" id="btnAnalyze">Analyze</button>
+            <div class="small muted">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
+            <button class="btn" id="btnAnalyze">${escHtml(t('btn.analyze', 'Analyze'))}</button>
           </div>
-          <div class="muted small">Uses server-side LuaAnalyzer (prefab parser). Availability depends on how the server was started.</div>
+          <div class="muted small">${escHtml(t('catalog.prefab_analysis_help', 'Uses server-side LuaAnalyzer (prefab parser). Availability depends on how the server was started.'))}</div>
           <div id="analysis"></div>
         </div>
       ` : `
         <div class="section">
-          <div class="small muted">Prefab analysis</div>
-          <div class="muted">Analyzer disabled. Start server with enable_analyzer=true and provide scripts_dir / scripts_zip (or dst_root).</div>
+          <div class="small muted">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
+          <div class="muted">${escHtml(t('catalog.prefab_analysis_disabled', 'Analyzer disabled. Start server with enable_analyzer=true and provide scripts_dir / scripts_zip (or dst_root).'))}</div>
         </div>
       `;
 
@@ -1313,32 +1684,84 @@ _CATALOG_TEMPLATE = """<!doctype html>
         <div class="row" style="align-items:flex-start; gap:12px;">
           ${iconHtml}
           <div style="flex:1;">
-            <div style="font-size:18px; font-weight:700;">${escHtml(aName || q)}</div>
+            <div style="font-size:18px; font-weight:700;">${escHtml(label)}</div>
             <div class="small mono">${escHtml(q)}</div>
           </div>
         </div>
 
         <div class="section">
-          <div class="small muted">Asset</div>
-          <div class="mono">atlas: ${escHtml(atlas || '-')}</div>
-          <div class="mono">image: ${escHtml(image || '-')}</div>
-          <div class="mono">prefab_file: ${escHtml(pf || '-')}</div>
+          <div class="small muted">${escHtml(t('catalog.section.kind_sources', 'Kind / Sources / Slots'))}</div>
+          <div class="chips">${renderChips(kindRow, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">Craft: produced by</div>
+          <div class="small muted">${escHtml(t('catalog.section.categories', 'Categories'))}</div>
+          <div class="chips">${renderChips(categories, '')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.behaviors', 'Behaviors'))}</div>
+          <div class="chips">${renderChips(behaviors, '')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.components', 'Components'))}</div>
+          <div class="chips">${renderChips(components, 'mono')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.tags', 'Tags'))}</div>
+          <div class="chips">${renderChips(tags, 'mono')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.stats', 'Stats'))}</div>
+          <div>${renderStats(stats)}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.brains', 'Brains'))}</div>
+          <div class="chips">${renderChips(brains, 'mono')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.stategraphs', 'Stategraphs'))}</div>
+          <div class="chips">${renderChips(stategraphs, 'mono')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.helpers', 'Helpers'))}</div>
+          <div class="chips">${renderChips(helpers, 'mono')}</div>
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.prefab_files', 'Prefab files'))}</div>
+          ${renderMonoLines(prefabFiles, 6)}
+        </div>
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.assets', 'Assets'))}</div>
+          <div class="mono">${escHtml(t('label.icon', 'icon'))}: ${escHtml(iconPath || '-')}</div>
+          <div class="mono">${escHtml(t('label.atlas', 'atlas'))}: ${escHtml(atlas || '-')}</div>
+          <div class="mono">${escHtml(t('label.image', 'image'))}: ${escHtml(image || '-')}</div>
+        </div>
+
+        ${prefabAssets && prefabAssets.length ? `<div class="section"><details><summary>${escHtml(t('catalog.section.prefab_assets', 'Prefab assets (raw)'))}</summary><pre>${escHtml(JSON.stringify(prefabAssets, null, 2))}</pre></details></div>` : ''}
+
+        <div class="section">
+          <div class="small muted">${escHtml(t('catalog.section.craft_produced', 'Craft: produced by'))}</div>
           ${renderRecipeList(craft.produced_by, recipeLinkCraft)}
         </div>
 
         <div class="section">
-          <div class="small muted">Craft: used as ingredient</div>
+          <div class="small muted">${escHtml(t('catalog.section.craft_used', 'Craft: used as ingredient'))}</div>
           ${renderRecipeList(craft.used_in, recipeLinkCraft)}
         </div>
 
         ${cookBrief}
 
         <div class="section">
-          <div class="small muted">Cooking: used as card ingredient</div>
+          <div class="small muted">${escHtml(t('catalog.section.cooking_used', 'Cooking: used as card ingredient'))}</div>
           ${renderRecipeList(cooking.used_in, recipeLinkCooking)}
         </div>
 
@@ -1349,7 +1772,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
         el('btnAnalyze').onclick = async () => {
           try {
             setError('');
-            el('analysis').innerHTML = '<div class="muted">Loading…</div>';
+            el('analysis').innerHTML = `<div class="muted">${escHtml(t('label.loading', 'Loading...'))}</div>`;
             const res = await fetchJson(api(`/api/v1/analyze/prefab/${encodeURIComponent(q)}`));
             const rep = res.report || {};
             el('analysis').innerHTML = renderAnalysis(rep);
@@ -1359,12 +1782,44 @@ _CATALOG_TEMPLATE = """<!doctype html>
           }
         };
       }
+      if (cookRec) {
+        for (const btn of el('detail').querySelectorAll('button[data-cook-trace]')) {
+          const field = btn.getAttribute('data-cook-trace');
+          if (!field) continue;
+          btn.onclick = async () => {
+            try {
+              setError('');
+              await fetchTuningTrace(`cooking:${cookRec.name || q}:${field}`);
+              await openItem(q);
+            } catch (e) {
+              setError(String(e));
+            }
+          };
+        }
+      }
+
+      for (const btn of el('detail').querySelectorAll('button[data-item-trace]')) {
+        const key = btn.getAttribute('data-item-trace');
+        if (!key) continue;
+        btn.onclick = async () => {
+          try {
+            setError('');
+            await fetchTuningTrace(key);
+            await openItem(q);
+          } catch (e) {
+            setError(String(e));
+          }
+        };
+      }
     }
 
     async function loadMeta() {
       meta = await fetchJson(api('/api/v1/meta'));
       state.i18n = (meta && meta.i18n) ? meta.i18n : { enabled: false };
+      state.tuningTraceEnabled = Boolean(meta && meta.tuning_trace_enabled);
       applyLabelModeUI();
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       const sha = meta.scripts_sha256_12 ? `sha:${meta.scripts_sha256_12}` : '';
       const ver = meta.schema_version ? `v${meta.schema_version}` : '';
       const ae = meta.analyzer_enabled ? 'analyzer:on' : 'analyzer:off';
@@ -1384,7 +1839,18 @@ _CATALOG_TEMPLATE = """<!doctype html>
       (res.items || []).forEach((it) => {
         const iid = String(it.id || '').trim();
         if (!iid) return;
-        assets[iid] = { name: it.name || iid, image: it.image || null };
+        assets[iid] = {
+          name: it.name || iid,
+          image: it.image || null,
+          icon: it.icon || it.image || null,
+          kind: it.kind || '',
+          categories: Array.isArray(it.categories) ? it.categories : [],
+          behaviors: Array.isArray(it.behaviors) ? it.behaviors : [],
+          sources: Array.isArray(it.sources) ? it.sources : [],
+          tags: Array.isArray(it.tags) ? it.tags : [],
+          components: Array.isArray(it.components) ? it.components : [],
+          slots: Array.isArray(it.slots) ? it.slots : [],
+        };
         allKeys.push(iid);
       });
       allKeys.sort();
@@ -1713,10 +2179,10 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     <div style="display:flex; gap:10px; align-items:center;">
       <h1>Wagstaff WebCraft</h1>
       <a id="navCraft" class="nav" href="#">Craft</a>
-      <a class="nav active" href="#">Cooking</a>
+      <a id="navCooking" class="nav active" href="#">Cooking</a>
       <a id="navCatalog" class="nav" href="#">Catalog</a>
       <div class="small" style="display:flex; align-items:center; gap:6px;">
-        <span class="muted">Label</span>
+        <span class="muted" id="labelModeLabel">Label</span>
         <select id="labelMode">
           <option value="en">EN</option>
           <option value="zh">中文</option>
@@ -1749,12 +2215,12 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     </div>
 
     <div class="panel">
-      <h2>Details / Tools</h2>
+      <h2 id="detailTitle">Details / Tools</h2>
       <div class="detail">
         <div id="detail"></div>
 
         <div>
-          <div class="small muted">Available ingredients (for search)</div>
+          <div class="small muted" id="inventoryHelp">Available ingredients (for search)</div>
           <textarea id="inv" placeholder="berries=2\ncarrot=3\nmeat=1"></textarea>
           <div style="display:flex; gap:8px; margin-top:8px;">
             <button id="btnFind" class="primary" style="flex:1;">Find cookable</button>
@@ -1763,7 +2229,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         </div>
 
         <div>
-          <div class="small muted">Cookpot slots (requires total = 4)</div>
+          <div class="small muted" id="slotsHelp">Cookpot slots (requires total = 4)</div>
           <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
           <button id="btnSim" class="primary" style="width:100%; margin-top:8px;">Simulate</button>
         </div>
@@ -1923,6 +2389,90 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       }
     }
 
+    // ui i18n (cooking)
+    function uiLang() {
+      return (state.labelMode === 'zh') ? 'zh' : 'en';
+    }
+
+    async function ensureUiStrings(lang) {
+      const l = String(lang || '').trim();
+      if (!l) return;
+      if (state.uiLoaded && state.uiLoaded[l]) return;
+      try {
+        const res = await fetchJson(api(`/api/v1/i18n/ui/${encodeURIComponent(l)}`));
+        state.uiStrings[l] = res.strings || {};
+        state.uiLoaded[l] = true;
+      } catch (e) {
+        state.uiStrings[l] = {};
+        state.uiLoaded[l] = false;
+      }
+    }
+
+    function t(key, fallback) {
+      const l = uiLang();
+      const mp = (state.uiStrings && state.uiStrings[l]) ? state.uiStrings[l] : {};
+      return (mp && mp[key]) ? mp[key] : (fallback || key || '');
+    }
+
+    function applyUiStrings() {
+      const navCraft = el('navCraft');
+      if (navCraft) navCraft.textContent = t('nav.craft', 'Craft');
+      const navCooking = el('navCooking');
+      if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
+      const navCatalog = el('navCatalog');
+      if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
+      const label = el('labelModeLabel');
+      if (label) label.textContent = t('label.mode', 'Label');
+      const btnSearch = el('btnSearch');
+      if (btnSearch) btnSearch.textContent = t('btn.search', 'Search');
+      const btnToggle = el('btnToggle');
+      if (btnToggle) btnToggle.textContent = t('btn.toggle', 'Toggle');
+      const listTitle = el('listTitle');
+      if (listTitle) {
+        const txt = listTitle.textContent || '';
+        if (!txt.includes(':') && !txt.includes('(')) {
+          listTitle.textContent = t('cooking.list.recipes', txt || 'Recipes');
+        }
+      }
+      const groupTitle = el('groupTitle');
+      if (groupTitle) {
+        if (state.mode === 'foodtypes') groupTitle.textContent = t('cooking.group.foodtypes', 'FoodTypes');
+        else if (state.mode === 'tags') groupTitle.textContent = t('cooking.group.tags', 'Tags');
+        else groupTitle.textContent = t('cooking.group.all', 'All');
+      }
+      const detailTitle = el('detailTitle');
+      if (detailTitle) detailTitle.textContent = t('cooking.detail.title', 'Details / Tools');
+      const invHelp = el('inventoryHelp');
+      if (invHelp) invHelp.textContent = t('cooking.inventory.help', 'Available ingredients (for search)');
+      const slotsHelp = el('slotsHelp');
+      if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (requires total = 4)');
+      const input = el('q');
+      if (input) input.placeholder = t('cooking.search.placeholder', input.placeholder || '');
+      const inv = el('inv');
+      if (inv) inv.placeholder = t('cooking.inventory.placeholder', inv.placeholder || '');
+      const slots = el('slots');
+      if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
+      const btnFind = el('btnFind');
+      if (btnFind) btnFind.textContent = t('btn.find_cookable', 'Find cookable');
+      const btnShowAll = el('btnShowAll');
+      if (btnShowAll) btnShowAll.textContent = t('btn.show_all', 'Show all');
+      const btnSim = el('btnSim');
+      if (btnSim) btnSim.textContent = t('btn.simulate', 'Simulate');
+    }
+
+    async function fetchTuningTrace(prefix) {
+      if (!state.tuningTraceEnabled) return {};
+      const pfx = String(prefix || '').trim();
+      if (!pfx) return {};
+      const res = await fetchJson(api(`/api/v1/tuning/trace?prefix=${encodeURIComponent(pfx)}`));
+      const traces = res.traces || {};
+      for (const k in traces) {
+        if (!Object.prototype.hasOwnProperty.call(traces, k)) continue;
+        state.tuningTrace[k] = traces[k];
+      }
+      return traces;
+    }
+
     function applyLabelModeUI() {
       const sel = el('labelMode');
       if (!sel) return;
@@ -1948,6 +2498,8 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
       applyLabelModeUI();
       await ensureI18nNames(state.labelMode);
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       renderRecipeList();
       renderRecipeDetail(state.activeRecipeData);
     }
@@ -2002,6 +2554,10 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       i18n: null,         // meta from /api/v1/meta (set in loadMeta)
       i18nNames: {},      // {lang: {id: name}}
       i18nLoaded: {},     // {lang: true}
+      tuningTrace: {},    // {trace_key: trace}
+      tuningTraceEnabled: false,
+      uiStrings: {},      // {lang: {key: text}}
+      uiLoaded: {},       // {lang: true}
     };
 
     function renderGroupList() {
@@ -2031,7 +2587,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
 
     function renderRecipeDetail(rec) {
       if (!rec) {
-        el('detail').innerHTML = '<div class="muted">Select a recipe.</div>';
+        el('detail').innerHTML = `<div class="muted">${escHtml(t('cooking.detail.empty', 'Select a recipe.'))}</div>`;
         return;
       }
 
@@ -2051,7 +2607,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         const expr = escHtml(rule.expr || '');
         const cons = rule.constraints || null;
         const title = includeTitle
-          ? `<div class="small muted">Rule${kind ? ` (${kind})` : ''}</div>`
+          ? `<div class="small muted">${escHtml(t('cooking.rule.title', 'Rule'))}${kind ? ` (${kind})` : ''}</div>`
           : '';
 
         let consHtml = '';
@@ -2062,10 +2618,10 @@ _COOKING_TEMPLATE = r"""<!doctype html>
           const any = Boolean(tags || names || unp);
           consHtml = `
             <div style="margin-top:8px;">
-              <div class="small muted">Constraints (best-effort)</div>
-              ${tags ? `<div><div class="small muted">tags</div>${tags}</div>` : ''}
-              ${names ? `<div style="margin-top:6px;"><div class="small muted">names</div>${names}</div>` : ''}
-              ${unp ? `<div style="margin-top:6px;"><div class="small muted">unparsed</div>${unp}</div>` : ''}
+              <div class="small muted">${escHtml(t('cooking.rule.constraints', 'Constraints (best-effort)'))}</div>
+              ${tags ? `<div><div class="small muted">${escHtml(t('cooking.rule.constraints.tags', 'tags'))}</div>${tags}</div>` : ''}
+              ${names ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.names', 'names'))}</div>${names}</div>` : ''}
+              ${unp ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.unparsed', 'unparsed'))}</div>${unp}</div>` : ''}
               ${any ? '' : '<span class="muted">-</span>'}
             </div>
           `;
@@ -2082,31 +2638,43 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         ? card
         : (rule ? renderRule(rule, false) : '<span class="muted">-</span>');
       const tuning = rec._tuning || {};
+      const traceKey = (field) => rec?.name ? `cooking:${rec.name}:${field}` : '';
+      const traceCache = state.tuningTrace || {};
+      const fields = ['hunger', 'health', 'sanity', 'perishtime', 'cooktime'];
+
+      function traceForField(field) {
+        const raw = rec ? rec[field] : null;
+        if (raw && typeof raw === 'object' && (raw.trace || raw.expr || raw.value !== undefined)) return raw;
+        if (tuning && tuning[field]) return tuning[field];
+        const key = traceKey(field);
+        return key ? traceCache[key] : null;
+      }
+
       function renderStat(field) {
         const raw = rec ? rec[field] : null;
-        const tr = tuning ? tuning[field] : null;
-        if (!tr) {
-          return `<span class="mono">${escHtml(raw ?? '')}</span>`;
-        }
-
-        const expr = tr.expr ?? raw ?? '';
-        const val = tr.value;
+        const tr = traceForField(field);
+        const expr = tr ? (tr.expr ?? raw ?? '') : (raw ?? '');
+        const val = tr && (tr.value !== null && tr.value !== undefined) ? tr.value : raw;
         const hasVal = (val !== null && val !== undefined);
 
         const main = hasVal
-          ? `<span class="mono">${escHtml(val)}</span> <span class="small muted mono">${escHtml(expr)}</span>`
-          : `<span class="mono">${escHtml(expr)}</span>`;
+          ? `<span class="mono">${escHtml(val)}</span> <span class="small muted mono">${escHtml(expr ?? '')}</span>`
+          : `<span class="mono">${escHtml(expr ?? '')}</span>`;
 
-        // Full trace as a click-to-expand block (keep both final result + chain).
-        const traceJson = escHtml(JSON.stringify(tr, null, 2));
-        const details = `
-          <details style="margin-top:4px;">
-            <summary class="small muted">Trace</summary>
-            <div class="mono small" style="white-space:pre-wrap; line-height:1.35; border:1px solid rgba(35,48,66,0.9); border-radius:8px; padding:8px; background: rgba(17,27,41,0.35);">${traceJson}</div>
-          </details>
-        `;
+        const enabled = Boolean(state.tuningTraceEnabled);
+        const key = traceKey(field);
+        const btn = key
+          ? `<button class="btn" data-cook-trace="${escHtml(field)}" ${enabled ? '' : 'disabled'} style="margin-left:6px; padding:2px 6px; font-size:11px;">${escHtml(t('btn.trace', 'Trace'))}</button>`
+          : '';
 
-        return `<div>${main}${details}</div>`;
+        const details = tr
+          ? `<details style="margin-top:4px;">
+              <summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary>
+              <div class="mono small" style="white-space:pre-wrap; line-height:1.35; border:1px solid rgba(35,48,66,0.9); border-radius:8px; padding:8px; background: rgba(17,27,41,0.35);">${escHtml(JSON.stringify(tr, null, 2))}</div>
+            </details>`
+          : '';
+
+        return `<div>${main}${btn}${details}</div>`;
       }
 
       const extraRule = (card && rule)
@@ -2119,29 +2687,46 @@ _COOKING_TEMPLATE = r"""<!doctype html>
           <div class="small muted">${String(rec.foodtype || '').replace('FOODTYPE.','')}</div>
         </div>
         <div class="kv">
-          <div class="k">Priority</div><div class="mono">${rec.priority ?? ''}</div>
-          <div class="k">Hunger</div><div>${renderStat('hunger')}</div>
-          <div class="k">Health</div><div>${renderStat('health')}</div>
-          <div class="k">Sanity</div><div>${renderStat('sanity')}</div>
-          <div class="k">Perish</div><div>${renderStat('perishtime')}</div>
-          <div class="k">Cooktime</div><div>${renderStat('cooktime')}</div>
+          <div class="k">${escHtml(t('label.priority', 'Priority'))}</div><div class="mono">${rec.priority ?? ''}</div>
+          <div class="k">${escHtml(t('label.hunger', 'Hunger'))}</div><div>${renderStat('hunger')}</div>
+          <div class="k">${escHtml(t('label.health', 'Health'))}</div><div>${renderStat('health')}</div>
+          <div class="k">${escHtml(t('label.sanity', 'Sanity'))}</div><div>${renderStat('sanity')}</div>
+          <div class="k">${escHtml(t('label.perish', 'Perish'))}</div><div>${renderStat('perishtime')}</div>
+          <div class="k">${escHtml(t('label.cooktime', 'Cooktime'))}</div><div>${renderStat('cooktime')}</div>
         </div>
         <div>
-          <div class="small muted">Tags</div>
+          <div class="small muted">${escHtml(t('label.tags', 'Tags'))}</div>
           <div class="chips">${tags || '<span class="muted">-</span>'}</div>
         </div>
         <div>
-          <div class="small muted">${card ? "Card ingredients" : (rule ? "Recipe rule (conditional)" : "Card ingredients")}</div>
+          <div class="small muted">${escHtml(card ? t('cooking.card.ingredients', 'Card ingredients') : (rule ? t('cooking.rule.conditional', 'Recipe rule (conditional)') : t('cooking.card.ingredients', 'Card ingredients')))}</div>
           ${cardBody}
           ${extraRule}
         </div>
       `;
+
+      for (const btn of el('detail').querySelectorAll('button[data-cook-trace]')) {
+        const field = btn.getAttribute('data-cook-trace');
+        if (!field || !rec.name) continue;
+        btn.onclick = async () => {
+          try {
+            setError('');
+            await fetchTuningTrace(`cooking:${rec.name}:${field}`);
+            renderRecipeDetail(rec);
+          } catch (e) {
+            setError(String(e));
+          }
+        };
+      }
     }
 
     async function loadMeta() {
       const m = await fetchJson(api('/api/v1/meta'));
       state.i18n = (m && m.i18n) ? m.i18n : { enabled: false };
+      state.tuningTraceEnabled = Boolean(m && m.tuning_trace_enabled);
       applyLabelModeUI();
+      await ensureUiStrings(uiLang());
+      applyUiStrings();
       const sha = m.scripts_sha256_12 ? `sha:${m.scripts_sha256_12}` : '';
       const ae = m.analyzer_enabled ? 'analyzer:on' : 'analyzer:off';
       const te = m.tuning_enabled ? 'tuning:on' : 'tuning:off';
@@ -2152,15 +2737,15 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       setError('');
 
       if (state.mode === 'foodtypes') {
-        el('groupTitle').textContent = 'FoodTypes';
+        el('groupTitle').textContent = t('cooking.group.foodtypes', 'FoodTypes');
         const res = await fetchJson(api('/api/v1/cooking/foodtypes'));
         state.groups = (res.foodtypes || []).map(t => ({ name: t.name, count: t.count }));
       } else if (state.mode === 'tags') {
-        el('groupTitle').textContent = 'Tags';
+        el('groupTitle').textContent = t('cooking.group.tags', 'Tags');
         const res = await fetchJson(api('/api/v1/cooking/tags'));
         state.groups = (res.tags || []).map(t => ({ name: t.name, count: t.count }));
       } else {
-        el('groupTitle').textContent = 'All';
+        el('groupTitle').textContent = t('cooking.group.all', 'All');
         const res = await fetchJson(api('/api/v1/cooking/recipes'));
         state.groups = [{ name: 'ALL', count: res.count || '' }];
       }
@@ -2189,7 +2774,9 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       state.activeRecipe = null;
       state.activeRecipeData = null;
 
-      el('listTitle').textContent = (state.mode === 'all') ? 'All recipes' : `Recipes`;
+      el('listTitle').textContent = (state.mode === 'all')
+        ? t('cooking.list.all_recipes', 'All recipes')
+        : t('cooking.list.recipes', 'Recipes');
       renderRecipeList();
       renderRecipeDetail(null);
     }
@@ -2218,7 +2805,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       renderGroupList();
       renderRecipeList();
       renderRecipeDetail(null);
-      el('listTitle').textContent = `Search: ${q}`;
+      el('listTitle').textContent = `${t('label.search', 'Search')}: ${q}`;
     }
 
     async function showAll() {
@@ -2231,7 +2818,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       renderGroupList();
       renderRecipeList();
       renderRecipeDetail(null);
-      el('listTitle').textContent = 'All recipes';
+      el('listTitle').textContent = t('cooking.list.all_recipes', 'All recipes');
     }
 
     async function doFind() {
@@ -2252,7 +2839,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       renderRecipeList();
       renderRecipeDetail(null);
 
-      el('listTitle').textContent = `Cookable (${cookable.length})`;
+      el('listTitle').textContent = `${t('cooking.list.cookable', 'Cookable')} (${cookable.length})`;
       el('out').innerHTML = res.note ? `<div class="muted">${res.note}</div>` : '';
     }
 
@@ -2303,6 +2890,9 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     // wire
     const navCraft = document.getElementById('navCraft');
     if (navCraft) navCraft.href = APP_ROOT + '/';
+
+    const navCooking = document.getElementById('navCooking');
+    if (navCooking) navCooking.href = APP_ROOT + '/cooking';
 
     const navCatalog = document.getElementById('navCatalog');
     if (navCatalog) navCatalog.href = APP_ROOT + '/catalog';

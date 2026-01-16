@@ -40,12 +40,14 @@ def _detect_lan_ip() -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Wagstaff WebCraft (FastAPI) server.")
-    parser.add_argument("--catalog", default=str(PROJECT_ROOT / "data" / "index" / "wagstaff_catalog_v1.json"))
+    parser.add_argument("--catalog", default=str(PROJECT_ROOT / "data" / "index" / "wagstaff_catalog_v2.json"))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--root-path", default="", help="Reverse proxy mount path, e.g. /webcraft")
     parser.add_argument("--reload", action="store_true", help="Auto-reload code (development)")
     parser.add_argument("--reload-catalog", action="store_true", help="Auto-reload catalog when file changes")
+    parser.add_argument("--reload-trace", action="store_true", help="Auto-reload tuning trace file when it changes")
+    parser.add_argument("--reload-i18n", action="store_true", help="Auto-reload i18n index when it changes")
     parser.add_argument("--no-open", action="store_true", help="Do not open browser")
     parser.add_argument("--log-level", default="info", choices=["critical","error","warning","info","debug","trace"])
     parser.add_argument("--cors-allow-origin", action="append", default=[], help="CORS allow origin (repeatable)")
@@ -66,6 +68,16 @@ def main() -> None:
         action="store_true",
         help="Do not unpremultiply alpha when cropping icons (advanced)",
     )
+    parser.add_argument(
+        "--tuning-trace",
+        default=os.environ.get("WAGSTAFF_TUNING_TRACE", ""),
+        help="Optional tuning trace JSON path (default: catalog dir/wagstaff_tuning_trace_v1.json)",
+    )
+    parser.add_argument(
+        "--i18n-index",
+        default=os.environ.get("WAGSTAFF_I18N_INDEX", ""),
+        help="Optional i18n index JSON path (default: catalog dir/wagstaff_i18n_v1.json)",
+    )
     args = parser.parse_args()
 
     catalog_path = Path(args.catalog).expanduser().resolve()
@@ -82,6 +94,10 @@ def main() -> None:
         icons_mode=str(args.icons),
         game_data_dir=(Path(args.game_data).expanduser().resolve() if args.game_data else None),
         icons_unpremultiply=(not bool(args.icons_straight_alpha)),
+        tuning_trace_path=(Path(args.tuning_trace).expanduser().resolve() if args.tuning_trace else None),
+        auto_reload_tuning_trace=bool(args.reload_trace or args.reload_catalog),
+        i18n_index_path=(Path(args.i18n_index).expanduser().resolve() if args.i18n_index else None),
+        auto_reload_i18n_index=bool(args.reload_i18n or args.reload_catalog),
     )
 
     host = str(args.host)

@@ -13,8 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from .api import router as api_router
 from .catalog_store import CatalogStore
 from .icon_service import IconConfig, IconService
+from .i18n_index import I18nIndexStore
 from .i18n_service import I18nConfig, I18nService
 from .settings import WebCraftSettings
+from .tuning_trace import TuningTraceStore
 from .ui import render_index_html, render_cooking_html, render_catalog_html
 
 
@@ -36,6 +38,12 @@ def create_app(
     dst_root: Optional[Path] = None,
     scripts_zip: Optional[Path] = None,
     scripts_dir: Optional[Path] = None,
+    # tuning trace (optional)
+    tuning_trace_path: Optional[Path] = None,
+    auto_reload_tuning_trace: bool = False,
+    # i18n index (optional)
+    i18n_index_path: Optional[Path] = None,
+    auto_reload_i18n_index: bool = False,
 ) -> FastAPI:
     """FastAPI app factory."""
 
@@ -60,17 +68,61 @@ def create_app(
 
     # state
     app.state.store = CatalogStore(Path(catalog_path))
+
+    # tuning trace (separate from catalog)
+    ttp = Path(tuning_trace_path) if tuning_trace_path else (Path(catalog_path).parent / "wagstaff_tuning_trace_v1.json")
+    app.state.tuning_trace_path = ttp
+    if ttp.exists():
+        app.state.tuning_trace_store = TuningTraceStore(ttp)
+    else:
+        app.state.tuning_trace_store = None
+    app.state.auto_reload_tuning_trace = bool(auto_reload_tuning_trace or auto_reload_catalog)
+
+    # i18n index (separate from catalog)
+    iip = Path(i18n_index_path) if i18n_index_path else (Path(catalog_path).parent / "wagstaff_i18n_v1.json")
+    app.state.i18n_index_path = iip
+    if iip.exists():
+        app.state.i18n_index_store = I18nIndexStore(iip)
+    else:
+        app.state.i18n_index_store = None
+    app.state.auto_reload_i18n_index = bool(auto_reload_i18n_index or auto_reload_catalog)
+
+    # analyzer (auto-on if scripts_zip hint is available)
+    scripts_zip_hint = None
+    scripts_dir_hint = None
+    try:
+        scripts_zip_hint = str((app.state.store.meta() or {}).get("scripts_zip") or "").strip() or None
+    except Exception:
+        scripts_zip_hint = None
+    try:
+        scripts_dir_hint = str((app.state.store.meta() or {}).get("scripts_dir") or "").strip() or None
+    except Exception:
+        scripts_dir_hint = None
+
+    scripts_zip_arg = scripts_zip
+    scripts_dir_arg = scripts_dir
+    dst_root_arg = dst_root
+    enable_analyzer_arg = bool(enable_analyzer)
+
+    if (not enable_analyzer_arg) and (not dst_root_arg) and (not scripts_zip_arg) and (not scripts_dir_arg):
+        if scripts_zip_hint and Path(scripts_zip_hint).exists():
+            scripts_zip_arg = Path(scripts_zip_hint)
+            enable_analyzer_arg = True
+        elif scripts_dir_hint and Path(scripts_dir_hint).exists():
+            scripts_dir_arg = Path(scripts_dir_hint)
+            enable_analyzer_arg = True
+
     # optional live analyzer (mount scripts source for on-demand parsing)
     app.state.engine = None
-    if enable_analyzer or dst_root or scripts_zip or scripts_dir:
+    if enable_analyzer_arg or dst_root_arg or scripts_zip_arg or scripts_dir_arg:
         try:
             from engine import WagstaffEngine
             app.state.engine = WagstaffEngine(
                 load_db=bool(analyzer_load_db),
                 silent=True,
-                dst_root=str(dst_root) if dst_root else None,
-                scripts_zip=str(scripts_zip) if scripts_zip else None,
-                scripts_dir=str(scripts_dir) if scripts_dir else None,
+                dst_root=str(dst_root_arg) if dst_root_arg else None,
+                scripts_zip=str(scripts_zip_arg) if scripts_zip_arg else None,
+                scripts_dir=str(scripts_dir_arg) if scripts_dir_arg else None,
             )
         except Exception:
             app.state.engine = None
@@ -85,12 +137,6 @@ def create_app(
     try:
         i18n_cfg = I18nConfig.from_env()
 
-        scripts_zip_hint = None
-        try:
-            scripts_zip_hint = str((app.state.store.meta() or {}).get("scripts_zip") or "").strip() or None
-        except Exception:
-            scripts_zip_hint = None
-
         i18n_dir = static_root / "i18n"
         isvc = I18nService(
             i18n_cfg,
@@ -103,6 +149,7 @@ def create_app(
         try:
             isvc.warmup(
                 assets=app.state.store.assets(),
+                item_ids=app.state.store.item_ids(include_icon_only=True),
                 engine=getattr(app.state, "engine", None),
                 scripts_zip_hint=scripts_zip_hint,
                 langs=["zh"],

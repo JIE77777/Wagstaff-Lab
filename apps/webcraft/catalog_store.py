@@ -67,7 +67,7 @@ class CatalogStore:
     """Load + index wagstaff catalog for fast queries (thread-safe).
 
     Data source:
-      - data/index/wagstaff_catalog_v1.json
+      - data/index/wagstaff_catalog_v2.json
 
     This layer is intentionally independent from wiki/cli layers. It should be safe
     to reuse from:
@@ -89,6 +89,15 @@ class CatalogStore:
 
         # presentation mapping (id -> {name, atlas, image, ...})
         self._assets: Dict[str, Any] = {}
+        self._items: Dict[str, Dict[str, Any]] = {}
+        self._item_ids: List[str] = []
+        self._by_kind: Dict[str, List[str]] = {}
+        self._by_category: Dict[str, List[str]] = {}
+        self._by_behavior: Dict[str, List[str]] = {}
+        self._by_source: Dict[str, List[str]] = {}
+        self._by_component: Dict[str, List[str]] = {}
+        self._by_tag_item: Dict[str, List[str]] = {}
+        self._by_slot: Dict[str, List[str]] = {}
 
         # craft
         self._recipes: Dict[str, CraftRecipe] = {}
@@ -121,7 +130,23 @@ class CatalogStore:
 
     def schema_version(self) -> int:
         with self._lock:
-            return int(self._doc.get("schema_version") or 0)
+            return int(self._doc.get("schema_version") or (self._meta or {}).get("schema") or 0)
+
+    def item_ids(self, include_icon_only: bool = False) -> List[str]:
+        """Return known item ids (optionally including icon-only ids)."""
+        with self._lock:
+            ids = list(self._item_ids)
+            if include_icon_only:
+                self._ensure_icon_index()
+                ids = _dedup_preserve_order(ids + list((self._icon_index or {}).keys()))
+            return ids
+
+    def get_item(self, item_id: str) -> Optional[Dict[str, Any]]:
+        if not item_id:
+            return None
+        with self._lock:
+            v = (self._items or {}).get(str(item_id))
+            return dict(v) if isinstance(v, dict) else None
 
     # ----------------- presentation assets -----------------
 
@@ -137,8 +162,11 @@ class CatalogStore:
                 self._ensure_icon_index()
                 for k, png in (self._icon_index or {}).items():
                     if k in base:
+                        if png and isinstance(base.get(k), dict):
+                            base[k].setdefault("icon", png)
+                            base[k].setdefault("image", png)
                         continue
-                    base[k] = {"name": k, "image": png, "icon_only": True}
+                    base[k] = {"name": k, "icon": png, "image": png, "icon_only": True}
             return base
 
     def get_asset(self, item_id: str) -> Optional[Dict[str, Any]]:
@@ -146,6 +174,8 @@ class CatalogStore:
             return None
         with self._lock:
             v = (self._assets or {}).get(str(item_id))
+            if not v:
+                v = (self._items or {}).get(str(item_id), {}).get("assets")
             return dict(v) if isinstance(v, dict) else None
 
     # ----------------- load / reload -----------------
@@ -178,14 +208,19 @@ class CatalogStore:
     def _validate(self, doc: Dict[str, Any]) -> None:
         if not isinstance(doc, dict):
             raise CatalogError("Catalog root must be a JSON object")
-        if "craft" not in doc:
-            raise CatalogError("Catalog missing key: craft")
         if "meta" not in doc:
             raise CatalogError("Catalog missing key: meta")
 
         if "assets" in doc and not isinstance(doc.get("assets"), dict):
             raise CatalogError("Catalog assets must be an object")
 
+        schema = int(doc.get("schema_version") or (doc.get("meta") or {}).get("schema") or 0)
+        if ("items" in doc) or schema >= 2:
+            if "items" not in doc or not isinstance(doc.get("items"), dict):
+                raise CatalogError("Catalog items must be an object")
+
+        if "craft" not in doc:
+            raise CatalogError("Catalog missing key: craft")
         craft = doc.get("craft") or {}
         if "recipes" not in craft or not isinstance(craft.get("recipes"), dict):
             raise CatalogError("Catalog craft.recipes must be an object")
@@ -195,7 +230,103 @@ class CatalogStore:
             raise CatalogError("Catalog cooking must be an object")
 
     def _build_indexes(self, doc: Dict[str, Any]) -> None:
-        self._assets = doc.get("assets") or {}
+        assets_obj = doc.get("assets") or {}
+        items_obj = doc.get("items") or {}
+
+        items_out: Dict[str, Dict[str, Any]] = {}
+        assets_out: Dict[str, Dict[str, Any]] = {}
+
+        if isinstance(items_obj, dict) and items_obj:
+            for iid, raw in items_obj.items():
+                if not iid:
+                    continue
+                if isinstance(raw, dict):
+                    item = dict(raw)
+                else:
+                    item = {"id": iid}
+                item_id = str(item.get("id") or iid).strip()
+                if not item_id:
+                    continue
+                item["id"] = item_id
+                items_out[item_id] = item
+        elif isinstance(assets_obj, dict) and assets_obj:
+            # v1 fallback: derive items from assets
+            for iid in assets_obj.keys():
+                if not iid:
+                    continue
+                items_out[str(iid)] = {"id": str(iid)}
+
+        if isinstance(assets_obj, dict):
+            for iid, raw in assets_obj.items():
+                if not iid or not isinstance(raw, dict):
+                    continue
+                assets_out[str(iid)] = dict(raw)
+
+        # merge per-item assets into assets_out
+        for iid, item in items_out.items():
+            a = item.get("assets")
+            if not isinstance(a, dict):
+                continue
+            merged = dict(assets_out.get(iid) or {})
+            for k, v in a.items():
+                if k not in merged or merged.get(k) in (None, "", []):
+                    merged[k] = v
+            if merged:
+                assets_out[iid] = merged
+
+        self._items = items_out
+        self._assets = assets_out
+
+        # ---- item indexes ----
+        by_kind: Dict[str, List[str]] = {}
+        by_category: Dict[str, List[str]] = {}
+        by_behavior: Dict[str, List[str]] = {}
+        by_source: Dict[str, List[str]] = {}
+        by_component: Dict[str, List[str]] = {}
+        by_tag: Dict[str, List[str]] = {}
+        by_slot: Dict[str, List[str]] = {}
+
+        def _as_list(val: Any) -> List[str]:
+            if isinstance(val, str):
+                return [val]
+            if isinstance(val, (list, tuple, set)):
+                return [str(x) for x in val if x]
+            return []
+
+        def _push(bucket: Dict[str, List[str]], key: Optional[str], iid: str) -> None:
+            if not key:
+                return
+            bucket.setdefault(str(key), []).append(iid)
+
+        for iid, item in items_out.items():
+            kind = item.get("kind")
+            if kind:
+                _push(by_kind, str(kind), iid)
+            for cat in _as_list(item.get("categories")):
+                _push(by_category, cat, iid)
+            for beh in _as_list(item.get("behaviors")):
+                _push(by_behavior, beh, iid)
+            for src in _as_list(item.get("sources")):
+                _push(by_source, src, iid)
+            for comp in _as_list(item.get("components")):
+                _push(by_component, comp, iid)
+            for tag in _as_list(item.get("tags")):
+                _push(by_tag, tag, iid)
+            for slot in _as_list(item.get("slots")):
+                _push(by_slot, slot, iid)
+
+        for bucket in (by_kind, by_category, by_behavior, by_source, by_component, by_tag, by_slot):
+            for k in list(bucket.keys()):
+                bucket[k] = sorted(_dedup_preserve_order(bucket[k]))
+
+        self._item_ids = sorted(items_out.keys())
+        self._by_kind = by_kind
+        self._by_category = by_category
+        self._by_behavior = by_behavior
+        self._by_source = by_source
+        self._by_component = by_component
+        self._by_tag_item = by_tag
+        self._by_slot = by_slot
 
         # ---- craft ----
         craft = doc.get("craft") or {}
@@ -386,13 +517,35 @@ class CatalogStore:
         items: List[Dict[str, Any]] = []
         with self._lock:
             self._ensure_icon_index()
-            assets = self.assets(include_icon_only=True)
-            for iid, a in assets.items():
+            ids = list(self._item_ids)
+            if not ids and self._assets:
+                ids = list(self._assets.keys())
+            if self._icon_index:
+                ids = _dedup_preserve_order(ids + list(self._icon_index.keys()))
+
+            for iid in ids:
                 if not iid:
                     continue
-                name = a.get("name") or iid
-                img = a.get("image")
-                items.append({"id": iid, "name": name, "image": img, "has_icon": bool(img)})
+                item = self._items.get(iid) or {}
+                asset = (self._assets or {}).get(iid) or item.get("assets") or {}
+                name = asset.get("name") or item.get("name") or iid
+                icon = asset.get("icon") or asset.get("image") or (self._icon_index or {}).get(iid)
+                items.append(
+                    {
+                        "id": iid,
+                        "name": name,
+                        "image": asset.get("image") or icon,
+                        "icon": icon,
+                        "has_icon": bool(icon),
+                        "kind": item.get("kind"),
+                        "categories": item.get("categories") or [],
+                        "behaviors": item.get("behaviors") or [],
+                        "sources": item.get("sources") or [],
+                        "tags": item.get("tags") or [],
+                        "components": item.get("components") or [],
+                        "slots": item.get("slots") or [],
+                    }
+                )
         items.sort(key=lambda x: x["id"])
         return items
 

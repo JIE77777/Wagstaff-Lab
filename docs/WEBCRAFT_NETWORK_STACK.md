@@ -6,7 +6,7 @@
 - ASGI 框架：FastAPI
 - 服务器：Uvicorn
 - 中间件：GZip、可选 CORS
-- 数据源：data/index/wagstaff_catalog_v1.json（M2 索引产物）
+- 数据源：data/index/wagstaff_catalog_v2.json（item-centric 索引产物）
 
 ## 目录结构
 - apps/webcraft/

@@ -157,18 +157,15 @@ def _norm_lang(lang: str) -> str:
     return str(lang or "").strip().lower()
 
 
-def _assets_sig(assets: Dict[str, Any]) -> str:
-    """Stable signature for a catalog's assets keys.
+def _items_sig(item_ids: Iterable[str]) -> str:
+    """Stable signature for item ids."""
 
-    Used to know when a compiled id->name mapping should be refreshed.
-    """
-
-    keys = sorted([str(k) for k in (assets or {}).keys() if k])
+    keys = sorted([str(k) for k in (item_ids or []) if k])
     h = hashlib.sha1()
     for k in keys:
         h.update(k.encode("utf-8", errors="ignore"))
         h.update(b"\n")
-    return f"assets:{len(keys)}:{h.hexdigest()}"
+    return f"items:{len(keys)}:{h.hexdigest()}"
 
 
 def _atomic_write_text(path: Path, text: str) -> bool:
@@ -706,10 +703,11 @@ class I18nService:
         *,
         lang: str,
         assets: Dict[str, Any],
+        item_ids: Optional[Iterable[str]] = None,
         engine: Any = None,
         scripts_zip_hint: Optional[str] = None,
     ) -> Dict[str, str]:
-        """Build {item_id: localized_name} for item ids present in assets.
+        """Build {item_id: localized_name} for item ids.
 
         If static_dir is configured, it will also compile/cache the mapping as:
           <static_dir>/names_<lang>.json
@@ -719,7 +717,8 @@ class I18nService:
         if not l or l in ("en", "id"):
             return {}
 
-        aset_sig = _assets_sig(assets)
+        ids = list(item_ids) if item_ids is not None else list((assets or {}).keys())
+        aset_sig = _items_sig(ids)
 
         with self._lock:
             ic = self._item_cache.get(l)
@@ -742,14 +741,14 @@ class I18nService:
         if not raw:
             # No source now; fall back to compiled content if any (filter to current assets if possible).
             if compiled:
-                out2 = {iid: compiled[iid] for iid in (assets or {}).keys() if iid in compiled}
+                out2 = {iid: compiled[iid] for iid in ids if iid in compiled}
                 with self._lock:
                     self._item_cache[l] = (str(aset_sig), po_sig_file, dict(out2))
                 return out2
             return {}
 
         out: Dict[str, str] = {}
-        for iid in (assets or {}).keys():
+        for iid in ids:
             if not iid:
                 continue
             k1 = str(iid).strip().lower()
@@ -771,7 +770,15 @@ class I18nService:
 
         return out
 
-    def warmup(self, *, assets: Dict[str, Any], engine: Any = None, scripts_zip_hint: Optional[str] = None, langs: Optional[List[str]] = None) -> None:
+    def warmup(
+        self,
+        *,
+        assets: Dict[str, Any],
+        item_ids: Optional[Iterable[str]] = None,
+        engine: Any = None,
+        scripts_zip_hint: Optional[str] = None,
+        langs: Optional[List[str]] = None,
+    ) -> None:
         """Best-effort precompile.
 
         This is safe to call at server startup.
@@ -780,6 +787,12 @@ class I18nService:
         ls = langs or ["zh"]
         for l in ls:
             try:
-                self.item_name_map(lang=str(l), assets=assets, engine=engine, scripts_zip_hint=scripts_zip_hint)
+                self.item_name_map(
+                    lang=str(l),
+                    assets=assets,
+                    item_ids=item_ids,
+                    engine=engine,
+                    scripts_zip_hint=scripts_zip_hint,
+                )
             except Exception:
                 continue

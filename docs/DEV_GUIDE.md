@@ -19,7 +19,7 @@
 ## 3. 数据产物与命名
 
 - 统一落盘到 `data/`，并带版本号后缀，例如：
-  - `data/index/wagstaff_catalog_v1.json`
+  - `data/index/wagstaff_catalog_v2.json`
   - `data/index/wagstaff_icon_index_v1.json`
 - 产物需携带元信息（scripts hash / schema_version / 构建时间）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
@@ -58,6 +58,6 @@
 ## 8. 最低自检清单
 
 - `python apps/cli/guide.py` (主界面可运行)
-- `python devtools/build_catalog.py build --silent`
+- `python devtools/build_catalog_v2.py --silent`
 - `python devtools/snapshot.py --mode llm --plan` (快照计划可生成)
 - `python devtools/serve_webcraft.py --help` (需要 uvicorn)

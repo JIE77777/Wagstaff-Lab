@@ -52,6 +52,14 @@ TOOLS = [
         "folder": "devtools"
     },
     {
+        "file": "build_catalog_v2.py",
+        "alias": "catalog2",
+        "desc": "生成 Catalog v2 (item-centric)",
+        "usage": "wagstaff catalog2 [--tuning-mode value_only|full] [--tuning-trace-out PATH]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
         "file": "snapshot.py",
         "alias": "snap",
         "desc": "生成 LLM 友好代码快照",
@@ -72,6 +80,14 @@ TOOLS = [
         "alias": "samples",
         "desc": "生成 DST Lua 样本包（用于扩展解析器）",
         "usage": "wagstaff samples [--categories ...] [--n N] [--head-lines N] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_resource_index.py",
+        "alias": "resindex",
+        "desc": "生成 DST 资源索引（scripts + data）",
+        "usage": "wagstaff resindex [--data-full] [--bundle-full] [--dst-root PATH]",
         "type": "Dev",
         "folder": "devtools"
     },

@@ -36,6 +36,54 @@ def _get_engine(request: Request):
     return getattr(request.app.state, "engine", None)
 
 
+def _get_tuning_trace_store(request: Request):
+    store = getattr(request.app.state, "tuning_trace_store", None)
+    if store is None:
+        path = getattr(request.app.state, "tuning_trace_path", None)
+        if path:
+            try:
+                from pathlib import Path
+                from .tuning_trace import TuningTraceStore
+
+                p = Path(path)
+                if p.exists():
+                    store = TuningTraceStore(p)
+                    request.app.state.tuning_trace_store = store
+            except Exception:
+                store = None
+    auto = bool(getattr(request.app.state, "auto_reload_tuning_trace", False))
+    if store is not None and auto:
+        try:
+            store.load(force=False)
+        except Exception:
+            pass
+    return store
+
+
+def _get_i18n_index_store(request: Request):
+    store = getattr(request.app.state, "i18n_index_store", None)
+    if store is None:
+        path = getattr(request.app.state, "i18n_index_path", None)
+        if path:
+            try:
+                from pathlib import Path
+                from .i18n_index import I18nIndexStore
+
+                p = Path(path)
+                if p.exists():
+                    store = I18nIndexStore(p)
+                    request.app.state.i18n_index_store = store
+            except Exception:
+                store = None
+    auto = bool(getattr(request.app.state, "auto_reload_i18n_index", False))
+    if store is not None and auto:
+        try:
+            store.load(force=False)
+        except Exception:
+            pass
+    return store
+
+
 def _ensure_tuning(engine, store_meta: Optional[Dict[str, Any]] = None) -> Any:
     """Best-effort: ensure tuning.lua is parsed (even without analyzer engine)."""
 
@@ -141,6 +189,16 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
     # runtime analyzer availability (optional)
     eng = _get_engine(request)
     m.update({"analyzer_enabled": bool(eng)})
+    if eng is not None:
+        try:
+            m.update(
+                {
+                    "engine_mode": str(getattr(eng, "mode", "") or ""),
+                    "scripts_file_count": len(getattr(eng, "file_list", []) or []),
+                }
+            )
+        except Exception:
+            pass
 
     # tuning traces for UI (optional; requires scripts mounted)
     tuning = _ensure_tuning(eng, store.meta())
@@ -152,16 +210,54 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
     else:
         m.update({"tuning_enabled": False})
 
-    # i18n (optional)
-    isvc = getattr(request.app.state, "i18n_service", None)
-    if isvc is not None:
+    # tuning trace index (optional; built offline)
+    tstore = _get_tuning_trace_store(request)
+    if tstore is not None:
         try:
-            scripts_zip_hint = str((m or {}).get("scripts_zip") or "").strip() or None
-            m.update({"i18n": isvc.public_meta(engine=eng, scripts_zip_hint=scripts_zip_hint)})
+            m.update({"tuning_trace_enabled": True, "tuning_trace_count": tstore.count()})
+        except Exception:
+            m.update({"tuning_trace_enabled": True})
+    else:
+        m.update({"tuning_trace_enabled": False})
+
+    # i18n (optional)
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None:
+        try:
+            m.update({"i18n": iindex.public_meta()})
         except Exception:
             pass
+    else:
+        isvc = getattr(request.app.state, "i18n_service", None)
+        if isvc is not None:
+            try:
+                scripts_zip_hint = str((m or {}).get("scripts_zip") or "").strip() or None
+                m.update({"i18n": isvc.public_meta(engine=eng, scripts_zip_hint=scripts_zip_hint)})
+            except Exception:
+                pass
 
     return m
+
+
+@router.get("/tuning/trace")
+def tuning_trace(
+    request: Request,
+    key: Optional[str] = None,
+    prefix: Optional[str] = None,
+    limit: int = Query(2000, ge=1, le=10000),
+):
+    """Return tuning trace entries by key or prefix (from tuning trace index)."""
+    store = _get_tuning_trace_store(request)
+    if store is None:
+        return {"enabled": False, "trace": None, "traces": {}, "count": 0}
+
+    if key:
+        trace = store.get(str(key))
+        return {"enabled": True, "key": str(key), "trace": trace}
+
+    pref = str(prefix or "").strip()
+    traces = store.get_prefix(pref, limit=int(limit))
+    return {"enabled": True, "prefix": pref, "traces": traces, "count": len(traces)}
 
 
 @router.get("/assets")
@@ -196,23 +292,52 @@ def catalog_index(request: Request, store: CatalogStore = Depends(get_store)):
 @router.get("/i18n")
 def i18n_meta(request: Request, store: CatalogStore = Depends(get_store)):
     """Return i18n capability + available languages."""
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None:
+        try:
+            return iindex.public_meta()
+        except Exception:
+            return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
     svc = getattr(request.app.state, "i18n_service", None)
     if svc is None:
-        return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+        return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
     try:
         scripts_zip_hint = None
         try:
             scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
         except Exception:
             scripts_zip_hint = None
-        return svc.public_meta(engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
+        meta = svc.public_meta(engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
+        meta.setdefault("ui_langs", [])
+        return meta
     except Exception:
-        return {"enabled": False, "langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+        return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+
+
+@router.get("/i18n/ui/{lang}")
+def i18n_ui(lang: str, request: Request):
+    """Return UI strings for the given language."""
+    store = _get_i18n_index_store(request)
+    if store is None:
+        return {"lang": str(lang), "strings": {}, "count": 0, "enabled": False}
+    try:
+        mp = store.ui_strings(str(lang))
+    except Exception:
+        mp = {}
+    return {"lang": str(lang), "strings": mp, "count": len(mp or {}), "enabled": bool(mp)}
 
 
 @router.get("/i18n/names/{lang}")
 def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_store)):
     """Return id->localized name mapping for items in the current catalog."""
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None:
+        try:
+            mp = iindex.names(str(lang))
+        except Exception:
+            mp = {}
+        if mp:
+            return {"lang": str(lang), "names": mp, "count": len(mp or {})}
     svc = getattr(request.app.state, "i18n_service", None)
     if svc is None:
         return {"lang": str(lang), "names": {}, "count": 0}
@@ -222,7 +347,14 @@ def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_st
             scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
         except Exception:
             scripts_zip_hint = None
-        mp = svc.item_name_map(lang=str(lang), assets=store.assets(), engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
+        item_ids = store.item_ids(include_icon_only=True)
+        mp = svc.item_name_map(
+            lang=str(lang),
+            assets=store.assets(),
+            item_ids=item_ids,
+            engine=_get_engine(request),
+            scripts_zip_hint=scripts_zip_hint,
+        )
     except Exception:
         mp = {}
     return {"lang": str(lang), "names": mp, "count": len(mp or {})}
@@ -238,9 +370,9 @@ def item_detail(item_id: str, request: Request, store: CatalogStore = Depends(ge
     if not q:
         raise HTTPException(status_code=400, detail="empty item_id")
 
-    # presentation asset (if any)
-    assets = store.assets()
-    asset = assets.get(q) or assets.get(q.lower())
+    # presentation asset + item metadata (if any)
+    asset = store.get_asset(q) or store.get_asset(q.lower())
+    item = store.get_item(q) or store.get_item(q.lower())
 
     # craft references
     craft_used_in = store.list_by_ingredient(q) or store.list_by_ingredient(q.lower())
@@ -252,6 +384,7 @@ def item_detail(item_id: str, request: Request, store: CatalogStore = Depends(ge
 
     return {
         "item_id": q,
+        "item": item,
         "asset": asset,
         "craft": {"used_in": craft_used_in, "produced_by": craft_produced_by},
         "cooking": {

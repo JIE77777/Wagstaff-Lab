@@ -14,7 +14,11 @@
     "Analyzer: 支持内联掉落表解析 (Krampus) 与 Tuning 递归数值追踪",
     "PM Tool: 修复 JSON 数据结构并实现自动迁移 (v1->v2)",
     "WebCraft: Catalog UI 修复 i18n helper 缺失导致的空白与标签切换异常",
-    "Refactor: core/apps 拆分，CLI 与 WebCraft 应用层分离"
+    "Refactor: core/apps 拆分，CLI 与 WebCraft 应用层分离",
+    "CatalogV2: WebCraft 后端切换到 v2 items 索引，提供更完整的 item 元信息。",
+    "CatalogV2: Catalog UI 支持 v2 元信息检索与详情展示。",
+    "WebCraft: tuning trace API 与 UI 按需加载实现。",
+    "CatalogV2: item stats 提取（weapon/armor/uses 等）并在 UI 展示。"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
@@ -34,7 +38,16 @@
     "[2026-01-15 16:13] Refactor: 拆分 core/apps 目录，WebCraft 迁移到 apps/webcraft。",
     "[2026-01-15 16:13] Cleanup: 移除旧快照与 snaptxt 遗留，收敛历史包袱。",
     "[2026-01-15 17:21] Snapshot: 优化 LLM 快照输出与 sections/focus 规范，同步更新开发规范。",
-    "[2026-01-15 17:26] DevGuide: 增加 snapshot 友好开发规范，指导后续代码结构与文档习惯。"
+    "[2026-01-15 17:26] DevGuide: 增加 snapshot 友好开发规范，指导后续代码结构与文档习惯。",
+    "[2026-01-15 18:13] RawScan: 完成 DST 原始数据扫描与覆盖率报告。",
+    "[2026-01-15 19:06] ResourceIndex: 生成 scripts+data 的资源索引，覆盖 prefab/组件/资源清单。",
+    "[2026-01-15 19:10] CatalogV2: 添加 v2 规范草案与 tag overrides 示例。",
+    "[2026-01-15 20:12] CatalogV2: build_icons 默认切换到 v2 产物并识别 items 作为 id 集。",
+    "[2026-01-15 20:14] WebCraft: 后端 CatalogStore 与 API 接入 v2 items/index 结构。",
+    "[2026-01-15 20:18] WebCraft UI: Catalog 搜索支持 kind/category/source/tag/component/slot 过滤，并展示 v2 元信息。",
+    "[2026-01-15 20:20] Docs: README/DEV_GUIDE/WEBCRAFT_NETWORK_STACK 同步 v2 路径与说明。",
+    "[2026-01-15 20:36] WebCraft: tuning trace 索引 API 与 UI 按需加载接入。",
+    "[2026-01-15 20:54] CatalogV2: prefab 组件方法/属性抽取 stats，并在 Catalog UI 展示与 trace 按需加载。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

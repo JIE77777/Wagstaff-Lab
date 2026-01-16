@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "notes": [
+    "规则按顺序匹配：first-match-wins。",
+    "match 可为 id 或 glob（例如 'armor_*'）。",
+    "add/remove/set 仅影响标签集合，不改变原始 id。"
+  ],
+  "rules": [
+    {
+      "match": "amulet",
+      "add": {
+        "kind": ["item"],
+        "categories": ["magic"],
+        "behaviors": ["equippable"],
+        "sources": ["craft"],
+        "slot": ["body"]
+      }
+    },
+    {
+      "match": "abigail",
+      "add": {
+        "kind": ["creature"],
+        "categories": ["summon"],
+        "sources": ["spawn"]
+      }
+    },
+    {
+      "match": "boat_*",
+      "add": {
+        "kind": ["structure"],
+        "categories": ["boat"],
+        "behaviors": ["deployable"]
+      }
+    },
+    {
+      "match": "trap_*",
+      "set": {
+        "categories": ["trap"]
+      }
+    },
+    {
+      "match": "spear",
+      "remove": {
+        "categories": ["tool"]
+      }
+    }
+  ]
+}
