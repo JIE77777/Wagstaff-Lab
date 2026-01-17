@@ -16,13 +16,12 @@ import webbrowser
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-for p in (PROJECT_ROOT / "core", PROJECT_ROOT / "apps"):
-    if str(p) not in sys.path:
-        sys.path.append(str(p))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import uvicorn  # type: ignore
 
-from webcraft.app import create_app  # type: ignore
+from apps.webcraft.app import create_app  # type: ignore
 
 
 def _detect_lan_ip() -> str:
@@ -36,6 +35,16 @@ def _detect_lan_ip() -> str:
         return ip
     except Exception:
         return "127.0.0.1"
+
+
+def _find_sqlite_peer(path: Path) -> Path | None:
+    if path.suffix.lower() != ".json":
+        return None
+    for ext in (".sqlite", ".sqlite3", ".db"):
+        candidate = path.with_suffix(ext)
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def main() -> None:
@@ -81,6 +90,9 @@ def main() -> None:
     args = parser.parse_args()
 
     catalog_path = Path(args.catalog).expanduser().resolve()
+    peer = _find_sqlite_peer(catalog_path)
+    if peer:
+        catalog_path = peer
     if not catalog_path.exists():
         print(f"❌ Catalog not found: {catalog_path}")
         sys.exit(2)

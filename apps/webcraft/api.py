@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+import hashlib
+
 from fastapi import APIRouter, Request, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .catalog_store import CatalogStore, CraftRecipe, CookingRecipe
 from .planner import craftable_recipes, missing_for, normalize_inventory
-from .cooking_planner import find_cookable, simulate_cookpot, normalize_counts
+from .cooking_planner import explore_cookpot, find_cookable, simulate_cookpot, normalize_counts
 
 
 def get_store(request: Request) -> CatalogStore:
@@ -26,7 +28,26 @@ def get_store(request: Request) -> CatalogStore:
     return store
 
 
+def _cache_headers(request: Request, *, max_age: int, etag: Optional[str] = None) -> Dict[str, str]:
+    if max_age <= 0:
+        return {}
+    if bool(getattr(request.app.state, "auto_reload_catalog", False)):
+        return {}
+    headers = {"Cache-Control": f"public, max-age={int(max_age)}"}
+    if etag:
+        headers["ETag"] = str(etag)
+    return headers
+
+
+def _json(data: Dict[str, Any], *, headers: Optional[Dict[str, str]] = None) -> JSONResponse:
+    return JSONResponse(content=data, headers=headers or {})
+
+
 router = APIRouter(prefix="/api/v1")
+
+
+def _has_cjk(text: str) -> bool:
+    return any("\u4e00" <= ch <= "\u9fff" for ch in str(text or ""))
 
 
 # ----------------- optional tuning traces (requires analyzer engine) -----------------
@@ -92,7 +113,7 @@ def _ensure_tuning(engine, store_meta: Optional[Dict[str, Any]] = None) -> Any:
         return tuning
 
     try:
-        from analyzer import TuningResolver  # type: ignore
+        from core.analyzer import TuningResolver  # type: ignore
         content = ""
         if engine is not None:
             content = engine.read_file("scripts/tuning.lua") or engine.read_file("tuning.lua") or ""
@@ -172,6 +193,11 @@ class CookingSimulateRequest(BaseModel):
     return_top: int = 25
 
 
+class CookingExploreRequest(BaseModel):
+    slots: Dict[str, float] = Field(default_factory=dict)
+    limit: int = 200
+
+
 @router.get("/meta")
 def meta(request: Request, store: CatalogStore = Depends(get_store)):
     m = store.meta()
@@ -236,7 +262,9 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
             except Exception:
                 pass
 
-    return m
+    etag = f'W/"meta-{int(store.mtime())}"'
+    headers = _cache_headers(request, max_age=60, etag=etag)
+    return _json(m, headers=headers)
 
 
 @router.get("/tuning/trace")
@@ -272,12 +300,22 @@ def assets(request: Request, store: CatalogStore = Depends(get_store)):
         except Exception:
             icon_cfg = None
 
-    return {"assets": mp, "count": len(mp), "icon": icon_cfg or {"mode": "off", "static_base": "/static/icons", "api_base": "/api/v1/icon"}}
+    etag = f'W/"assets-{int(store.mtime())}-{len(mp)}"'
+    headers = _cache_headers(request, max_age=300, etag=etag)
+    return _json(
+        {"assets": mp, "count": len(mp), "icon": icon_cfg or {"mode": "off", "static_base": "/static/data/icons", "api_base": "/api/v1/icon"}},
+        headers=headers,
+    )
 
 
 @router.get("/catalog/index")
-def catalog_index(request: Request, store: CatalogStore = Depends(get_store)):
-    items = store.catalog_index()
+def catalog_index(
+    request: Request,
+    store: CatalogStore = Depends(get_store),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=2000),
+):
+    items, total = store.catalog_index_page(offset=int(offset), limit=int(limit))
 
     svc = getattr(request.app.state, "icon_service", None)
     icon_cfg = None
@@ -287,7 +325,43 @@ def catalog_index(request: Request, store: CatalogStore = Depends(get_store)):
         except Exception:
             icon_cfg = None
 
-    return {"items": items, "count": len(items), "icon": icon_cfg or {"mode": "off", "static_base": "/static/icons", "api_base": "/api/v1/icon"}}
+    etag = f'W/"catalog-{int(store.mtime())}-{total}"'
+    headers = _cache_headers(request, max_age=300, etag=etag)
+    return _json(
+        {
+            "items": items,
+            "count": len(items),
+            "total": total,
+            "offset": int(offset),
+            "limit": int(limit),
+            "icon": icon_cfg or {"mode": "off", "static_base": "/static/data/icons", "api_base": "/api/v1/icon"},
+        },
+        headers=headers,
+    )
+
+
+@router.get("/catalog/search")
+def catalog_search(
+    request: Request,
+    q: str = Query(..., min_length=1),
+    store: CatalogStore = Depends(get_store),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=2000),
+):
+    name_lookup: Optional[Dict[str, str]] = None
+    iindex = _get_i18n_index_store(request)
+    i18n_stamp = ""
+    if iindex is not None and _has_cjk(q):
+        try:
+            name_lookup = iindex.names("zh")
+            i18n_stamp = f"-i18n{int(getattr(iindex, 'mtime', lambda: 0)())}"
+        except Exception:
+            name_lookup = None
+    items, total = store.catalog_search(q, offset=int(offset), limit=int(limit), name_lookup=name_lookup)
+    q_sig = hashlib.sha1(str(q).encode("utf-8")).hexdigest()[:8]
+    etag = f'W/"catalog-search-{int(store.mtime())}-{q_sig}-{total}{i18n_stamp}"'
+    headers = _cache_headers(request, max_age=60, etag=etag)
+    return _json({"q": q, "items": items, "count": len(items), "total": total, "offset": int(offset), "limit": int(limit)}, headers=headers)
 
 @router.get("/i18n")
 def i18n_meta(request: Request, store: CatalogStore = Depends(get_store)):
@@ -295,23 +369,13 @@ def i18n_meta(request: Request, store: CatalogStore = Depends(get_store)):
     iindex = _get_i18n_index_store(request)
     if iindex is not None:
         try:
-            return iindex.public_meta()
+            meta = iindex.public_meta()
+            etag = f'W/"i18n-meta-{int(getattr(iindex, "mtime", lambda: 0)())}-{meta.get("langs")}"'
+            headers = _cache_headers(request, max_age=300, etag=etag)
+            return _json(meta, headers=headers)
         except Exception:
-            return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
-    svc = getattr(request.app.state, "i18n_service", None)
-    if svc is None:
-        return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
-    try:
-        scripts_zip_hint = None
-        try:
-            scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
-        except Exception:
-            scripts_zip_hint = None
-        meta = svc.public_meta(engine=_get_engine(request), scripts_zip_hint=scripts_zip_hint)
-        meta.setdefault("ui_langs", [])
-        return meta
-    except Exception:
-        return {"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"}
+            return _json({"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"})
+    return _json({"enabled": False, "langs": [], "ui_langs": [], "modes": ["en", "zh", "id"], "default_mode": "en"})
 
 
 @router.get("/i18n/ui/{lang}")
@@ -319,12 +383,14 @@ def i18n_ui(lang: str, request: Request):
     """Return UI strings for the given language."""
     store = _get_i18n_index_store(request)
     if store is None:
-        return {"lang": str(lang), "strings": {}, "count": 0, "enabled": False}
+        return _json({"lang": str(lang), "strings": {}, "count": 0, "enabled": False})
     try:
         mp = store.ui_strings(str(lang))
     except Exception:
         mp = {}
-    return {"lang": str(lang), "strings": mp, "count": len(mp or {}), "enabled": bool(mp)}
+    etag = f'W/"i18n-ui-{int(getattr(store, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
+    headers = _cache_headers(request, max_age=600, etag=etag)
+    return _json({"lang": str(lang), "strings": mp, "count": len(mp or {}), "enabled": bool(mp)}, headers=headers)
 
 
 @router.get("/i18n/names/{lang}")
@@ -337,27 +403,10 @@ def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_st
         except Exception:
             mp = {}
         if mp:
-            return {"lang": str(lang), "names": mp, "count": len(mp or {})}
-    svc = getattr(request.app.state, "i18n_service", None)
-    if svc is None:
-        return {"lang": str(lang), "names": {}, "count": 0}
-    try:
-        scripts_zip_hint = None
-        try:
-            scripts_zip_hint = str((store.meta() or {}).get("scripts_zip") or "").strip() or None
-        except Exception:
-            scripts_zip_hint = None
-        item_ids = store.item_ids(include_icon_only=True)
-        mp = svc.item_name_map(
-            lang=str(lang),
-            assets=store.assets(),
-            item_ids=item_ids,
-            engine=_get_engine(request),
-            scripts_zip_hint=scripts_zip_hint,
-        )
-    except Exception:
-        mp = {}
-    return {"lang": str(lang), "names": mp, "count": len(mp or {})}
+            etag = f'W/"i18n-names-{int(getattr(iindex, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
+            headers = _cache_headers(request, max_age=600, etag=etag)
+            return _json({"lang": str(lang), "names": mp, "count": len(mp or {})}, headers=headers)
+    return _json({"lang": str(lang), "names": {}, "count": 0})
 
 
 @router.get("/items/{item_id}")
@@ -476,11 +525,19 @@ def craft_product_recipes(item: str, store: CatalogStore = Depends(get_store)):
 
 @router.get("/craft/recipes/search")
 def craft_search(
+    request: Request,
     q: str = Query(..., min_length=1),
     limit: int = Query(50, ge=1, le=500),
     store: CatalogStore = Depends(get_store),
 ):
-    return {"q": q, "results": store.search(q, limit=limit)}
+    name_lookup: Optional[Dict[str, str]] = None
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None and _has_cjk(q):
+        try:
+            name_lookup = iindex.names("zh")
+        except Exception:
+            name_lookup = None
+    return {"q": q, "results": store.search(q, limit=limit, name_lookup=name_lookup)}
 
 
 @router.get("/craft/recipes/{name}")
@@ -538,6 +595,40 @@ def cooking_tags(store: CatalogStore = Depends(get_store)):
     return {"tags": store.list_cooking_tags()}
 
 
+@router.get("/cooking/ingredients")
+def cooking_ingredients(store: CatalogStore = Depends(get_store)):
+    raw = store.cooking_ingredients()
+    items: List[Dict[str, Any]] = []
+    if raw:
+        for iid, data in raw.items():
+            tags = data.get("tags")
+            if not isinstance(tags, (dict, list)):
+                tags = {}
+            items.append(
+                {
+                    "id": iid,
+                    "tags": tags,
+                    "foodtype": data.get("foodtype"),
+                    "uses": len(store.list_cooking_by_ingredient(iid)),
+                }
+            )
+        source = "cooking_ingredients"
+    else:
+        for iid in store.list_cooking_ingredients():
+            items.append(
+                {
+                    "id": iid,
+                    "tags": {},
+                    "foodtype": None,
+                    "uses": len(store.list_cooking_by_ingredient(iid)),
+                }
+            )
+        source = "card_ingredients"
+
+    items.sort(key=lambda x: (-int(x.get("uses") or 0), str(x.get("id") or "")))
+    return {"ingredients": items, "count": len(items), "source": source}
+
+
 @router.get("/cooking/foodtypes/{foodtype}/recipes")
 def cooking_foodtype_recipes(foodtype: str, store: CatalogStore = Depends(get_store)):
     return {"foodtype": foodtype, "recipes": store.list_cooking_by_foodtype(foodtype)}
@@ -558,11 +649,19 @@ def cooking_ingredient_recipes(item: str, store: CatalogStore = Depends(get_stor
 
 @router.get("/cooking/recipes/search")
 def cooking_search(
+    request: Request,
     q: str = Query(..., min_length=1),
     limit: int = Query(50, ge=1, le=500),
     store: CatalogStore = Depends(get_store),
 ):
-    return {"q": q, "results": store.search_cooking(q, limit=limit)}
+    name_lookup: Optional[Dict[str, str]] = None
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None and _has_cjk(q):
+        try:
+            name_lookup = iindex.names("zh")
+        except Exception:
+            name_lookup = None
+    return {"q": q, "results": store.search_cooking(q, limit=limit, name_lookup=name_lookup)}
 
 
 @router.get("/cooking/recipes/{name}")
@@ -590,14 +689,22 @@ def cooking_find(req: CookingFindRequest, store: CatalogStore = Depends(get_stor
     return {
         "cookable": names,
         "count": len(names),
-        "note": "catalog v1: only recipes with card_ingredients are searchable/simulatable",
+        "note": "only recipes with card_ingredients are searchable/simulatable",
     }
+
+
+@router.post("/cooking/explore")
+def cooking_explore(req: CookingExploreRequest, store: CatalogStore = Depends(get_store)):
+    recipes = store.iter_cooking_recipes()
+    ingredients = store.cooking_ingredients()
+    return explore_cookpot(recipes, req.slots, ingredients=ingredients, limit=int(req.limit or 200))
 
 
 @router.post("/cooking/simulate")
 def cooking_simulate(req: CookingSimulateRequest, request: Request, store: CatalogStore = Depends(get_store)):
     recipes = store.iter_cooking_recipes()
-    out = simulate_cookpot(recipes, req.slots, return_top=int(req.return_top or 25))
+    ingredients = store.cooking_ingredients()
+    out = simulate_cookpot(recipes, req.slots, return_top=int(req.return_top or 25), ingredients=ingredients)
 
     # Attach result recipe details if available.
     if out.get("ok") and out.get("result"):
@@ -635,6 +742,6 @@ def analyze_prefab(name: str, request: Request):
     if content is None:
         raise HTTPException(status_code=404, detail=f"cannot read: {path}")
 
-    from analyzer import LuaAnalyzer
+    from core.analyzer import LuaAnalyzer
     rep = LuaAnalyzer(content, path=path).get_report()
     return {"query": q, "path": path, "report": rep}

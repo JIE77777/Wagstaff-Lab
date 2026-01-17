@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wagstaff-lab"
+version = "0.0.0"
+description = "Wagstaff Lab: DST indexing, tooling, and WebCraft service"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+wagstaff = "apps.cli.main:main"
+
+[project.optional-dependencies]
+cli = ["rich>=13"]
+web = ["fastapi>=0.100", "uvicorn>=0.23", "pydantic>=1.10"]
+icons = ["numpy>=1.23", "Pillow>=9"]
+quality = ["rich>=13"]
+all = [
+  "rich>=13",
+  "fastapi>=0.100",
+  "uvicorn>=0.23",
+  "pydantic>=1.10",
+  "numpy>=1.23",
+  "Pillow>=9",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "apps*", "devtools*"]

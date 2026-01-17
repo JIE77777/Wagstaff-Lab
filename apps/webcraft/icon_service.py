@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from klei_atlas_tex import (
+from core.klei_atlas_tex import (
     Atlas,
     decode_ktex_to_image,
     parse_atlas_xml,
@@ -31,7 +31,7 @@ class IconConfig:
       - auto     : static first, if missing then dynamic
 
     static_dir:
-      - directory that contains <id>.png files (served via /static/icons/...)
+      - directory that contains <id>.png files (served via /static/data/icons/...)
 
     game_data_dir:
       - directory root where atlas/xml/tex can be resolved, e.g. DST data folder that contains "images/..."
@@ -60,7 +60,7 @@ class IconConfig:
         # URL bases are fixed by server routing.
         return {
             "mode": self.normalized_mode(),
-            "static_base": "/static/icons",
+            "static_base": "/static/data/icons",
             "api_base": "/api/v1/icon",
         }
 

@@ -11,6 +11,7 @@ Responsibilities
   - TuningResolver (scripts/tuning.lua)
   - CraftRecipeDB (scripts/recipes.lua + scripts/recipes2.lua + scripts/recipes_filter.lua)
   - CookingRecipeAnalyzer (scripts/preparedfoods.lua + scripts/prefabs/preparedfoods.lua)
+  - CookingIngredientAnalyzer (scripts/ingredients.lua + scripts/cooking.lua)
 
 Design notes
 - Engine must be usable by CLI, GUI, and Web layers.
@@ -28,18 +29,73 @@ from typing import Dict, List, Optional, Tuple
 
 # Optional project config (exists in repo under core/utils.py)
 try:
-    from utils import wagstaff_config  # type: ignore
+    from core.utils import wagstaff_config  # type: ignore
 except Exception:  # pragma: no cover
     wagstaff_config = None  # type: ignore
 
-from analyzer import CookingRecipeAnalyzer, LuaAnalyzer, TuningResolver
-from craft_recipes import CraftRecipeDB
+from core.analyzer import CookingIngredientAnalyzer, CookingRecipeAnalyzer, LuaAnalyzer, TuningResolver
+from core.craft_recipes import CraftRecipeDB
 
 logger = logging.getLogger(__name__)
 
 
 def _expanduser(p: Optional[str]) -> Optional[str]:
     return os.path.expanduser(p) if p else None
+
+
+def _merge_cooking_ingredients(base: Dict[str, Dict], extra: Dict[str, Dict]) -> Dict[str, Dict]:
+    out: Dict[str, Dict] = {}
+    for iid, row in (base or {}).items():
+        if not isinstance(row, dict):
+            continue
+        merged = dict(row)
+        merged.setdefault("id", iid)
+        out[str(iid)] = merged
+
+    for iid, row in (extra or {}).items():
+        if not isinstance(row, dict):
+            continue
+        key = str(iid)
+        if key not in out:
+            merged = dict(row)
+            merged.setdefault("id", key)
+            out[key] = merged
+            continue
+
+        cur = dict(out[key])
+        cur.setdefault("id", key)
+
+        sources: List[str] = []
+        for src in cur.get("sources") or []:
+            if src not in sources:
+                sources.append(src)
+        for src in row.get("sources") or []:
+            if src not in sources:
+                sources.append(src)
+        if sources:
+            cur["sources"] = sources
+
+        tags = dict(cur.get("tags") or {})
+        for tag, val in (row.get("tags") or {}).items():
+            if tag not in tags or tags.get(tag) in (None, 0, 0.0):
+                tags[tag] = val
+        if tags:
+            cur["tags"] = tags
+
+        tags_expr = dict(cur.get("tags_expr") or {})
+        for tag, val in (row.get("tags_expr") or {}).items():
+            if tag not in tags_expr:
+                tags_expr[tag] = val
+        if tags_expr:
+            cur["tags_expr"] = tags_expr
+
+        for field in ("name", "atlas", "image", "prefab", "foodtype"):
+            if field not in cur and field in row:
+                cur[field] = row[field]
+
+        out[key] = cur
+
+    return out
 
 
 class WagstaffEngine:
@@ -78,6 +134,7 @@ class WagstaffEngine:
         self.tuning: Optional[TuningResolver] = None
         self.recipes: Optional[CraftRecipeDB] = None
         self.cooking_recipes: Dict[str, Dict] = {}
+        self.cooking_ingredients: Dict[str, Dict] = {}
 
         self._init_source(
             dst_root=dst_root,
@@ -355,6 +412,24 @@ class WagstaffEngine:
         if food_prefab_src:
             # prefab file often contains the same table; merge (prefab wins)
             self.cooking_recipes.update(CookingRecipeAnalyzer(food_prefab_src).recipes)
+
+        ing_path = "scripts/ingredients.lua"
+        ing_src = self.read_file(ing_path)
+        if not ing_src:
+            ing_path = "ingredients.lua"
+            ing_src = self.read_file(ing_path)
+        if ing_src:
+            self.cooking_ingredients = CookingIngredientAnalyzer(ing_src, source=ing_path).ingredients
+
+        cook_path = "scripts/cooking.lua"
+        cook_src = self.read_file(cook_path)
+        if not cook_src:
+            cook_path = "cooking.lua"
+            cook_src = self.read_file(cook_path)
+        if cook_src:
+            extra = CookingIngredientAnalyzer(cook_src, source=cook_path).ingredients
+            if extra:
+                self.cooking_ingredients = _merge_cooking_ingredients(self.cooking_ingredients, extra)
 
     # --------------------------------------------------------
     # High-level helpers

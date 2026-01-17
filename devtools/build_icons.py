@@ -38,15 +38,14 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 import xml.etree.ElementTree as ET
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CORE_DIR = PROJECT_ROOT / "core"
-if str(CORE_DIR) not in sys.path:
-    sys.path.append(str(CORE_DIR))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from klei_atlas_tex import decode_ktex_to_image  # type: ignore
+    from core.klei_atlas_tex import decode_ktex_to_image, fix_ktex_orientation  # type: ignore
 except Exception as e:  # pragma: no cover
     raise SystemExit(
-        "ERROR: cannot import klei_atlas_tex.decode_ktex_to_image. Ensure core/ is on PYTHONPATH.\n"
+        "ERROR: cannot import core.klei_atlas_tex.decode_ktex_to_image. Ensure project root is on PYTHONPATH.\n"
         f"{e}"
     )
 
@@ -718,6 +717,7 @@ def main() -> None:
 
             try:
                 crop = _crop_uv(tex_img_pil, uv, invert_v=invert_v)
+                crop = fix_ktex_orientation(crop)
                 if unpremultiply:
                     crop = _unpremultiply_rgba(crop)
                 crop.save(out_path, format="PNG")

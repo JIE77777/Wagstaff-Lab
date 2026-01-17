@@ -20,6 +20,7 @@ Public API (intended stable)
 - TuningResolver(content)
 - LuaAnalyzer(content, path=None).get_report()
 - CookingRecipeAnalyzer(content).recipes
+- CookingIngredientAnalyzer(content).ingredients
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ __all__ = [
     "LuaAnalyzer",
     # cooking
     "CookingRecipeAnalyzer",
+    "CookingIngredientAnalyzer",
 ]
 
 
@@ -1524,3 +1526,147 @@ class CookingRecipeAnalyzer:
 
             if out:
                 self.recipes[name] = out
+
+
+# ============================================================
+# 7) Cooking ingredient analyzer (ingredients.lua / cooking.lua)
+# ============================================================
+
+_ING_ID_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _clean_ingredient_id(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    raw = raw.lower()
+    if not _ING_ID_RE.match(raw):
+        return None
+    return raw
+
+
+def _coerce_tag_value(value: Any) -> Optional[float]:
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and _NUM_RE.match(value):
+        try:
+            return float(value)
+        except Exception:
+            return None
+    return None
+
+
+def _parse_tag_table(tags: Any) -> Tuple[Dict[str, float], Dict[str, str]]:
+    if not isinstance(tags, LuaTableValue):
+        return {}, {}
+    out: Dict[str, float] = {}
+    expr: Dict[str, str] = {}
+
+    for key, value in tags.map.items():
+        k = lua_to_python(key)
+        if not isinstance(k, str):
+            continue
+        k = k.strip().lower()
+        if not k:
+            continue
+        v = lua_to_python(value)
+        num = _coerce_tag_value(v)
+        if num is None:
+            expr[k] = str(v)
+        else:
+            out[k] = num
+
+    for entry in tags.array:
+        k = lua_to_python(entry)
+        if not isinstance(k, str):
+            continue
+        k = k.strip().lower()
+        if not k or k in out or k in expr:
+            continue
+        out[k] = 1.0
+
+    return out, expr
+
+
+def _extract_table_by_pattern(content: str, pattern: str) -> Optional[LuaTableValue]:
+    m = re.search(pattern, content)
+    if not m:
+        return None
+    open_idx = content.find("{", m.end() - 1)
+    if open_idx < 0:
+        return None
+    close_idx = _find_matching(content, open_idx, "{", "}")
+    if close_idx is None:
+        return None
+    inner = content[open_idx + 1 : close_idx]
+    try:
+        return parse_lua_table(inner)
+    except Exception:
+        return None
+
+
+def _find_ingredients_table(content: str) -> Optional[LuaTableValue]:
+    patterns = [
+        r"(?:^|\b)local\s+ingredients\s*=\s*\{",
+        r"(?:^|\b)ingredients\s*=\s*\{",
+        r"(?:^|\b)INGREDIENTS\s*=\s*\{",
+        r"\bcooking\.ingredients\s*=\s*\{",
+    ]
+    for pat in patterns:
+        tbl = _extract_table_by_pattern(content, pat)
+        if isinstance(tbl, LuaTableValue):
+            return tbl
+
+    cooking_tbl = _extract_table_by_pattern(content, r"(?:^|\b)local\s+cooking\s*=\s*\{")
+    if not isinstance(cooking_tbl, LuaTableValue):
+        cooking_tbl = _extract_table_by_pattern(content, r"(?:^|\b)cooking\s*=\s*\{")
+    if isinstance(cooking_tbl, LuaTableValue):
+        ing = cooking_tbl.map.get("ingredients")
+        if isinstance(ing, LuaTableValue):
+            return ing
+
+    return None
+
+
+class CookingIngredientAnalyzer:
+    """Parse cooking ingredient definitions and extract tag contributions."""
+
+    def __init__(self, content: str, *, source: str = ""):
+        self.content = content or ""
+        self.source = source or ""
+        self.ingredients: Dict[str, Dict[str, Any]] = {}
+        if content:
+            self._parse()
+
+    def _parse(self) -> None:
+        tbl = _find_ingredients_table(self.content)
+        if not isinstance(tbl, LuaTableValue):
+            return
+
+        for key, value in (tbl.map or {}).items():
+            ing_id = _clean_ingredient_id(lua_to_python(key))
+            if not ing_id:
+                continue
+
+            out: Dict[str, Any] = {"id": ing_id}
+
+            if isinstance(value, LuaTableValue):
+                tags, tag_expr = _parse_tag_table(value.map.get("tags"))
+                if tags:
+                    out["tags"] = tags
+                if tag_expr:
+                    out["tags_expr"] = tag_expr
+
+                for field in ("name", "atlas", "image", "prefab", "foodtype"):
+                    if field in value.map:
+                        out[field] = lua_to_python(value.map[field])
+
+            if self.source:
+                out["sources"] = [self.source]
+
+            if len(out) > 1:
+                self.ingredients[ing_id] = out

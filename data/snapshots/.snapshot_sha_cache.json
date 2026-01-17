@@ -95,14 +95,14 @@
     "sha256_12": "bbfc33a27ce7"
   },
   "devtools/build_icons.py": {
-    "mtime_ns": 1768382207222437339,
-    "size": 26355,
-    "sha256_12": "229c752b115f"
+    "mtime_ns": 1768611065749801312,
+    "size": 27213,
+    "sha256_12": "57d30abe8b2a"
   },
   "devtools/codemap.py": {
-    "mtime_ns": 1768311008930182108,
-    "size": 6311,
-    "sha256_12": "8332f5211c1f"
+    "mtime_ns": 1768534644392156488,
+    "size": 6312,
+    "sha256_12": "fd216e4f7e67"
   },
   "devtools/hotfix_add_iconconfig.py": {
     "mtime_ns": 1768373102672331296,
@@ -125,29 +125,29 @@
     "sha256_12": "a18caa6ebf79"
   },
   "devtools/reporter.py": {
-    "mtime_ns": 1768201831846946236,
-    "size": 4763,
-    "sha256_12": "915b1577a0aa"
+    "mtime_ns": 1768534627462232108,
+    "size": 4751,
+    "sha256_12": "50594fb292b8"
   },
   "devtools/sampler.py": {
-    "mtime_ns": 1768284738631409006,
-    "size": 14604,
-    "sha256_12": "2eaf081041e4"
+    "mtime_ns": 1768534635359196835,
+    "size": 14606,
+    "sha256_12": "2cc68ca2e29a"
   },
   "devtools/serve_webcraft.py": {
-    "mtime_ns": 1768365561586594023,
-    "size": 4062,
-    "sha256_12": "3395631ff1ab"
+    "mtime_ns": 1768555083232990565,
+    "size": 5481,
+    "sha256_12": "3b73ccd15fd9"
   },
   "devtools/snapshot.py": {
-    "mtime_ns": 1768375495050618488,
-    "size": 45287,
-    "sha256_12": "6a4ac3821245"
+    "mtime_ns": 1768544094058507833,
+    "size": 51404,
+    "sha256_12": "6411307db9d8"
   },
   "devtools/snapshot_gui.py": {
-    "mtime_ns": 1768385473859812342,
-    "size": 66017,
-    "sha256_12": "5e58b7fbb3bb"
+    "mtime_ns": 1768540139185612988,
+    "size": 66096,
+    "sha256_12": "3ba389c54d32"
   },
   "docs/WEBCRAFT_NETWORK_STACK.md": {
     "mtime_ns": 1768353772090295245,
@@ -195,9 +195,9 @@
     "sha256_12": "1920da880bb9"
   },
   "README.md": {
-    "mtime_ns": 1768213736377616948,
-    "size": 2786,
-    "sha256_12": "dc5b33909439"
+    "mtime_ns": 1768557405017506155,
+    "size": 3799,
+    "sha256_12": "ad4890397a9c"
   },
   "PROJECT_STATUS.json": {
     "mtime_ns": 1768287237635238708,
@@ -280,9 +280,9 @@
     "sha256_12": "0ecf222f76c5"
   },
   "tests/test_recipes.py": {
-    "mtime_ns": 1768201831851946214,
-    "size": 1479,
-    "sha256_12": "89bad0a5e326"
+    "mtime_ns": 1768534842743270533,
+    "size": 1653,
+    "sha256_12": "c854302c4b59"
   },
   "src/webcraft/i18n_service.py": {
     "mtime_ns": 1768412628728756370,
@@ -323,5 +323,330 @@
     "mtime_ns": 1768447304797503305,
     "size": 27760,
     "sha256_12": "c1deddf0bfc3"
+  },
+  "docs/README.md": {
+    "mtime_ns": 1768544232029842844,
+    "size": 466,
+    "sha256_12": "9088f3deea34"
+  },
+  "docs/guides/DEV_GUIDE.md": {
+    "mtime_ns": 1768617611732670067,
+    "size": 5751,
+    "sha256_12": "e04dc09b8fd7"
+  },
+  "docs/management/ROADMAP.md": {
+    "mtime_ns": 1768617341529872248,
+    "size": 1914,
+    "sha256_12": "f44e75296c14"
+  },
+  "apps/cli/main.py": {
+    "mtime_ns": 1768538902966128320,
+    "size": 1747,
+    "sha256_12": "1f13f3912194"
+  },
+  "apps/cli/registry.py": {
+    "mtime_ns": 1768545283158143995,
+    "size": 4880,
+    "sha256_12": "fb4ace09edbb"
+  },
+  "apps/__init__.py": {
+    "mtime_ns": 1768534367565392961,
+    "size": 52,
+    "sha256_12": "358b6db47998"
+  },
+  "apps/cli/__init__.py": {
+    "mtime_ns": 1768534367567392952,
+    "size": 43,
+    "sha256_12": "f8d7e7942c05"
+  },
+  "apps/cli/cli_common.py": {
+    "mtime_ns": 1768535721493345490,
+    "size": 1915,
+    "sha256_12": "3ee63244bc5c"
+  },
+  "apps/cli/commands/__init__.py": {
+    "mtime_ns": 1768534367568392948,
+    "size": 51,
+    "sha256_12": "6ea567813f48"
+  },
+  "apps/cli/commands/dash.py": {
+    "mtime_ns": 1768544320020436468,
+    "size": 6322,
+    "sha256_12": "7ab0813dd13e"
+  },
+  "apps/cli/commands/doctor.py": {
+    "mtime_ns": 1768536617856341077,
+    "size": 6232,
+    "sha256_12": "9f344e461317"
+  },
+  "apps/cli/commands/explorer.py": {
+    "mtime_ns": 1768534788816511398,
+    "size": 9698,
+    "sha256_12": "fed2c31acc6b"
+  },
+  "apps/cli/commands/mgmt.py": {
+    "mtime_ns": 1768544330667387387,
+    "size": 8668,
+    "sha256_12": "1037af5080dc"
+  },
+  "apps/cli/commands/server.py": {
+    "mtime_ns": 1768542747142596892,
+    "size": 209,
+    "sha256_12": "6c94b0d9aa63"
+  },
+  "apps/cli/commands/wiki.py": {
+    "mtime_ns": 1768540427280329237,
+    "size": 22253,
+    "sha256_12": "7e3ee796673c"
+  },
+  "apps/server/__init__.py": {
+    "mtime_ns": 1768542607790213641,
+    "size": 66,
+    "sha256_12": "00130d1d4140"
+  },
+  "apps/server/cli.py": {
+    "mtime_ns": 1768545275548177819,
+    "size": 4691,
+    "sha256_12": "8e414946c537"
+  },
+  "apps/server/config.py": {
+    "mtime_ns": 1768542635485093171,
+    "size": 2974,
+    "sha256_12": "9ef01d91607b"
+  },
+  "apps/server/manager.py": {
+    "mtime_ns": 1768545881110479258,
+    "size": 7508,
+    "sha256_12": "c7fa4e1b4e45"
+  },
+  "apps/server/ui.py": {
+    "mtime_ns": 1768574416625812692,
+    "size": 39402,
+    "sha256_12": "6786f4b8ce07"
+  },
+  "apps/webcraft/__init__.py": {
+    "mtime_ns": 1768534367570392939,
+    "size": 48,
+    "sha256_12": "43210b35acae"
+  },
+  "apps/webcraft/api.py": {
+    "mtime_ns": 1768614431027827830,
+    "size": 24167,
+    "sha256_12": "10c6ae4105c9"
+  },
+  "apps/webcraft/app.py": {
+    "mtime_ns": 1768614310249366501,
+    "size": 7083,
+    "sha256_12": "778a0e07ed89"
+  },
+  "apps/webcraft/catalog_store.py": {
+    "mtime_ns": 1768617575118833374,
+    "size": 45241,
+    "sha256_12": "6f658886004f"
+  },
+  "apps/webcraft/cooking_planner.py": {
+    "mtime_ns": 1768356636465472996,
+    "size": 4276,
+    "sha256_12": "bd00afb78bbe"
+  },
+  "apps/webcraft/i18n_index.py": {
+    "mtime_ns": 1768556920575679308,
+    "size": 3476,
+    "sha256_12": "98b97123f865"
+  },
+  "apps/webcraft/i18n_service.py": {
+    "mtime_ns": 1768476198153879902,
+    "size": 26143,
+    "sha256_12": "28951d7fce69"
+  },
+  "apps/webcraft/icon_service.py": {
+    "mtime_ns": 1768614442466776812,
+    "size": 10007,
+    "sha256_12": "26a4f75bb2a2"
+  },
+  "apps/webcraft/planner.py": {
+    "mtime_ns": 1768353714947547458,
+    "size": 3808,
+    "sha256_12": "a9ac339eaf54"
+  },
+  "apps/webcraft/settings.py": {
+    "mtime_ns": 1768557571208759961,
+    "size": 919,
+    "sha256_12": "57f5a4c92b56"
+  },
+  "apps/webcraft/tuning_trace.py": {
+    "mtime_ns": 1768556956779518457,
+    "size": 2474,
+    "sha256_12": "ff14604df156"
+  },
+  "apps/webcraft/ui.py": {
+    "mtime_ns": 1768614437423799304,
+    "size": 114320,
+    "sha256_12": "1b3873f46225"
+  },
+  "core/__init__.py": {
+    "mtime_ns": 1768534367561392979,
+    "size": 61,
+    "sha256_12": "ac551446262f"
+  },
+  "core/analyzer.py": {
+    "mtime_ns": 1768617445693409006,
+    "size": 53880,
+    "sha256_12": "0237e6589e2c"
+  },
+  "core/craft_recipes.py": {
+    "mtime_ns": 1768534880084103747,
+    "size": 28234,
+    "sha256_12": "fce8d1e871d7"
+  },
+  "core/engine.py": {
+    "mtime_ns": 1768617488486218694,
+    "size": 15955,
+    "sha256_12": "9dce78e27eb2"
+  },
+  "core/indexers/__init__.py": {
+    "mtime_ns": 1768534367563392970,
+    "size": 48,
+    "sha256_12": "e7fb45ee44bb"
+  },
+  "core/indexers/catalog_index.py": {
+    "mtime_ns": 1768535031679426646,
+    "size": 7063,
+    "sha256_12": "ea5d556592d6"
+  },
+  "core/indexers/catalog_v2.py": {
+    "mtime_ns": 1768617532594022515,
+    "size": 25944,
+    "sha256_12": "30128b52ab7b"
+  },
+  "core/indexers/i18n_index.py": {
+    "mtime_ns": 1768488127586688536,
+    "size": 5194,
+    "sha256_12": "552388a832ee"
+  },
+  "core/indexers/resource_index.py": {
+    "mtime_ns": 1768535043550373624,
+    "size": 17170,
+    "sha256_12": "fd0cfebe2c3b"
+  },
+  "core/indexers/shared.py": {
+    "mtime_ns": 1768544833673142112,
+    "size": 2072,
+    "sha256_12": "a6599a86dc03"
+  },
+  "core/klei_atlas_tex.py": {
+    "mtime_ns": 1768610608322833823,
+    "size": 17536,
+    "sha256_12": "14b3a7105299"
+  },
+  "core/schemas/__init__.py": {
+    "mtime_ns": 1768534367564392966,
+    "size": 47,
+    "sha256_12": "54ea79a6fc22"
+  },
+  "core/schemas/catalog_v2.py": {
+    "mtime_ns": 1768617540525987235,
+    "size": 824,
+    "sha256_12": "1dc18eed6fb8"
+  },
+  "core/schemas/meta.py": {
+    "mtime_ns": 1768534390375291074,
+    "size": 697,
+    "sha256_12": "c48fab200453"
+  },
+  "core/tagging.py": {
+    "mtime_ns": 1768475928832079283,
+    "size": 5775,
+    "sha256_12": "9c009d2318ee"
+  },
+  "core/utils.py": {
+    "mtime_ns": 1768465872014881767,
+    "size": 1041,
+    "sha256_12": "d7d80440b8ab"
+  },
+  "devtools/__init__.py": {
+    "mtime_ns": 1768534367572392930,
+    "size": 48,
+    "sha256_12": "730483be1b04"
+  },
+  "devtools/build_catalog_index.py": {
+    "mtime_ns": 1768536626917300577,
+    "size": 2031,
+    "sha256_12": "4dd79b3fb540"
+  },
+  "devtools/build_catalog_v2.py": {
+    "mtime_ns": 1768535546034129210,
+    "size": 4808,
+    "sha256_12": "0028e925694e"
+  },
+  "devtools/build_i18n_index.py": {
+    "mtime_ns": 1768535935259390634,
+    "size": 9149,
+    "sha256_12": "7f72ec505945"
+  },
+  "devtools/build_resource_index.py": {
+    "mtime_ns": 1768535554615090882,
+    "size": 3236,
+    "sha256_12": "9a78b5a4bbe4"
+  },
+  "devtools/catalog_quality.py": {
+    "mtime_ns": 1768552395320299236,
+    "size": 14996,
+    "sha256_12": "7e13eec0b0fb"
+  },
+  "devtools/quality_gate.py": {
+    "mtime_ns": 1768536651043192734,
+    "size": 9571,
+    "sha256_12": "43c44fe987d3"
+  },
+  "devtools/raw_scan.py": {
+    "mtime_ns": 1768544845703085082,
+    "size": 29218,
+    "sha256_12": "c09c6650e75b"
+  },
+  "data/reports/catalog_quality_report.md": {
+    "mtime_ns": 1768554123399380571,
+    "size": 3351,
+    "sha256_12": "2fbb1f8af721"
+  },
+  "data/reports/catalog_v2_summary.md": {
+    "mtime_ns": 1768618137096325288,
+    "size": 339,
+    "sha256_12": "e8deeacc65d6"
+  },
+  "docs/architecture/WEBCRAFT_NETWORK_STACK.md": {
+    "mtime_ns": 1768478084625482166,
+    "size": 1594,
+    "sha256_12": "049aed942a93"
+  },
+  "docs/guides/CLI_GUIDE.md": {
+    "mtime_ns": 1768545297985077909,
+    "size": 2574,
+    "sha256_12": "7d4c2ccec158"
+  },
+  "docs/management/PROJECT_MANAGEMENT.md": {
+    "mtime_ns": 1768617334700902622,
+    "size": 4277,
+    "sha256_12": "83b5d066f06b"
+  },
+  "docs/specs/CATALOG_V2_SPEC.md": {
+    "mtime_ns": 1768617601140717330,
+    "size": 11133,
+    "sha256_12": "21f3544647f7"
+  },
+  "devtools/build_catalog_sqlite.py": {
+    "mtime_ns": 1768617556814914784,
+    "size": 19031,
+    "sha256_12": "7684a3d7a3c3"
+  },
+  "devtools/stats_gap_inspect.py": {
+    "mtime_ns": 1768554058488681084,
+    "size": 13521,
+    "sha256_12": "74dada835443"
+  },
+  "data/reports/stats_gap_inspect.md": {
+    "mtime_ns": 1768554129969350156,
+    "size": 1124,
+    "sha256_12": "e0eead6dd5a4"
   }
 }

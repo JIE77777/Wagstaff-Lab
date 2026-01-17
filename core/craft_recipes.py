@@ -33,7 +33,7 @@ import json
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
-from analyzer import (
+from core.analyzer import (
     LuaCallExtractor,
     LuaRaw,
     LuaTableValue,

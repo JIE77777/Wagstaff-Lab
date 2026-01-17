@@ -6,6 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .catalog_store import CookingRecipe
 
+TAG_PENALTY = 10.0
+NAME_PENALTY = 50.0
+
 
 def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
     """Normalize item->count mapping.
@@ -20,7 +23,7 @@ def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
 
     out: Dict[str, float] = {}
     for k, v in (inv or {}).items():
-        key = str(k).strip()
+        key = str(k).strip().lower()
         if not key:
             continue
         try:
@@ -33,6 +36,16 @@ def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
     return out
 
 
+def _normalize_slots(slots: Dict[str, Any]) -> Dict[str, int]:
+    out: Dict[str, int] = {}
+    for k, v in normalize_counts(slots).items():
+        n = int(round(v))
+        if n <= 0:
+            continue
+        out[k] = out.get(k, 0) + n
+    return out
+
+
 def _requirements_satisfied(req: List[Tuple[str, float]], available: Dict[str, float]) -> bool:
     """Check if `available` contains all `req` items with required counts."""
     for item, need in (req or []):
@@ -41,6 +54,296 @@ def _requirements_satisfied(req: List[Tuple[str, float]], available: Dict[str, f
         have = float(available.get(item, 0.0))
         if have + 1e-9 < float(need):
             return False
+    return True
+
+
+def build_ingredient_index(ingredients: Dict[str, Any]) -> Tuple[Dict[str, Dict[str, float]], Dict[str, float]]:
+    tags_by_item: Dict[str, Dict[str, float]] = {}
+    max_by_tag: Dict[str, float] = {}
+
+    for item_id, raw in (ingredients or {}).items():
+        if not item_id or not isinstance(raw, dict):
+            continue
+        iid = str(item_id).strip().lower()
+        if not iid:
+            continue
+        tags = raw.get("tags") or {}
+        if not isinstance(tags, dict):
+            continue
+        out: Dict[str, float] = {}
+        for k, v in tags.items():
+            key = str(k).strip().lower()
+            if not key:
+                continue
+            try:
+                num = float(v)
+            except Exception:
+                continue
+            out[key] = num
+            if key not in max_by_tag or num > max_by_tag[key]:
+                max_by_tag[key] = num
+        if out:
+            tags_by_item[iid] = out
+
+    return tags_by_item, max_by_tag
+
+
+def _sum_tags(slots: Dict[str, int], tags_by_item: Dict[str, Dict[str, float]]) -> Dict[str, float]:
+    totals: Dict[str, float] = {}
+    for item_id, count in (slots or {}).items():
+        tags = tags_by_item.get(str(item_id).strip().lower()) or {}
+        if not tags:
+            continue
+        for tag, val in tags.items():
+            totals[tag] = totals.get(tag, 0.0) + float(val) * float(count)
+    return totals
+
+
+def _sum_names(slots: Dict[str, int]) -> Dict[str, int]:
+    out: Dict[str, int] = {}
+    for item_id, count in (slots or {}).items():
+        iid = str(item_id).strip().lower()
+        if not iid:
+            continue
+        out[iid] = out.get(iid, 0) + int(count)
+    return out
+
+
+def _compare(lhs: float, op: str, rhs: float) -> bool:
+    if op == "==":
+        return abs(lhs - rhs) <= 1e-9
+    if op == "~=":
+        return abs(lhs - rhs) > 1e-9
+    if op == ">":
+        return lhs > rhs + 1e-9
+    if op == ">=":
+        return lhs + 1e-9 >= rhs
+    if op == "<":
+        return lhs + 1e-9 < rhs
+    if op == "<=":
+        return lhs <= rhs + 1e-9
+    return True
+
+
+def _constraint_delta(lhs: float, op: str, rhs: float) -> Tuple[float, str]:
+    if op in (">", ">="):
+        delta = max(0.0, rhs - lhs)
+        return delta, "under"
+    if op in ("<", "<="):
+        delta = max(0.0, lhs - rhs)
+        return delta, "over"
+    if op == "==":
+        delta = abs(lhs - rhs)
+        return delta, "mismatch"
+    if op == "~=":
+        delta = 0.0 if abs(lhs - rhs) > 1e-9 else 1.0
+        return delta, "equal"
+    return 0.0, "unknown"
+
+
+def _coerce_constraint_value(v: Any) -> Optional[float]:
+    if v is None:
+        return 0.0
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v))
+    except Exception:
+        return None
+
+
+def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any]]]:
+    rule = recipe.raw.get("rule") if isinstance(recipe.raw, dict) else None
+    if not isinstance(rule, dict):
+        return {}
+    cons = rule.get("constraints")
+    if not isinstance(cons, dict):
+        return {}
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for key in ("tags", "names", "unparsed"):
+        rows = cons.get(key)
+        if isinstance(rows, list):
+            out[key] = [r for r in rows if isinstance(r, dict)]
+    return out
+
+
+def _evaluate_constraints(
+    constraints: Dict[str, List[Dict[str, Any]]],
+    *,
+    tags_total: Dict[str, float],
+    names_total: Dict[str, int],
+) -> Tuple[bool, List[Dict[str, Any]], List[str]]:
+    missing: List[Dict[str, Any]] = []
+    warnings: List[str] = []
+
+    for c in constraints.get("tags") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if not key or rhs is None:
+            warnings.append(str(c.get("text") or "tag_constraint_unparsed"))
+            continue
+        lhs = float(tags_total.get(key, 0.0))
+        ok = _compare(lhs, op, float(rhs))
+        if not ok:
+            delta, direction = _constraint_delta(lhs, op, float(rhs))
+            missing.append(
+                {
+                    "type": "tag",
+                    "key": key,
+                    "op": op,
+                    "required": float(rhs),
+                    "actual": lhs,
+                    "delta": delta,
+                    "direction": direction,
+                    "text": c.get("text") or "",
+                }
+            )
+
+    for c in constraints.get("names") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if not key or rhs is None:
+            warnings.append(str(c.get("text") or "name_constraint_unparsed"))
+            continue
+        lhs = float(names_total.get(key, 0))
+        ok = _compare(lhs, op, float(rhs))
+        if not ok:
+            delta, direction = _constraint_delta(lhs, op, float(rhs))
+            missing.append(
+                {
+                    "type": "name",
+                    "key": key,
+                    "op": op,
+                    "required": float(rhs),
+                    "actual": lhs,
+                    "delta": delta,
+                    "direction": direction,
+                    "text": c.get("text") or "",
+                }
+            )
+
+    return len(missing) == 0, missing, warnings
+
+
+def _score_recipe(priority: float, weight: float, missing: List[Dict[str, Any]]) -> Tuple[float, float]:
+    penalty = 0.0
+    for m in missing or []:
+        delta = float(m.get("delta") or 0.0)
+        if m.get("type") == "tag":
+            penalty += delta * TAG_PENALTY
+        elif m.get("type") == "name":
+            penalty += delta * NAME_PENALTY
+    score = float(priority) * 1000.0 + float(weight) * 100.0 - penalty
+    return score, penalty
+
+
+def _evaluate_recipe(
+    recipe: CookingRecipe,
+    *,
+    slots: Dict[str, int],
+    tags_by_item: Dict[str, Dict[str, float]],
+) -> Dict[str, Any]:
+    constraints = _get_rule_constraints(recipe)
+    if constraints:
+        tags_total = _sum_tags(slots, tags_by_item)
+        names_total = _sum_names(slots)
+        ok, missing, warnings = _evaluate_constraints(
+            constraints,
+            tags_total=tags_total,
+            names_total=names_total,
+        )
+        return {
+            "ok": ok,
+            "missing": missing,
+            "warnings": warnings,
+            "tags_total": tags_total,
+            "names_total": names_total,
+            "rule_mode": "rule",
+        }
+
+    if recipe.card_ingredients:
+        ok = _requirements_satisfied(recipe.card_ingredients, {k: float(v) for k, v in slots.items()})
+        missing = []
+        if not ok:
+            for item, need in recipe.card_ingredients:
+                have = float(slots.get(item, 0))
+                if have + 1e-9 < float(need):
+                    missing.append(
+                        {
+                            "type": "name",
+                            "key": str(item),
+                            "op": ">=",
+                            "required": float(need),
+                            "actual": have,
+                            "delta": float(need) - have,
+                            "direction": "under",
+                            "text": "",
+                        }
+                    )
+        return {
+            "ok": ok,
+            "missing": missing,
+            "warnings": [],
+            "tags_total": {},
+            "names_total": _sum_names(slots),
+            "rule_mode": "card",
+        }
+
+    return {
+        "ok": False,
+        "missing": [],
+        "warnings": ["no_rule_or_card_ingredients"],
+        "tags_total": {},
+        "names_total": _sum_names(slots),
+        "rule_mode": "none",
+    }
+
+
+def _possible_with_remaining(
+    constraints: Dict[str, List[Dict[str, Any]]],
+    *,
+    tags_total: Dict[str, float],
+    names_total: Dict[str, int],
+    remaining: int,
+    max_by_tag: Dict[str, float],
+) -> bool:
+    for c in constraints.get("tags") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if not key or rhs is None:
+            continue
+        lhs = float(tags_total.get(key, 0.0))
+        max_add = float(max_by_tag.get(key, 0.0)) * float(max(0, remaining))
+        max_possible = lhs + max_add
+        if op in (">", ">=") and max_possible + 1e-9 < float(rhs):
+            return False
+        if op in ("<", "<=") and lhs > float(rhs) + 1e-9:
+            return False
+        if op == "==" and (float(rhs) < lhs - 1e-9 or float(rhs) > max_possible + 1e-9):
+            return False
+        if op == "~=" and abs(lhs - float(rhs)) <= 1e-9 and max_add <= 1e-9:
+            return False
+
+    for c in constraints.get("names") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if not key or rhs is None:
+            continue
+        lhs = float(names_total.get(key, 0))
+        max_possible = lhs + float(max(0, remaining))
+        if op in (">", ">=") and max_possible + 1e-9 < float(rhs):
+            return False
+        if op in ("<", "<=") and lhs > float(rhs) + 1e-9:
+            return False
+        if op == "==" and (float(rhs) < lhs - 1e-9 or float(rhs) > max_possible + 1e-9):
+            return False
+        if op == "~=" and abs(lhs - float(rhs)) <= 1e-9 and remaining <= 0:
+            return False
+
     return True
 
 
@@ -83,6 +386,7 @@ def simulate_cookpot(
     slots: Dict[str, Any],
     *,
     return_top: int = 25,
+    ingredients: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Simulate cookpot output using catalog `card_ingredients`.
 
@@ -98,30 +402,41 @@ def simulate_cookpot(
     Returns a dict suitable for JSON response.
     """
 
-    counts = normalize_counts(slots)
-    total = sum(int(round(v)) for v in counts.values())
+    slots_i = _normalize_slots(slots)
+    total = sum(int(v) for v in slots_i.values())
     if total != 4:
         return {
             "ok": False,
             "error": "cookpot_requires_4_items",
             "total": total,
-            "slots": {k: int(round(v)) for k, v in counts.items()},
+            "slots": slots_i,
         }
 
-    # int-normalize (cookpot is discrete)
-    slots_i: Dict[str, int] = {}
-    for k, v in counts.items():
-        n = int(round(v))
-        if n <= 0:
-            continue
-        slots_i[k] = slots_i.get(k, 0) + n
+    tags_by_item, _ = build_ingredient_index(ingredients or {})
 
     candidates: List[CookingRecipe] = []
+    candidate_rows: List[Dict[str, Any]] = []
+    near_miss: List[Dict[str, Any]] = []
     for r in recipes:
-        if not r.card_ingredients:
-            continue
-        if _requirements_satisfied(r.card_ingredients, {k: float(v) for k, v in slots_i.items()}):
+        ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
+        score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
+        row = {
+            "name": r.name,
+            "priority": float(r.priority),
+            "weight": float(r.weight),
+            "score": score,
+            "penalty": penalty,
+            "missing": ev.get("missing") or [],
+            "rule_mode": ev.get("rule_mode"),
+            "warnings": ev.get("warnings") or [],
+        }
+        if ev.get("ok"):
             candidates.append(r)
+            row["ok"] = True
+            candidate_rows.append(row)
+        else:
+            row["ok"] = False
+            near_miss.append(row)
 
     if candidates:
         candidates.sort(key=lambda x: (-float(x.priority), -float(x.weight), x.name))
@@ -130,9 +445,12 @@ def simulate_cookpot(
         return {
             "ok": True,
             "result": best.name,
-            "reason": "matched_card_ingredients",
+            "reason": "matched_constraints",
             "candidates": [c.__dict__ for c in top],
+            "cookable": sorted(candidate_rows, key=lambda x: (-x.get("score", 0.0), x.get("name", "")))[: return_top],
             "slots": slots_i,
+            "near_miss": sorted(near_miss, key=lambda x: (-x.get("score", 0.0), x.get("name", "")))[: return_top],
+            "formula": "score = priority*1000 + weight*100 - missing_penalty",
         }
 
     # fallback
@@ -143,7 +461,10 @@ def simulate_cookpot(
             "result": "wetgoop",
             "reason": "fallback_wetgoop",
             "candidates": [],
+            "cookable": [],
             "slots": slots_i,
+            "near_miss": [],
+            "formula": "score = priority*1000 + weight*100 - missing_penalty",
         }
 
     return {
@@ -151,4 +472,73 @@ def simulate_cookpot(
         "error": "no_match_and_no_wetgoop",
         "candidates": [],
         "slots": slots_i,
+    }
+
+
+def explore_cookpot(
+    recipes: List[CookingRecipe],
+    slots: Dict[str, Any],
+    *,
+    ingredients: Dict[str, Any],
+    limit: int = 200,
+) -> Dict[str, Any]:
+    slots_i = _normalize_slots(slots)
+    total = sum(int(v) for v in slots_i.values())
+    if total > 4:
+        return {
+            "ok": False,
+            "error": "cookpot_requires_max_4_items",
+            "total": total,
+            "slots": slots_i,
+        }
+
+    remaining = 4 - total
+    tags_by_item, max_by_tag = build_ingredient_index(ingredients or {})
+
+    cookable: List[Dict[str, Any]] = []
+    near_miss: List[Dict[str, Any]] = []
+    for r in recipes:
+        ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
+        score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
+        row = {
+            "name": r.name,
+            "priority": float(r.priority),
+            "weight": float(r.weight),
+            "score": score,
+            "penalty": penalty,
+            "missing": ev.get("missing") or [],
+            "rule_mode": ev.get("rule_mode"),
+            "warnings": ev.get("warnings") or [],
+        }
+        if ev.get("rule_mode") == "rule":
+            possible = _possible_with_remaining(
+                _get_rule_constraints(r),
+                tags_total=ev.get("tags_total") or {},
+                names_total=ev.get("names_total") or {},
+                remaining=remaining,
+                max_by_tag=max_by_tag,
+            )
+            if possible:
+                cookable.append(row)
+            else:
+                near_miss.append(row)
+        elif ev.get("rule_mode") == "card" and total == 4:
+            if ev.get("ok"):
+                cookable.append(row)
+            else:
+                near_miss.append(row)
+        else:
+            near_miss.append(row)
+
+    cookable.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
+    near_miss.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
+
+    return {
+        "ok": True,
+        "slots": slots_i,
+        "total": total,
+        "remaining": remaining,
+        "cookable": cookable[:limit],
+        "near_miss": near_miss[:limit],
+        "formula": "score = priority*1000 + weight*100 - missing_penalty",
     }

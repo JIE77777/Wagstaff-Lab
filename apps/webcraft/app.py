@@ -14,7 +14,6 @@ from .api import router as api_router
 from .catalog_store import CatalogStore
 from .icon_service import IconConfig, IconService
 from .i18n_index import I18nIndexStore
-from .i18n_service import I18nConfig, I18nService
 from .settings import WebCraftSettings
 from .tuning_trace import TuningTraceStore
 from .ui import render_index_html, render_cooking_html, render_catalog_html
@@ -57,14 +56,17 @@ def create_app(
         redoc_url=None,
     )
 
-    # static (icons live here)
+    # static: app assets vs data outputs
     project_root = Path(__file__).resolve().parents[2]
-    static_root = Path(static_root_dir) if static_root_dir else (project_root / "data" / "static")
+    app_static_root = project_root / "apps" / "webcraft" / "static"
+    data_static_root = Path(static_root_dir) if static_root_dir else (project_root / "data" / "static")
     try:
-        static_root.mkdir(parents=True, exist_ok=True)
+        app_static_root.mkdir(parents=True, exist_ok=True)
+        data_static_root.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
-    app.mount("/static", StaticFiles(directory=str(static_root), check_dir=False), name="static")
+    app.mount("/static/app", StaticFiles(directory=str(app_static_root), check_dir=False), name="static-app")
+    app.mount("/static/data", StaticFiles(directory=str(data_static_root), check_dir=False), name="static-data")
 
     # state
     app.state.store = CatalogStore(Path(catalog_path))
@@ -116,7 +118,7 @@ def create_app(
     app.state.engine = None
     if enable_analyzer_arg or dst_root_arg or scripts_zip_arg or scripts_dir_arg:
         try:
-            from engine import WagstaffEngine
+            from core.engine import WagstaffEngine
             app.state.engine = WagstaffEngine(
                 load_db=bool(analyzer_load_db),
                 silent=True,
@@ -128,40 +130,10 @@ def create_app(
             app.state.engine = None
     app.state.auto_reload_catalog = bool(auto_reload_catalog)
 
-    # i18n (optional; from DST .po language pack)
-    #
-    # Notes
-    # - analyzer engine may mount a "no language" scripts bundle (fast iteration)
-    # - catalog meta (store.meta()['scripts_zip']) usually points to DST's scripts.zip that contains languages
-    # - we precompile a small id->zh_name JSON into static/i18n so the UI can enable 中文 immediately
-    try:
-        i18n_cfg = I18nConfig.from_env()
+    # i18n index only (runtime PO parsing disabled)
+    app.state.i18n_service = None
 
-        i18n_dir = static_root / "i18n"
-        isvc = I18nService(
-            i18n_cfg,
-            engine=getattr(app.state, "engine", None),
-            static_dir=i18n_dir,
-            scripts_zip_hint=scripts_zip_hint,
-        )
-
-        # best-effort warmup (do not crash server if language pack is missing)
-        try:
-            isvc.warmup(
-                assets=app.state.store.assets(),
-                item_ids=app.state.store.item_ids(include_icon_only=True),
-                engine=getattr(app.state, "engine", None),
-                scripts_zip_hint=scripts_zip_hint,
-                langs=["zh"],
-            )
-        except Exception:
-            pass
-
-        app.state.i18n_service = isvc
-    except Exception:
-        app.state.i18n_service = None
-
-    icons_dir = static_root / "icons"
+    icons_dir = data_static_root / "icons"
     try:
         icons_dir.mkdir(parents=True, exist_ok=True)
     except Exception:

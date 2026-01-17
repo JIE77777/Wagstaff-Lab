@@ -10,13 +10,13 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "core"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from engine import WagstaffEngine  # noqa: E402
-from resource_index import build_resource_index, render_resource_index_summary  # noqa: E402
+from core.engine import WagstaffEngine  # noqa: E402
+from core.indexers.resource_index import build_resource_index, render_resource_index_summary  # noqa: E402
 
 try:
-    from utils import wagstaff_config  # type: ignore
+    from core.utils import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

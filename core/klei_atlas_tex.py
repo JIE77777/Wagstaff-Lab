@@ -490,6 +490,15 @@ def unpremultiply_alpha_rgba(img: Image.Image) -> Image.Image:
     return Image.frombytes("RGBA", img.size, bytes(raw))
 
 
+def fix_ktex_orientation(img: Image.Image) -> Image.Image:
+    """Fix KTEX orientation for UI output."""
+
+    try:
+        return img.transpose(Image.FLIP_TOP_BOTTOM)
+    except Exception:
+        return img
+
+
 def extract_atlas_element(
     atlas: Atlas,
     tex_image: Image.Image,
@@ -510,6 +519,7 @@ def extract_atlas_element(
         return None
 
     cropped = tex_image.crop((left, top, right, bottom))
+    cropped = fix_ktex_orientation(cropped)
     if unpremultiply:
         try:
             cropped = unpremultiply_alpha_rgba(cropped)

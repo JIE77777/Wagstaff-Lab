@@ -12,12 +12,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "core"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from i18n_index import build_item_name_map, load_ui_strings  # noqa: E402
+from core.indexers.i18n_index import build_item_name_map, load_ui_strings  # noqa: E402
+from core.schemas.meta import build_meta  # noqa: E402
 
 try:
-    from utils import wagstaff_config  # type: ignore
+    from core.utils import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 
@@ -226,20 +227,31 @@ def main() -> int:
 
     langs = sorted(set([lang] + list(ui_strings.keys())))
 
-    meta = {
-        "schema": 1,
-        "lang": lang,
-        "po_source": str(po_src or ""),
-        "po_inner": str(po_inner or ""),
-        "po_sig": str(po_sig or ""),
-        "catalog": str(catalog_path),
-        "icon_index": str(icon_index_path) if icon_index_path else "",
-        "ui_source": str(ui_path),
-        "counts": {
-            "names": len(names),
-            "ui": {k: len(v) for k, v in (ui_strings or {}).items()},
+    meta = build_meta(
+        schema=1,
+        tool="build_i18n_index",
+        sources={
+            "po_source": str(po_src or ""),
+            "po_inner": str(po_inner or ""),
+            "po_sig": str(po_sig or ""),
+            "catalog": str(catalog_path),
+            "icon_index": str(icon_index_path) if icon_index_path else "",
+            "ui_source": str(ui_path),
         },
-    }
+        extra={
+            "lang": lang,
+            "po_source": str(po_src or ""),
+            "po_inner": str(po_inner or ""),
+            "po_sig": str(po_sig or ""),
+            "catalog": str(catalog_path),
+            "icon_index": str(icon_index_path) if icon_index_path else "",
+            "ui_source": str(ui_path),
+            "counts": {
+                "names": len(names),
+                "ui": {k: len(v) for k, v in (ui_strings or {}).items()},
+            },
+        },
+    )
 
     doc = {
         "schema_version": 1,

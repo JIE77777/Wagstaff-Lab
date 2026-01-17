@@ -7,6 +7,994 @@ from html import escape
 # - Keep HTML/JS as a normal triple-quoted string.
 # - Do NOT use Python f-strings here: the template contains many `{}` (CSS/JS/template literals).
 
+_SHARED_CSS = r"""
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/BricolageGrotesque-normal-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/BricolageGrotesque-normal-600.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/BricolageGrotesque-normal-700.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/IBMPlexSans-normal-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/IBMPlexSans-normal-500.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/IBMPlexSans-normal-600.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/JetBrainsMono-normal-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('__WAGSTAFF_APP_ROOT__/static/app/fonts/JetBrainsMono-normal-500.ttf') format('truetype');
+}
+
+:root {
+  --paper: #f8f2e6;
+  --paper-2: #efe4d2;
+  --ink: #1b1c1f;
+  --muted: #6f6a61;
+  --line: rgba(27, 28, 31, 0.16);
+  --accent: #0f7b6c;
+  --accent-2: #d07b3a;
+  --accent-soft: rgba(15, 123, 108, 0.16);
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-strong: #ffffff;
+  --shadow: 0 24px 56px rgba(22, 23, 24, 0.12);
+  --shadow-soft: 0 12px 24px rgba(22, 23, 24, 0.08);
+  --radius: 18px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Noto Sans", sans-serif;
+  background:
+    radial-gradient(900px 560px at 12% -10%, rgba(15, 123, 108, 0.2), transparent 60%),
+    radial-gradient(860px 520px at 95% 0%, rgba(208, 123, 58, 0.16), transparent 60%),
+    linear-gradient(180deg, var(--paper), var(--paper-2));
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(27, 28, 31, 0.08) 0.6px, transparent 0.6px),
+    repeating-linear-gradient(115deg, rgba(27, 28, 31, 0.04) 0, rgba(27, 28, 31, 0.04) 1px, transparent 1px, transparent 24px);
+  background-size: 28px 28px, 220px 220px;
+  opacity: 0.45;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: #0a5d51; }
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(248, 242, 230, 0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar,
+.subbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 14px 20px;
+}
+.topbar { justify-content: space-between; }
+.subbar {
+  border-top: 1px solid rgba(27, 28, 31, 0.08);
+  background: rgba(255, 255, 255, 0.4);
+  justify-content: space-between;
+}
+.topbar-left,
+.topbar-right,
+.subbar-left,
+.subbar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+}
+.topbar-right { margin-left: auto; }
+.subbar-right { flex: 1 1 360px; justify-content: flex-end; }
+.subbar-left { flex-direction: column; align-items: flex-start; gap: 4px; }
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+.brand-sub {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.page-title {
+  font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+.page-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.nav-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.nav-link:hover {
+  color: var(--ink);
+  border-color: rgba(15, 123, 108, 0.45);
+  transform: translateY(-1px);
+}
+.nav-link.active {
+  color: #fff;
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.label-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mode-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+.mode-btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.search {
+  flex: 1 1 300px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 560px;
+}
+input[type="text"],
+textarea {
+  width: 100%;
+  background: var(--panel-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  box-shadow: var(--shadow-soft);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input[type="text"]:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea {
+  min-height: 84px;
+  resize: vertical;
+  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+}
+select {
+  background: var(--panel-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+button,
+.btn {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+button:hover,
+.btn:hover {
+  border-color: rgba(15, 123, 108, 0.45);
+  transform: translateY(-1px);
+}
+button.primary,
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+button.primary:hover,
+.btn.primary:hover {
+  background: #0a5d51;
+}
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+.btn.ghost:hover { color: var(--ink); transform: none; }
+.btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.btn.ghost.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.btn.back { display: none; }
+
+button:focus-visible,
+.nav-link:focus-visible,
+input[type="text"]:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.meta,
+#meta {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 42vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) minmax(320px, 420px) minmax(420px, 1fr);
+  grid-template-areas: "filters recipes detail";
+  gap: 20px;
+  padding: 20px;
+}
+.layout > .panel:nth-child(1) { grid-area: filters; }
+.layout > .panel:nth-child(2) { grid-area: recipes; }
+.layout > .panel:nth-child(3) { grid-area: detail; }
+
+body[data-view="explore"] #filterPanel,
+body[data-view="simulate"] #filterPanel {
+  display: none;
+}
+body[data-view="explore"] .layout,
+body[data-view="simulate"] .layout {
+  grid-template-columns: minmax(320px, 440px) minmax(420px, 1fr);
+  grid-template-areas: "recipes detail";
+}
+body[data-view="explore"] #searchBar,
+body[data-view="simulate"] #searchBar {
+  display: none;
+}
+
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  grid-template-areas: "list detail";
+  gap: 20px;
+  padding: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: panelRise 0.5s ease both;
+}
+.panel--primary {
+  border-color: rgba(15, 123, 108, 0.45);
+  box-shadow: 0 30px 60px rgba(20, 30, 30, 0.16);
+}
+.panel-head,
+.phead,
+.panel h2 {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.panel-title {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel h2 button {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  box-shadow: none;
+}
+.panel-body,
+.pbody,
+.detail-body,
+.detail {
+  padding: 18px;
+}
+.panel-body--meta {
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.list {
+  max-height: min(60vh, 680px);
+  overflow: auto;
+}
+.list::-webkit-scrollbar { width: 10px; }
+.list::-webkit-scrollbar-thumb {
+  background: rgba(27, 28, 31, 0.16);
+  border-radius: 999px;
+}
+.list::-webkit-scrollbar-track { background: transparent; }
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.list .item,
+.li {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(27, 28, 31, 0.08);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  animation: itemIn 0.25s ease;
+}
+.li { grid-template-columns: auto 1fr; }
+.list .item:hover,
+.li:hover { background: rgba(15, 123, 108, 0.08); }
+.list .item.active,
+.li.active {
+  background: rgba(15, 123, 108, 0.18);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.li > div { display: flex; flex-direction: column; gap: 4px; }
+.item .name { font-weight: 600; }
+.item .meta { color: var(--muted); font-size: 12px; }
+
+.detail-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.hero-title {
+  font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+.hero-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill,
+.chip {
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 1px solid rgba(27, 28, 31, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+}
+.chip {
+  color: var(--ink);
+  background: rgba(15, 123, 108, 0.08);
+  border-color: rgba(15, 123, 108, 0.25);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-soft);
+}
+.stat-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat-value { margin-top: 6px; }
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.stat-row .mono {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat-actions { flex: 0 0 auto; }
+
+.section { border-top: 1px dashed rgba(27, 28, 31, 0.16); padding-top: 12px; }
+.section-title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.list-lines { display: flex; flex-direction: column; gap: 6px; }
+.line { display: flex; gap: 8px; align-items: baseline; }
+
+.tool-card {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.result-section {
+  padding: 12px 16px;
+  border-bottom: 1px dashed rgba(27, 28, 31, 0.12);
+}
+.result-section:last-child { border-bottom: none; }
+.result-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.result-grid {
+  display: grid;
+  gap: 12px;
+}
+.result-card {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  animation: cardIn 0.4s ease both;
+}
+.result-card:hover {
+  border-color: rgba(15, 123, 108, 0.4);
+  transform: translateY(-1px);
+}
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.result-score { font-size: 12px; color: var(--muted); }
+.result-missing { font-size: 12px; color: #9a3412; }
+.result-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(27, 28, 31, 0.08);
+  cursor: pointer;
+  animation: cardIn 0.35s ease both;
+}
+.result-row:hover { background: rgba(15, 123, 108, 0.08); }
+.formula {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+.kv .k { color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.err {
+  color: #7f1d1d;
+  font-size: 12px;
+  white-space: pre-wrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(185, 28, 28, 0.2);
+  background: rgba(254, 242, 242, 0.9);
+}
+.err:empty { display: none; }
+.ok { color: #059669; font-size: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.mono { font-family: "JetBrains Mono", "SFMono-Regular", monospace; }
+#listCount {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+}
+#stats { color: var(--muted); font-size: 12px; }
+
+.itemRef { display: inline-flex; align-items: center; gap: 8px; }
+.itemIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(27, 28, 31, 0.2);
+  background: rgba(15, 123, 108, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.itemIconImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+.itemIconFallback {
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.itemLabel { color: var(--ink); }
+
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(27, 28, 31, 0.2);
+  background: rgba(15, 123, 108, 0.08);
+  object-fit: contain;
+}
+.icon.placeholder { display: inline-block; }
+
+pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-soft);
+  overflow: auto;
+  max-height: 520px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+}
+details summary { cursor: pointer; color: var(--muted); }
+.err.fixed {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 50;
+}
+
+/* Cooking page overrides */
+body.page--cooking {
+  --paper: #f9f1e6;
+  --paper-2: #eadfce;
+  --ink: #1f1a16;
+  --muted: #7a6859;
+  --accent: #c3523a;
+  --accent-2: #1f7a72;
+  --accent-soft: rgba(195, 82, 58, 0.18);
+  --panel: rgba(255, 255, 255, 0.92);
+  --panel-strong: #ffffff;
+  --shadow: 0 28px 60px rgba(31, 26, 22, 0.14);
+  --shadow-soft: 0 16px 32px rgba(31, 26, 22, 0.1);
+  --radius: 20px;
+  background:
+    radial-gradient(760px 520px at 10% -20%, rgba(31, 122, 114, 0.2), transparent 60%),
+    radial-gradient(820px 520px at 110% 0%, rgba(195, 82, 58, 0.22), transparent 60%),
+    linear-gradient(180deg, var(--paper), var(--paper-2));
+}
+body.page--cooking::before {
+  background-image:
+    radial-gradient(rgba(31, 26, 22, 0.08) 0.6px, transparent 0.6px),
+    repeating-linear-gradient(115deg, rgba(31, 26, 22, 0.05) 0, rgba(31, 26, 22, 0.05) 1px, transparent 1px, transparent 26px);
+  background-size: 30px 30px, 240px 240px;
+  opacity: 0.5;
+}
+body.page--cooking .header {
+  background: rgba(249, 241, 230, 0.94);
+  border-bottom: 1px solid rgba(31, 26, 22, 0.14);
+}
+body.page--cooking .brand {
+  letter-spacing: 0.36em;
+}
+body.page--cooking .page-title {
+  font-size: 22px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+body.page--cooking .page-sub {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+body.page--cooking .search {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(31, 26, 22, 0.14);
+  padding: 6px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-soft);
+}
+body.page--cooking input[type="text"] {
+  border-radius: 999px;
+  box-shadow: none;
+}
+body.page--cooking .nav-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+body.page--cooking .mode-toggle {
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(31, 26, 22, 0.12);
+  box-shadow: var(--shadow-soft);
+}
+body.page--cooking .mode-btn {
+  border: none;
+  box-shadow: none;
+  padding: 6px 14px;
+}
+body.page--cooking .mode-btn::before {
+  content: attr(data-icon);
+  margin-right: 6px;
+  font-size: 12px;
+}
+body.page--cooking .layout {
+  gap: 24px;
+  padding: 24px;
+}
+body.page--cooking .list {
+  max-height: min(64vh, 720px);
+}
+body.page--cooking .list .item,
+body.page--cooking .result-row {
+  border-bottom: 1px dashed rgba(31, 26, 22, 0.12);
+}
+body.page--cooking .list .item.active {
+  background: rgba(195, 82, 58, 0.12);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+body.page--cooking .result-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+body.page--cooking .panel {
+  border: 1px solid rgba(31, 26, 22, 0.14);
+  box-shadow: var(--shadow);
+}
+body.page--cooking .panel-head {
+  position: relative;
+  background: rgba(255, 255, 255, 0.78);
+}
+body.page--cooking .panel-head::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--accent-2);
+}
+body.page--cooking .panel-title {
+  padding-left: 10px;
+  letter-spacing: 0.28em;
+}
+body.page--cooking .panel--primary {
+  border-color: rgba(31, 122, 114, 0.4);
+  box-shadow: 0 32px 70px rgba(31, 122, 114, 0.18);
+}
+body.page--cooking .result-card {
+  border-color: rgba(31, 26, 22, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+}
+body.page--cooking .result-card.is-ok,
+body.page--cooking .result-row.is-ok {
+  box-shadow: inset 4px 0 0 rgba(31, 122, 114, 0.6);
+}
+body.page--cooking .result-card.is-miss,
+body.page--cooking .result-row.is-miss {
+  box-shadow: inset 4px 0 0 rgba(195, 82, 58, 0.6);
+}
+body.page--cooking .result-card:hover {
+  border-color: rgba(195, 82, 58, 0.45);
+}
+body.page--cooking .result-meta .pill {
+  border-color: rgba(195, 82, 58, 0.25);
+  background: rgba(195, 82, 58, 0.12);
+}
+body.page--cooking .result-missing {
+  color: #8a3d22;
+}
+body.page--cooking .tool-card {
+  border: 1px dashed rgba(31, 26, 22, 0.16);
+  background: rgba(255, 255, 255, 0.7);
+}
+body.page--cooking .tool-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+body.page--cooking .ingredient-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+body.page--cooking .ingredient-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+body.page--cooking .ingredient-search input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 26, 22, 0.16);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+body.page--cooking .ingredient-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body.page--cooking .ingredient-filter {
+  border: 1px solid rgba(31, 26, 22, 0.16);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+body.page--cooking .ingredient-filter.active {
+  background: var(--accent-soft);
+  border-color: rgba(195, 82, 58, 0.4);
+}
+body.page--cooking .ingredient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+body.page--cooking .ingredient-item {
+  border: 1px solid rgba(31, 26, 22, 0.12);
+  border-radius: 14px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.88);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+body.page--cooking .ingredient-item:hover {
+  border-color: rgba(195, 82, 58, 0.45);
+  transform: translateY(-1px);
+}
+body.page--cooking .ingredient-item .itemRef {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+body.page--cooking .ingredient-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+body.page--cooking .formula {
+  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+  font-size: 11px;
+}
+
+#detailPanel,
+#listPanel { scroll-margin-top: 150px; }
+
+@keyframes panelRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "filters recipes"
+      "detail detail";
+  }
+}
+@media (max-width: 980px) {
+  .subbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .search { max-width: none; }
+  .meta,
+  #meta { max-width: 100%; }
+}
+@media (max-width: 860px) {
+  .header { position: static; }
+  .topbar, .subbar { padding: 10px 14px; }
+  .brand { font-size: 11px; letter-spacing: 0.28em; }
+  .nav-link { padding: 4px 10px; }
+  .page-title { font-size: 18px; }
+  .page-sub { display: none; }
+  .subbar-left { flex-direction: row; align-items: baseline; gap: 8px; }
+  #detailPanel,
+  #listPanel { scroll-margin-top: 12px; }
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "filters"
+      "recipes"
+      "detail";
+    padding: 14px;
+  }
+  .wrap {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "list"
+      "detail";
+    padding: 14px;
+  }
+  .grid2 { grid-template-columns: 1fr; }
+  .kv { grid-template-columns: 1fr; }
+  .list { max-height: 42vh; }
+  .btn.back { display: inline-flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+"""
+
 _INDEX_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -15,274 +1003,74 @@ _INDEX_TEMPLATE = r"""<!doctype html>
   <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
   <title>Wagstaff WebCraft</title>
   <style>
-    :root {
-      --bg: #0b0f14;
-      --panel: #0f1722;
-      --panel2: #111b29;
-      --text: #e6edf3;
-      --muted: #9fb0c0;
-      --border: #233042;
-      --accent: #79c0ff;
-      --accent2: #a5d6ff;
-      --bad: #ff7b72;
-      --ok: #7ee787;
-    }
-    html, body {
-      margin: 0; padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .nav {
-      font-size: 12px;
-      color: var(--muted);
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: rgba(17,27,41,0.6);
-    }
-    .nav:hover {
-      text-decoration: none;
-      border-color: #3b4b63;
-      color: var(--text);
-    }
-    .nav.active {
-      color: var(--text);
-      border-color: rgba(121, 192, 255, 0.45);
-      background: rgba(121, 192, 255, 0.10);
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(11, 15, 20, 0.92);
-      backdrop-filter: blur(8px);
-    }
-    .topbar h1 {
-      font-size: 14px;
-      margin: 0;
-      font-weight: 650;
-      letter-spacing: .3px;
-      color: var(--accent2);
-    }
-    .search {
-      flex: 1;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    input[type="text"], textarea {
-      width: 100%;
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      outline: none;
-    }
-    textarea {
-      min-height: 60px;
-      resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-    select {
-      background: var(--panel2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 12px;
-      outline: none;
-    }
-    button {
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 8px 10px;
-      cursor: pointer;
-    }
-    button:hover { border-color: #3b4b63; }
-    button.primary {
-      background: rgba(121, 192, 255, 0.12);
-      border-color: rgba(121, 192, 255, 0.25);
-    }
-    button.primary:hover {
-      border-color: rgba(121, 192, 255, 0.45);
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 260px 1fr 420px;
-      gap: 10px;
-      padding: 10px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      min-height: calc(100vh - 62px);
-    }
-    .panel h2 {
-      margin: 0;
-      padding: 10px 12px;
-      font-size: 13px;
-      border-bottom: 1px solid var(--border);
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .list {
-      max-height: calc(100vh - 62px - 44px);
-      overflow: auto;
-    }
-    .item {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(35, 48, 66, 0.65);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .item:hover { background: rgba(255,255,255,0.03); }
-    .item.active { background: rgba(121,192,255,0.08); }
-    .item .name { font-weight: 560; }
-    .item .meta { color: var(--muted); font-size: 12px; }
-    .detail {
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .kv {
-      display: grid;
-      grid-template-columns: 120px 1fr;
-      gap: 6px 10px;
-      font-size: 13px;
-    }
-    .kv .k { color: var(--muted); }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .chip {
-      font-size: 12px;
-      color: var(--muted);
-      padding: 3px 8px;
-      border: 1px solid rgba(35,48,66,0.9);
-      border-radius: 999px;
-      background: rgba(17,27,41,0.8);
-    }
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .err {
-      color: var(--bad);
-      font-size: 12px;
-      white-space: pre-wrap;
-    }
-    .ok {
-      color: var(--ok);
-      font-size: 12px;
-    }
-    .muted { color: var(--muted); }
-    .small { font-size: 12px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .itemRef {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .itemIcon {
-      width: 18px;
-      height: 18px;
-      border-radius: 4px;
-      border: 1px solid rgba(35,48,66,0.9);
-      background: rgba(17,27,41,0.8);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      flex: 0 0 auto;
-    }
-    .itemIconImg {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      image-rendering: pixelated;
-      display: block;
-    }
-    .itemIconFallback {
-      width: 100%;
-      height: 100%;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .itemLabel {
-      color: var(--text);
-    }
+__SHARED_CSS__
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <h1>Wagstaff WebCraft</h1>
-    <a id="navCraft" class="nav active" href="#">Craft</a>
-    <a id="navCooking" class="nav" href="#">Cooking</a>
-    <a id="navCatalog" class="nav" href="#">Catalog</a>
-    <div class="small" style="display:flex; align-items:center; gap:6px;">
-      <span class="muted" id="labelModeLabel">Label</span>
-      <select id="labelMode">
-        <option value="en">EN</option>
-        <option value="zh">中文</option>
-        <option value="id">ID</option>
-      </select>
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a id="navCraft" class="nav-link active" href="#">Craft</a>
+          <a id="navCooking" class="nav-link" href="#">Cooking</a>
+          <a id="navCatalog" class="nav-link" href="#">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta"></div>
+      </div>
     </div>
-    <div class="search">
-      <input id="q" type="text" placeholder="Search: axe | ing:twigs | tag:bookbuilder | filter:TOOLS | tab:LIGHT" />
-      <button id="btnSearch" class="primary">Search</button>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title">Craft Atlas</div>
+        <div class="page-sub">Recipes and planning tools</div>
+      </div>
+      <div class="subbar-right">
+        <div class="search">
+          <input id="q" type="text" placeholder="Search: axe | ing:twigs | tag:bookbuilder | filter:TOOLS | tab:LIGHT" />
+          <button id="btnSearch" class="primary">Search</button>
+        </div>
+      </div>
     </div>
-    <div class="small muted" id="meta"></div>
-  </div>
+  </header>
 
   <div class="layout">
-    <div class="panel">
-      <h2>
-        <span id="groupTitle">Filters</span>
-        <button id="btnToggle">Toggle</button>
-      </h2>
+    <div class="panel panel--filters">
+      <div class="panel-head">
+        <div class="panel-title" id="groupTitle">Filters</div>
+        <div class="panel-actions">
+          <button id="btnToggle" class="btn ghost">Toggle</button>
+        </div>
+      </div>
       <div class="list" id="groupList"></div>
     </div>
 
-    <div class="panel">
-      <h2>
-        <span id="listTitle">Recipes</span>
+    <div class="panel panel--list" id="listPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="listTitle">Recipes</div>
         <span class="small muted" id="listCount"></span>
-      </h2>
+      </div>
       <div class="list" id="recipeList"></div>
     </div>
 
-    <div class="panel">
-      <h2 id="detailTitle">Details</h2>
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title"><span id="detailTitle">Details</span></div>
+        <button class="btn ghost back" id="btnBackList">Back to list</button>
+      </div>
       <div class="detail">
         <div id="detail"></div>
 
-        <div>
+        <div class="tool-card">
           <div class="small muted" id="inventoryHelp">Inventory (for missing/planning)</div>
           <textarea id="inv" placeholder="twigs=2, flint=1
 rocks=10"></textarea>
@@ -318,6 +1106,16 @@ rocks=10"></textarea>
     if (navCatalog) navCatalog.href = APP_ROOT + '/catalog';
 
     const el = (id) => document.getElementById(id);
+    const isNarrow = () => window.matchMedia('(max-width: 860px)').matches;
+    const focusPanel = (id) => {
+      if (!isNarrow()) return;
+      const node = el(id);
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const focusDetail = () => focusPanel('detailPanel');
+    const focusList = () => focusPanel('listPanel');
+    const backBtn = el('btnBackList');
+    if (backBtn) backBtn.onclick = () => focusList();
     const state = {
       mode: 'filters', // filters | tabs | tags
       groups: [],
@@ -396,7 +1194,7 @@ rocks=10"></textarea>
       const cfg = state.icon || {};
       const mode = String(cfg.mode || 'off');
       const enc = encodeURIComponent(iid);
-      const staticBaseRaw = String(cfg.static_base || '/static/icons');
+      const staticBaseRaw = String(cfg.static_base || '/static/data/icons');
       const staticBase = (APP_ROOT && staticBaseRaw.startsWith('/') && !staticBaseRaw.startsWith(APP_ROOT + '/'))
         ? (APP_ROOT + staticBaseRaw)
         : staticBaseRaw;
@@ -448,8 +1246,6 @@ rocks=10"></textarea>
     async function ensureI18nNames(mode) {
       if (String(mode || '') !== 'zh') return;
       if (state.i18nLoaded && state.i18nLoaded.zh) return;
-      const enabled = Boolean(state.i18n && state.i18n.enabled);
-      if (!enabled) return;
       try {
         const res = await fetchJson(api('/api/v1/i18n/names/zh'));
         state.i18nNames.zh = res.names || {};
@@ -567,8 +1363,11 @@ rocks=10"></textarea>
       await ensureI18nNames(state.labelMode);
       await ensureUiStrings(uiLang());
       applyUiStrings();
+      setView(state.view);
       renderRecipeList();
       renderRecipeDetail(state.activeRecipeData);
+      renderIngredientFilters();
+      renderIngredientGrid();
     }
 
     function renderItem(id) {
@@ -619,6 +1418,12 @@ rocks=10"></textarea>
     }
 
     function renderRecipeList() {
+      if (state.view !== 'encyclopedia') {
+        renderResultList();
+        return;
+      }
+      const formulaEl = el('formula');
+      if (formulaEl) formulaEl.textContent = '';
       const box = el('recipeList');
       box.innerHTML = '';
       el('listCount').textContent = state.recipes.length ? `${state.recipes.length}` : '';
@@ -643,31 +1448,63 @@ rocks=10"></textarea>
         const amt = i.amount ?? '';
         const num = i.amount_num;
         const extra = (num === null || num === undefined) ? ' <span class="muted">(?)</span>' : '';
-        return `<div>• ${renderItem(item)} <span class="mono">x${escHtml(amt)}</span>${extra}</div>`;
+        return `<div class="line"><span>•</span><span>${renderItem(item)} <span class="mono">x${escHtml(amt)}</span>${extra}</span></div>`;
       }).join('');
+      const tabLabel = String(rec.tab || '').replace('RECIPETABS.','');
+      const techLabel = String(rec.tech || '').replace('TECH.','');
+      const heroSubParts = [];
+      if (tabLabel) heroSubParts.push(`Tab: ${tabLabel}`);
+      if (techLabel) heroSubParts.push(`Tech: ${techLabel}`);
+      const heroSub = heroSubParts.length ? heroSubParts.join(' | ') : '-';
+      const heroMeta = [tabLabel, techLabel].filter(Boolean).map(v => `<span class="pill">${escHtml(v)}</span>`).join('');
+      const heroMetaHtml = heroMeta || '<span class="muted">-</span>';
+      const statRows = [
+        {
+          label: t('craft.detail.product', 'Product'),
+          value: rec.product ? renderItem(rec.product) : '<span class="muted">-</span>',
+        },
+        {
+          label: t('craft.detail.tech', 'Tech'),
+          value: techLabel ? `<span class="mono">${escHtml(techLabel)}</span>` : '<span class="muted">-</span>',
+        },
+        {
+          label: t('craft.detail.station', 'Station'),
+          value: rec.station_tag ? `<span class="mono">${escHtml(rec.station_tag)}</span>` : '<span class="muted">-</span>',
+        },
+        {
+          label: t('craft.detail.builder_skill', 'Builder skill'),
+          value: rec.builder_skill ? `<span class="mono">${escHtml(rec.builder_skill)}</span>` : '<span class="muted">-</span>',
+        },
+      ];
+      const statCards = statRows.map(row => `
+        <div class="stat-card">
+          <div class="stat-label">${escHtml(row.label)}</div>
+          <div class="stat-value">${row.value}</div>
+        </div>
+      `).join('');
 
       el('detail').innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
-          <div style="font-size:16px; font-weight:650;">${renderItem(rec.name)}</div>
-          <div class="small muted">${String(rec.tab || '').replace('RECIPETABS.','')}</div>
+        <div class="detail-hero">
+          <div>
+            <div class="hero-title">${renderItem(rec.name)}</div>
+            <div class="hero-sub">${escHtml(heroSub)}</div>
+          </div>
+          <div class="hero-meta">${heroMetaHtml}</div>
         </div>
-        <div class="kv">
-          <div class="k">${escHtml(t('craft.detail.product', 'Product'))}</div><div>${rec.product ? renderItem(rec.product) : ''}</div>
-          <div class="k">${escHtml(t('craft.detail.tech', 'Tech'))}</div><div class="mono">${String(rec.tech || '').replace('TECH.','')}</div>
-          <div class="k">${escHtml(t('craft.detail.station', 'Station'))}</div><div class="mono">${rec.station_tag || ''}</div>
-          <div class="k">${escHtml(t('craft.detail.builder_skill', 'Builder skill'))}</div><div class="mono">${rec.builder_skill || ''}</div>
+        <div class="stat-grid">
+          ${statCards}
         </div>
-        <div>
-          <div class="small muted">${escHtml(t('craft.detail.filters', 'Filters'))}</div>
+        <div class="section">
+          <div class="section-title">${escHtml(t('craft.detail.filters', 'Filters'))}</div>
           <div class="chips">${filters || '<span class="muted">-</span>'}</div>
         </div>
-        <div>
-          <div class="small muted">${escHtml(t('craft.detail.builder_tags', 'Builder tags'))}</div>
+        <div class="section">
+          <div class="section-title">${escHtml(t('craft.detail.builder_tags', 'Builder tags'))}</div>
           <div class="chips">${tags || '<span class="muted">-</span>'}</div>
         </div>
-        <div>
-          <div class="small muted">${escHtml(t('craft.detail.ingredients', 'Ingredients'))}</div>
-          ${ings || '<div class="muted">-</div>'}
+        <div class="section">
+          <div class="section-title">${escHtml(t('craft.detail.ingredients', 'Ingredients'))}</div>
+          <div class="list-lines">${ings || '<span class="muted">-</span>'}</div>
           ${(rec.ingredients_unresolved && rec.ingredients_unresolved.length)
             ? `<div class="muted small">${escHtml(t('craft.detail.unresolved', 'Unresolved'))}: ${rec.ingredients_unresolved.join(', ')}</div>`
             : ''}
@@ -741,6 +1578,7 @@ rocks=10"></textarea>
       const res = await fetchJson(api(`/api/v1/craft/recipes/${encodeURIComponent(name)}`));
       state.activeRecipeData = res.recipe || null;
       renderRecipeDetail(state.activeRecipeData);
+      focusDetail();
     }
 
     async function doSearch() {
@@ -860,185 +1698,87 @@ _CATALOG_TEMPLATE = """<!doctype html>
   <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
   <title>Wagstaff Catalog</title>
   <style>
-    :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --panel2: #0b1220;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --border: rgba(255,255,255,0.08);
-      --chip: rgba(255,255,255,0.10);
-      --warn: #f59e0b;
-      --err: #ef4444;
-    }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background: linear-gradient(180deg, #0b1220 0%, #0f172a 70%);
-      color: var(--text);
-    }
-    a { color: inherit; text-decoration: none; }
-    .topbar {
-      display:flex;
-      align-items:center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(0,0,0,0.20);
-      position: sticky;
-      top: 0;
-      backdrop-filter: blur(6px);
-      z-index: 5;
-    }
-    .brand { font-weight: 700; letter-spacing: 0.3px; }
-    .nav { display:flex; gap: 8px; margin-left: 8px; }
-    .btn {
-      display:inline-flex;
-      align-items:center;
-      gap: 6px;
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.03);
-      font-size: 13px;
-      cursor: pointer;
-      user-select: none;
-    }
-    .btn.active { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); }
-    select {
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      color: var(--text);
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 12px;
-      outline: none;
-      cursor: pointer;
-    }
-    .meta { margin-left:auto; font-size: 12px; color: var(--muted); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; max-width: 45vw; }
-
-    .wrap {
-      display:flex;
-      gap: 12px;
-      padding: 12px;
-    }
-    .panel {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(17,24,39,0.75);
-      box-shadow: 0 20px 80px rgba(0,0,0,0.35);
-      overflow: hidden;
-    }
-    .left { width: 42%; min-width: 360px; }
-    .right { flex: 1; min-width: 420px; }
-    .phead { padding: 10px 12px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.12); }
-    .pbody { padding: 12px; }
-    .row { display:flex; gap: 8px; align-items:center; }
-    input[type="text"] {
-      flex: 1;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,0.18);
-      color: var(--text);
-      outline: none;
-      font-size: 14px;
-    }
-    .small { font-size: 12px; color: var(--muted); }
-    .muted { color: var(--muted); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .list { max-height: calc(100vh - 190px); overflow:auto; }
-    .li {
-      display:flex;
-      align-items:center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-    }
-    .li:hover { background: rgba(255,255,255,0.04); }
-    .li.active { background: rgba(255,255,255,0.07); }
-    .icon { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); object-fit: contain; }
-    .icon.placeholder { display:inline-block; }
-    .item { display:inline-flex; align-items:center; gap: 8px; }
-    .chips { display:flex; gap: 6px; flex-wrap: wrap; }
-    .chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--chip); font-size: 12px; color: var(--muted); }
-    .section { margin-top: 14px; }
-    pre {
-      margin: 0;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,0.22);
-      overflow:auto;
-      max-height: 520px;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    details summary { cursor: pointer; color: var(--muted); }
-    .err {
-      position: fixed;
-      bottom: 12px;
-      left: 12px;
-      right: 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(239,68,68,0.35);
-      background: rgba(239,68,68,0.09);
-      color: #fecaca;
-      display:none;
-      white-space: pre-wrap;
-      z-index: 50;
-    }
+__SHARED_CSS__
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">Wagstaff</div>
-    <div class="nav">
-      <a class="btn" id="navCraft" href="__WAGSTAFF_APP_ROOT__/">Craft</a>
-      <a class="btn" id="navCooking" href="__WAGSTAFF_APP_ROOT__/cooking">Cooking</a>
-      <a class="btn active" id="navCatalog" href="__WAGSTAFF_APP_ROOT__/catalog">Catalog</a>
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a class="nav-link" id="navCraft" href="__WAGSTAFF_APP_ROOT__/">Craft</a>
+          <a class="nav-link" id="navCooking" href="__WAGSTAFF_APP_ROOT__/cooking">Cooking</a>
+          <a class="nav-link active" id="navCatalog" href="__WAGSTAFF_APP_ROOT__/catalog">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta">...</div>
+      </div>
     </div>
-    <div class="small" style="display:flex; align-items:center; gap:6px;">
-      <span class="muted" id="labelModeLabel">Label</span>
-      <select id="labelMode">
-        <option value="en">EN</option>
-        <option value="zh">中文</option>
-        <option value="id">ID</option>
-      </select>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title">Catalog Index</div>
+        <div class="page-sub">Items, stats, and prefab links</div>
+      </div>
+      <div class="subbar-right">
+        <div class="search">
+          <input id="q" type="text" placeholder="Search item id / name. Examples: beefalo, axe, spear, monstermeat" />
+          <button class="btn primary" id="btnSearch">Search</button>
+        </div>
+        <button class="btn ghost" id="btnAll">All</button>
+      </div>
     </div>
-    <div class="meta" id="meta">…</div>
-  </div>
+  </header>
 
   <div class="wrap">
-    <div class="panel left">
-      <div class="phead">
-        <div class="row">
-          <input id="q" type="text" placeholder="Search item id / name. Examples: beefalo, axe, spear, monstermeat" />
-          <button class="btn" id="btnSearch">Search</button>
-          <button class="btn" id="btnAll">All</button>
-        </div>
+    <div class="panel panel--list" id="listPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="listTitle">Catalog</div>
+        <span class="small muted" id="stats"></span>
+      </div>
+      <div class="panel-body panel-body--meta">
         <div class="small muted" id="searchHelp">Hints: kind:structure cat:weapon src:craft tag:monster comp:equippable slot:head</div>
-        <div class="small" id="stats"></div>
       </div>
       <div class="list" id="list"></div>
     </div>
 
-    <div class="panel right">
-      <div class="pbody" id="detail">
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="detailTitle">Item Detail</div>
+        <button class="btn ghost back" id="btnBackList">Back to list</button>
+      </div>
+      <div class="detail" id="detail">
         <div class="muted" id="detailEmpty">Select an item.</div>
       </div>
     </div>
   </div>
 
-  <div class="err" id="err"></div>
+  <div class="err fixed" id="err"></div>
 
   <script>
     const APP_ROOT = (document.querySelector('meta[name="app-root"]')?.content || '').replace(/\/+$/,'');
     const api = (path) => APP_ROOT + path;
 
     const el = (id) => document.getElementById(id);
+    const isNarrow = () => window.matchMedia('(max-width: 860px)').matches;
+    const focusPanel = (id) => {
+      if (!isNarrow()) return;
+      const node = el(id);
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const focusDetail = () => focusPanel('detailPanel');
+    const focusList = () => focusPanel('listPanel');
+    const backBtn = el('btnBackList');
+    if (backBtn) backBtn.onclick = () => focusList();
 
     function setError(msg) {
       const box = el('err');
@@ -1066,6 +1806,10 @@ _CATALOG_TEMPLATE = """<!doctype html>
       }[c]));
     }
 
+    function hasCjk(text) {
+      return /[\u4e00-\u9fff]/.test(String(text || ''));
+    }
+
     let meta = {};
     let assets = {};
     let icon = null; // {mode, static_base, api_base}
@@ -1087,12 +1831,18 @@ _CATALOG_TEMPLATE = """<!doctype html>
     let viewKeys = [];
     let renderPos = 0;
     const CHUNK = 240;
+    const PAGE_SIZE = 400;
+    let catalogTotal = 0;
+    let searchTotal = 0;
+    let listMode = 'all';
+    let loadingPage = false;
+    let loadedKeys = new Set();
 
     function _iconUrls(iid) {
       const cfg = icon || {};
       const mode = String(cfg.mode || 'off');
       const enc = encodeURIComponent(iid);
-      const staticBaseRaw = String(cfg.static_base || '/static/icons');
+      const staticBaseRaw = String(cfg.static_base || '/static/data/icons');
       const staticBase = (APP_ROOT && staticBaseRaw.startsWith('/') && !staticBaseRaw.startsWith(APP_ROOT + '/'))
         ? (APP_ROOT + staticBaseRaw)
         : staticBaseRaw;
@@ -1241,7 +1991,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       await ensureUiStrings(uiLang());
       applyUiStrings();
       const q = el('q').value;
-      renderList(q ? searchKeys(q) : listKeys());
+      await runSearch(q);
     }
 
     function iconHtmlFor(id, sizePx) {
@@ -1263,7 +2013,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       const a = assets[iid] || assets[iid.toLowerCase()] || null;
       const zh = getI18nName(iid);
       const label = resolveLabel(iid, a?.name || iid, zh);
-      const iconHtml = iconHtmlFor(iid, 28);
+      const iconHtml = iconHtmlFor(iid, 30);
       return `<span class="item">${iconHtml}<span>${escHtml(label)}</span></span>`;
     }
 
@@ -1271,90 +2021,29 @@ _CATALOG_TEMPLATE = """<!doctype html>
       return allKeys;
     }
 
-    function splitQuery(q) {
-      const tokens = String(q || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-      const filters = [];
-      const words = [];
-      for (const tok of tokens) {
-        const idx = tok.indexOf(':');
-        if (idx > 0) {
-          const key = tok.slice(0, idx).trim();
-          const val = tok.slice(idx + 1).trim();
-          if (key && val) filters.push([key, val]);
-          else words.push(tok);
-        } else {
-          words.push(tok);
-        }
-      }
-      return { filters, words };
-    }
-
-    function searchKeys(q) {
+    async function runSearch(q) {
       const query = String(q || '').trim();
-      if (!query) return [];
-      const { filters, words } = splitQuery(query);
-      const keys = listKeys();
-      const scored = [];
-      for (const k of keys) {
-        const a = assets[k] || {};
-        const id = String(k).toLowerCase();
-
-        if (filters.length) {
-          const kind = String(a.kind || '').toLowerCase();
-          const cats = (a.categories || []).map(v => String(v).toLowerCase());
-          const behs = (a.behaviors || []).map(v => String(v).toLowerCase());
-          const srcs = (a.sources || []).map(v => String(v).toLowerCase());
-          const tags = (a.tags || []).map(v => String(v).toLowerCase());
-          const comps = (a.components || []).map(v => String(v).toLowerCase());
-          const slots = (a.slots || []).map(v => String(v).toLowerCase());
-
-          let ok = true;
-          for (const [keyRaw, valRaw] of filters) {
-            const key = String(keyRaw || '').toLowerCase();
-            const vals = String(valRaw || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
-            if (!vals.length) continue;
-            const hit = (list) => vals.some(v => list.includes(v));
-
-            if (key === 'kind' || key === 'type') {
-              if (!vals.includes(kind)) { ok = false; break; }
-            } else if (key === 'cat' || key === 'category') {
-              if (!hit(cats)) { ok = false; break; }
-            } else if (key === 'beh' || key === 'behavior') {
-              if (!hit(behs)) { ok = false; break; }
-            } else if (key === 'src' || key === 'source') {
-              if (!hit(srcs)) { ok = false; break; }
-            } else if (key === 'tag') {
-              if (!hit(tags)) { ok = false; break; }
-            } else if (key === 'comp' || key === 'component') {
-              if (!hit(comps)) { ok = false; break; }
-            } else if (key === 'slot') {
-              if (!hit(slots)) { ok = false; break; }
-            } else {
-              // unknown filter: ignore
-            }
-          }
-          if (!ok) continue;
-        }
-
-        const name = String(a.name || '').toLowerCase();
-        const zh = String(getI18nName(k) || '').toLowerCase();
-        let score = 0;
-        if (!words.length) {
-          score = 1;
-        } else {
-          for (const w of words) {
-            if (!w) continue;
-            if (id === w) score += 1000;
-            if (id.startsWith(w)) score += 200;
-            if (id.includes(w)) score += 80;
-            if (name.includes(w)) score += 40;
-            if (zh.includes(w)) score += 60;
-          }
-        }
-        if (score > 0) scored.push([score, k]);
+      if (!query) {
+        listMode = 'all';
+        searchTotal = 0;
+        renderList(listKeys());
+        return;
       }
-      scored.sort((x,y) => (y[0]-x[0]) || x[1].localeCompare(y[1]));
-      return scored.map(x => x[1]).slice(0, 800);
+      listMode = 'search';
+      try {
+        const res = await fetchJson(api(`/api/v1/catalog/search?q=${encodeURIComponent(query)}&limit=800`));
+        const items = res.items || [];
+        searchTotal = Number(res.total || res.count || items.length);
+        applyCatalogItems(items, false);
+        const keys = [];
+        items.forEach((it) => {
+          const iid = String(it.id || '').trim();
+          if (iid) keys.push(iid);
+        });
+        renderList(keys);
+      } catch (e) {
+        setError(String(e));
+      }
     }
 
     function appendListChunk() {
@@ -1373,7 +2062,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
         div.className = 'li' + (k === activeId ? ' active' : '');
         div.dataset.id = k;
 
-        const iconHtml = iconHtmlFor(k, 28);
+        const iconHtml = iconHtmlFor(k, 34);
         const metaBits = [];
         if (a.kind) metaBits.push(a.kind);
         if (a.categories && a.categories.length) metaBits.push(a.categories.slice(0, 2).join(','));
@@ -1389,7 +2078,10 @@ _CATALOG_TEMPLATE = """<!doctype html>
 
       // stats line
       const shown = Math.min(renderPos, viewKeys.length);
-      el('stats').textContent = `${allKeys.length} items. Showing ${shown}/${viewKeys.length}.`;
+      const total = (listMode === 'search')
+        ? (searchTotal || viewKeys.length)
+        : (catalogTotal || allKeys.length);
+      el('stats').textContent = `${total} items. Showing ${shown}/${viewKeys.length}.`;
     }
 
     function renderList(keys) {
@@ -1399,10 +2091,24 @@ _CATALOG_TEMPLATE = """<!doctype html>
       box.innerHTML = '';
       if (!viewKeys.length) {
         box.innerHTML = '<div class="pbody muted">No results.</div>';
-        el('stats').textContent = `${allKeys.length} items. Showing 0/0.`;
+        const total = (listMode === 'search')
+          ? (searchTotal || 0)
+          : (catalogTotal || allKeys.length);
+        el('stats').textContent = `${total} items. Showing 0/0.`;
         return;
       }
       appendListChunk();
+    }
+
+    async function maybeLoadMore() {
+      if (listMode !== 'all') return;
+      if (loadingPage) return;
+      if (catalogTotal && allKeys.length >= catalogTotal) return;
+      const before = allKeys.length;
+      await loadCatalogPage(allKeys.length);
+      if (allKeys.length > before) {
+        viewKeys = listKeys();
+      }
     }
 
     function installInfiniteScroll() {
@@ -1410,6 +2116,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       box.addEventListener('scroll', () => {
         if (box.scrollTop + box.clientHeight >= box.scrollHeight - 200) {
           appendListChunk();
+          maybeLoadMore().then(() => appendListChunk());
         }
       });
     }
@@ -1434,8 +2141,9 @@ _CATALOG_TEMPLATE = """<!doctype html>
     function renderRecipeList(names, hrefFn) {
       const arr = names || [];
       if (!arr.length) return '<span class="muted">-</span>';
-      return arr.slice(0, 80).map(n => `<div>• <a class="mono" href="${hrefFn(n)}">${escHtml(n)}</a></div>`).join('') +
-        (arr.length > 80 ? `<div class="muted">… +${arr.length-80} more</div>` : '');
+      const lines = arr.slice(0, 80).map(n => `<div class="line"><span>•</span><span><a class="mono" href="${hrefFn(n)}">${escHtml(n)}</a></span></div>`).join('');
+      const more = arr.length > 80 ? `<div class="muted">… +${arr.length-80} more</div>` : '';
+      return `<div class="list-lines">${lines}${more}</div>`;
     }
 
     function renderChips(list, extraClass) {
@@ -1451,7 +2159,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       const cap = Math.max(1, Number(limit || 8));
       const lines = arr.slice(0, cap).map(v => `<div class="mono">${escHtml(v)}</div>`).join('');
       const more = arr.length > cap ? `<div class="muted small">… +${arr.length - cap} more</div>` : '';
-      return lines + more;
+      return `<div class="list-lines">${lines}${more}</div>`;
     }
 
     function renderAnalysis(rep) {
@@ -1503,7 +2211,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       const asset = data.asset || {};
       const craft = data.craft || {};
       const cooking = data.cooking || {};
-      const iconHtml = iconHtmlFor(q, 54);
+      const iconHtml = iconHtmlFor(q, 64);
 
       const zh = getI18nName(q);
       const label = resolveLabel(q, item?.name || asset?.name || q, zh);
@@ -1559,6 +2267,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
         const val = cookStat(field);
         const expr = tr ? (tr.expr ?? '') : '';
         const showExpr = expr && String(expr) !== String(val);
+        const titleAttr = showExpr ? ` title="${escHtml(expr)}"` : '';
         const key = `cooking:${cookRec.name || q}:${field}`;
         const canTrace = Boolean(key);
         const enabled = Boolean(state.tuningTraceEnabled);
@@ -1568,7 +2277,11 @@ _CATALOG_TEMPLATE = """<!doctype html>
         const details = tr
           ? `<details style="margin-top:4px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(tr, null, 2))}</pre></details>`
           : '';
-        return `<div><span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}</div>`;
+        const main = (val !== null && val !== undefined && val !== '')
+          ? `<span class="mono"${titleAttr}>${escHtml(val ?? '')}</span>`
+          : `<span class="mono">${escHtml(expr ?? '')}</span>`;
+        const actions = btn ? `<span class="stat-actions">${btn}</span>` : '';
+        return `<div class="stat-row">${main}${actions}</div>${details}`;
       }
 
       const STAT_LABELS = {
@@ -1610,8 +2323,26 @@ _CATALOG_TEMPLATE = """<!doctype html>
         run_speed: 'Run Speed',
         speed_multiplier: 'Speed Multiplier',
         recharge_time: 'Recharge Time',
+        recharge_percent: 'Recharge Percent',
+        recharge_charge: 'Recharge Charge',
+        equip_slot: 'Equip Slot',
+        equip_walk_speed_mult: 'Equip Walk Speed Mult',
+        equip_run_speed_mult: 'Equip Run Speed Mult',
+        equip_restricted_tag: 'Equip Restricted Tag',
+        equip_stack: 'Equip Stack',
+        equip_insulated: 'Equip Insulated',
+        equip_moisture: 'Equip Moisture',
+        equip_moisture_max: 'Equip Moisture Max',
+        equip_magic_dapperness: 'Equip Magic Dapperness',
         heat: 'Heat',
         heat_radius: 'Heat Radius',
+        heat_radius_cutoff: 'Heat Radius Cutoff',
+        heat_falloff: 'Heat Falloff',
+        heater_exothermic: 'Heater Exothermic',
+        heater_endothermic: 'Heater Endothermic',
+        equipped_heat: 'Equipped Heat',
+        carried_heat_multiplier: 'Carried Heat Mult',
+        heat_rate: 'Heat Rate',
         planar_damage_base: 'Planar Damage (base)',
         planar_damage_bonus: 'Planar Damage (bonus)',
         planar_damage: 'Planar Damage',
@@ -1635,31 +2366,39 @@ _CATALOG_TEMPLATE = """<!doctype html>
         const details = trace
           ? `<details style="margin-top:4px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(trace, null, 2))}</pre></details>`
           : '';
-        return `<div class="row" style="justify-content:space-between; align-items:flex-start;"><div class="small muted">${escHtml(label)}</div><div><span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}</div></div>`;
+        const value = `<span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}`;
+        return `
+          <div class="stat-card">
+            <div class="stat-label">${escHtml(label)}</div>
+            <div class="stat-value">${value}</div>
+          </div>
+        `;
       }
 
       function renderStats(statsObj) {
         const entries = Object.entries(statsObj || {});
         if (!entries.length) return '<span class="muted">-</span>';
-        return entries.map(([k, v]) => renderStatRow(k, v)).join('');
+        return `<div class="stat-grid">${entries.map(([k, v]) => renderStatRow(k, v)).join('')}</div>`;
       }
 
       const cookBrief = cookRec ? `
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
-          <div>• <a class="mono" href="${recipeLinkCooking(cookRec.name || q)}">${escHtml(cookRec.name || q)}</a></div>
-          <div class="kv" style="margin-top:6px;">
-            <div class="k">${escHtml(t('label.hunger', 'Hunger'))}</div><div>${renderCookStatRow('hunger')}</div>
-            <div class="k">${escHtml(t('label.health', 'Health'))}</div><div>${renderCookStatRow('health')}</div>
-            <div class="k">${escHtml(t('label.sanity', 'Sanity'))}</div><div>${renderCookStatRow('sanity')}</div>
-            <div class="k">${escHtml(t('label.perish', 'Perish'))}</div><div>${renderCookStatRow('perishtime')}</div>
-            <div class="k">${escHtml(t('label.cooktime', 'Cooktime'))}</div><div>${renderCookStatRow('cooktime')}</div>
+          <div class="section-title">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
+          <div class="list-lines">
+            <div class="line"><span>•</span><span><a class="mono" href="${recipeLinkCooking(cookRec.name || q)}">${escHtml(cookRec.name || q)}</a></span></div>
+          </div>
+          <div class="stat-grid" style="margin-top:8px;">
+            <div class="stat-card"><div class="stat-label">${escHtml(t('label.hunger', 'Hunger'))}</div><div class="stat-value">${renderCookStatRow('hunger')}</div></div>
+            <div class="stat-card"><div class="stat-label">${escHtml(t('label.health', 'Health'))}</div><div class="stat-value">${renderCookStatRow('health')}</div></div>
+            <div class="stat-card"><div class="stat-label">${escHtml(t('label.sanity', 'Sanity'))}</div><div class="stat-value">${renderCookStatRow('sanity')}</div></div>
+            <div class="stat-card"><div class="stat-label">${escHtml(t('label.perish', 'Perish'))}</div><div class="stat-value">${renderCookStatRow('perishtime')}</div></div>
+            <div class="stat-card"><div class="stat-label">${escHtml(t('label.cooktime', 'Cooktime'))}</div><div class="stat-value">${renderCookStatRow('cooktime')}</div></div>
           </div>
         </div>
       ` : `
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
-          <div class="muted">-</div>
+          <div class="section-title">${escHtml(t('catalog.section.cooking_recipe', 'Cooking recipe'))}</div>
+          <span class="muted">-</span>
         </div>
       `;
 
@@ -1667,7 +2406,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
       const analyzerBox = analyzerEnabled ? `
         <div class="section">
           <div class="row" style="justify-content:space-between;">
-            <div class="small muted">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
+            <div class="section-title">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
             <button class="btn" id="btnAnalyze">${escHtml(t('btn.analyze', 'Analyze'))}</button>
           </div>
           <div class="muted small">${escHtml(t('catalog.prefab_analysis_help', 'Uses server-side LuaAnalyzer (prefab parser). Availability depends on how the server was started.'))}</div>
@@ -1675,93 +2414,93 @@ _CATALOG_TEMPLATE = """<!doctype html>
         </div>
       ` : `
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
           <div class="muted">${escHtml(t('catalog.prefab_analysis_disabled', 'Analyzer disabled. Start server with enable_analyzer=true and provide scripts_dir / scripts_zip (or dst_root).'))}</div>
         </div>
       `;
 
       el('detail').innerHTML = `
-        <div class="row" style="align-items:flex-start; gap:12px;">
-          ${iconHtml}
-          <div style="flex:1;">
-            <div style="font-size:18px; font-weight:700;">${escHtml(label)}</div>
-            <div class="small mono">${escHtml(q)}</div>
+        <div class="detail-hero">
+          <div class="row" style="align-items:center; gap:12px;">
+            ${iconHtml}
+            <div>
+              <div class="hero-title">${escHtml(label)}</div>
+              <div class="hero-sub mono">${escHtml(q)}</div>
+            </div>
           </div>
+          <div class="hero-meta">${renderChips(kindRow, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.kind_sources', 'Kind / Sources / Slots'))}</div>
-          <div class="chips">${renderChips(kindRow, 'mono')}</div>
+          <div class="section-title">${escHtml(t('catalog.section.stats', 'Stats'))}</div>
+          ${renderStats(stats)}
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.categories', 'Categories'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.categories', 'Categories'))}</div>
           <div class="chips">${renderChips(categories, '')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.behaviors', 'Behaviors'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.behaviors', 'Behaviors'))}</div>
           <div class="chips">${renderChips(behaviors, '')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.components', 'Components'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.components', 'Components'))}</div>
           <div class="chips">${renderChips(components, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.tags', 'Tags'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.tags', 'Tags'))}</div>
           <div class="chips">${renderChips(tags, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.stats', 'Stats'))}</div>
-          <div>${renderStats(stats)}</div>
-        </div>
-
-        <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.brains', 'Brains'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.brains', 'Brains'))}</div>
           <div class="chips">${renderChips(brains, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.stategraphs', 'Stategraphs'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.stategraphs', 'Stategraphs'))}</div>
           <div class="chips">${renderChips(stategraphs, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.helpers', 'Helpers'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.helpers', 'Helpers'))}</div>
           <div class="chips">${renderChips(helpers, 'mono')}</div>
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.prefab_files', 'Prefab files'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.prefab_files', 'Prefab files'))}</div>
           ${renderMonoLines(prefabFiles, 6)}
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.assets', 'Assets'))}</div>
-          <div class="mono">${escHtml(t('label.icon', 'icon'))}: ${escHtml(iconPath || '-')}</div>
-          <div class="mono">${escHtml(t('label.atlas', 'atlas'))}: ${escHtml(atlas || '-')}</div>
-          <div class="mono">${escHtml(t('label.image', 'image'))}: ${escHtml(image || '-')}</div>
+          <div class="section-title">${escHtml(t('catalog.section.assets', 'Assets'))}</div>
+          <div class="list-lines">
+            <div class="mono">${escHtml(t('label.icon', 'icon'))}: ${escHtml(iconPath || '-')}</div>
+            <div class="mono">${escHtml(t('label.atlas', 'atlas'))}: ${escHtml(atlas || '-')}</div>
+            <div class="mono">${escHtml(t('label.image', 'image'))}: ${escHtml(image || '-')}</div>
+          </div>
         </div>
 
-        ${prefabAssets && prefabAssets.length ? `<div class="section"><details><summary>${escHtml(t('catalog.section.prefab_assets', 'Prefab assets (raw)'))}</summary><pre>${escHtml(JSON.stringify(prefabAssets, null, 2))}</pre></details></div>` : ''}
+        ${prefabAssets && prefabAssets.length ? `<div class="section"><details><summary class="section-title">${escHtml(t('catalog.section.prefab_assets', 'Prefab assets (raw)'))}</summary><pre>${escHtml(JSON.stringify(prefabAssets, null, 2))}</pre></details></div>` : ''}
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.craft_produced', 'Craft: produced by'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.craft_produced', 'Craft: produced by'))}</div>
           ${renderRecipeList(craft.produced_by, recipeLinkCraft)}
         </div>
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.craft_used', 'Craft: used as ingredient'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.craft_used', 'Craft: used as ingredient'))}</div>
           ${renderRecipeList(craft.used_in, recipeLinkCraft)}
         </div>
 
         ${cookBrief}
 
         <div class="section">
-          <div class="small muted">${escHtml(t('catalog.section.cooking_used', 'Cooking: used as card ingredient'))}</div>
+          <div class="section-title">${escHtml(t('catalog.section.cooking_used', 'Cooking: used as card ingredient'))}</div>
           ${renderRecipeList(cooking.used_in, recipeLinkCooking)}
         </div>
 
@@ -1811,6 +2550,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
           }
         };
       }
+      focusDetail();
     }
 
     async function loadMeta() {
@@ -1831,14 +2571,15 @@ _CATALOG_TEMPLATE = """<!doctype html>
       el('navCatalog').href = APP_ROOT + '/catalog';
     }
 
-    async function loadAssets() {
-      const res = await fetchJson(api('/api/v1/catalog/index'));
-      assets = {};
-      allKeys = [];
-      icon = res.icon || null;
-      (res.items || []).forEach((it) => {
+    function applyCatalogItems(items, updateList) {
+      const trackList = (updateList !== false);
+      (items || []).forEach((it) => {
         const iid = String(it.id || '').trim();
         if (!iid) return;
+        if (trackList) {
+          if (loadedKeys.has(iid)) return;
+          loadedKeys.add(iid);
+        }
         assets[iid] = {
           name: it.name || iid,
           image: it.image || null,
@@ -1851,40 +2592,64 @@ _CATALOG_TEMPLATE = """<!doctype html>
           components: Array.isArray(it.components) ? it.components : [],
           slots: Array.isArray(it.slots) ? it.slots : [],
         };
-        allKeys.push(iid);
+        if (trackList) allKeys.push(iid);
       });
-      allKeys.sort();
-      el('stats').textContent = `${allKeys.length} items. Showing 0/0.`;
     }
 
-    function initFromUrl() {
+    async function loadCatalogPage(offset) {
+      if (loadingPage) return [];
+      loadingPage = true;
+      try {
+        const res = await fetchJson(api(`/api/v1/catalog/index?offset=${offset}&limit=${PAGE_SIZE}`));
+        icon = res.icon || icon;
+        catalogTotal = Number(res.total || res.count || 0);
+        const items = res.items || [];
+        applyCatalogItems(items, true);
+        return items;
+      } finally {
+        loadingPage = false;
+      }
+    }
+
+    async function loadAssets() {
+      assets = {};
+      allKeys = [];
+      loadedKeys = new Set();
+      listMode = 'all';
+      searchTotal = 0;
+      await loadCatalogPage(0);
+      const total = catalogTotal || allKeys.length;
+      el('stats').textContent = `${total} items. Showing 0/0.`;
+    }
+
+    async function initFromUrl() {
       const params = new URLSearchParams(window.location.search || '');
       const item = params.get('item');
       const q = params.get('q');
       if (q) {
         el('q').value = q;
-        renderList(searchKeys(q));
+        await runSearch(q);
         return;
       }
       if (item) {
         el('q').value = item;
-        renderList(searchKeys(item));
+        await runSearch(item);
         openItem(item).catch(e => setError(String(e)));
       }
     }
 
     el('btnSearch').onclick = () => {
-      try {
-        setError('');
-        const q = el('q').value;
-        renderList(searchKeys(q));
-      } catch (e) { setError(String(e)); }
+      setError('');
+      const q = el('q').value;
+      runSearch(q).catch(e => setError(String(e)));
     };
 
     el('btnAll').onclick = () => {
       try {
         setError('');
         el('q').value = '';
+        listMode = 'all';
+        searchTotal = 0;
         renderList(listKeys());
       } catch (e) { setError(String(e)); }
     };
@@ -1906,7 +2671,7 @@ _CATALOG_TEMPLATE = """<!doctype html>
         await ensureI18nNames(state.labelMode);
         installInfiniteScroll();
         renderList(listKeys());
-        initFromUrl();
+        await initFromUrl();
       } catch (e) {
         setError(String(e));
       }
@@ -1921,7 +2686,9 @@ def render_catalog_html(app_root: str = "") -> str:
     """Render the Catalog UI page."""
     from html import escape as _esc
 
-    return _CATALOG_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", _esc(app_root or ""))
+    root = str(app_root or "")
+    css = _SHARED_CSS.replace("__WAGSTAFF_APP_ROOT__", root)
+    return _CATALOG_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", _esc(root)).replace("__SHARED_CSS__", css)
 
 
 
@@ -1932,7 +2699,9 @@ def render_index_html(app_root: str = "") -> str:
       - ""       normal direct serving
       - "/xxx"   reverse proxy mount path
     """
-    return _INDEX_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", escape(app_root or ""))
+    root = str(app_root or "")
+    css = _SHARED_CSS.replace("__WAGSTAFF_APP_ROOT__", root)
+    return _INDEX_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", escape(root)).replace("__SHARED_CSS__", css)
 
 
 _COOKING_TEMPLATE = r"""<!doctype html>
@@ -1943,298 +2712,111 @@ _COOKING_TEMPLATE = r"""<!doctype html>
   <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
   <title>Wagstaff WebCraft - Cooking</title>
   <style>
-    :root {
-      --bg: #0b0f14;
-      --panel: #0f1722;
-      --panel2: #111b29;
-      --text: #e6edf3;
-      --muted: #9fb0c0;
-      --border: #233042;
-      --accent: #79c0ff;
-      --accent2: #a5d6ff;
-      --bad: #ff7b72;
-      --ok: #7ee787;
-    }
-    html, body {
-      margin: 0; padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(11, 15, 20, 0.92);
-      backdrop-filter: blur(8px);
-    }
-    .topbar h1 {
-      font-size: 14px;
-      margin: 0;
-      font-weight: 650;
-      letter-spacing: .3px;
-      color: var(--accent2);
-    }
-
-    .nav {
-      font-size: 12px;
-      color: var(--muted);
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: rgba(17,27,41,0.6);
-    }
-    .nav:hover {
-      text-decoration: none;
-      border-color: #3b4b63;
-      color: var(--text);
-    }
-    .nav.active {
-      color: var(--text);
-      border-color: rgba(121, 192, 255, 0.45);
-      background: rgba(121, 192, 255, 0.10);
-    }
-
-    .search {
-      flex: 1;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    input[type="text"], textarea {
-      width: 100%;
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      outline: none;
-    }
-    textarea {
-      min-height: 60px;
-      resize: vertical;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-    select {
-      background: var(--panel2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 12px;
-      outline: none;
-    }
-    button {
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 8px 10px;
-      cursor: pointer;
-    }
-    button:hover { border-color: #3b4b63; }
-    button.primary {
-      background: rgba(121, 192, 255, 0.12);
-      border-color: rgba(121, 192, 255, 0.25);
-    }
-    button.primary:hover {
-      border-color: rgba(121, 192, 255, 0.45);
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 260px 1fr 420px;
-      gap: 10px;
-      padding: 10px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      min-height: calc(100vh - 62px);
-    }
-    .panel h2 {
-      margin: 0;
-      padding: 10px 12px;
-      font-size: 13px;
-      border-bottom: 1px solid var(--border);
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .list {
-      max-height: calc(100vh - 62px - 44px);
-      overflow: auto;
-    }
-    .item {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(35, 48, 66, 0.65);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .item:hover { background: rgba(255,255,255,0.03); }
-    .item.active { background: rgba(121,192,255,0.08); }
-    .item .name { font-weight: 560; }
-    .item .meta { color: var(--muted); font-size: 12px; }
-
-    .detail {
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .kv {
-      display: grid;
-      grid-template-columns: 120px 1fr;
-      gap: 6px 10px;
-      font-size: 13px;
-    }
-    .kv .k { color: var(--muted); }
-
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .chip {
-      font-size: 12px;
-      color: var(--muted);
-      padding: 3px 8px;
-      border: 1px solid rgba(35,48,66,0.9);
-      border-radius: 999px;
-      background: rgba(17,27,41,0.8);
-    }
-
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .err {
-      color: var(--bad);
-      font-size: 12px;
-      white-space: pre-wrap;
-    }
-    .ok {
-      color: var(--ok);
-      font-size: 12px;
-    }
-
-    .muted { color: var(--muted); }
-    .small { font-size: 12px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    .itemRef {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .itemIcon {
-      width: 18px;
-      height: 18px;
-      border-radius: 4px;
-      border: 1px solid rgba(35,48,66,0.9);
-      background: rgba(17,27,41,0.8);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
-      overflow: hidden;
-    }
-    .itemIconImg {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: contain;
-      image-rendering: pixelated;
-    }
-    .itemIconFallback {
-      width: 100%;
-      height: 100%;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .itemLabel {
-      color: var(--text);
-    }
+__SHARED_CSS__
   </style>
 </head>
-<body>
-  <div class="topbar">
-    <div style="display:flex; gap:10px; align-items:center;">
-      <h1>Wagstaff WebCraft</h1>
-      <a id="navCraft" class="nav" href="#">Craft</a>
-      <a id="navCooking" class="nav active" href="#">Cooking</a>
-      <a id="navCatalog" class="nav" href="#">Catalog</a>
-      <div class="small" style="display:flex; align-items:center; gap:6px;">
-        <span class="muted" id="labelModeLabel">Label</span>
-        <select id="labelMode">
-          <option value="en">EN</option>
-          <option value="zh">中文</option>
-          <option value="id">ID</option>
-        </select>
+<body class="page--cooking" data-view="encyclopedia">
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a id="navCraft" class="nav-link" href="#">Craft</a>
+          <a id="navCooking" class="nav-link active" href="#">Cooking</a>
+          <a id="navCatalog" class="nav-link" href="#">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta"></div>
       </div>
     </div>
-    <div class="search">
-      <input id="q" type="text" placeholder="Search: meatballs | ing:berries | tag:honeyed | type:FOODTYPE.MEAT" />
-      <button id="btnSearch" class="primary">Search</button>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title" id="pageTitle">Cooking Lab</div>
+        <div class="page-sub" id="pageSub">Recipe rules and cookpot tools</div>
+        <div class="mode-toggle" id="modeToggle">
+          <button class="btn mode-btn active" data-mode="encyclopedia" data-icon="📖" id="modeEncy">Encyclopedia</button>
+          <button class="btn mode-btn" data-mode="explore" data-icon="🧭" id="modeExplore">Explore</button>
+          <button class="btn mode-btn" data-mode="simulate" data-icon="⚗️" id="modeSim">Simulate</button>
+        </div>
+      </div>
+      <div class="subbar-right">
+        <div class="search" id="searchBar">
+          <input id="q" type="text" placeholder="Search: meatballs | ing:berries | tag:honeyed | type:FOODTYPE.MEAT" />
+          <button id="btnSearch" class="primary">Search</button>
+        </div>
+      </div>
     </div>
-    <div class="small muted" id="meta"></div>
-  </div>
+  </header>
 
   <div class="layout">
-    <div class="panel">
-      <h2>
-        <span id="groupTitle">FoodTypes</span>
-        <button id="btnToggle">Toggle</button>
-      </h2>
+    <div class="panel panel--filters" id="filterPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="groupTitle">FoodTypes</div>
+        <div class="panel-actions">
+          <button id="btnToggle" class="btn ghost">Toggle</button>
+        </div>
+      </div>
       <div class="list" id="groupList"></div>
     </div>
 
-    <div class="panel">
-      <h2>
-        <span id="listTitle">Recipes</span>
-        <span class="small muted" id="listCount"></span>
-      </h2>
+    <div class="panel panel--list" id="listPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="listTitle">Recipes</div>
+        <div class="panel-actions">
+          <span class="small muted" id="listCount"></span>
+          <button id="btnShowAll" class="btn ghost">Show all</button>
+          <button id="btnViewCards" class="btn ghost">Cards</button>
+          <button id="btnViewDense" class="btn ghost">Dense</button>
+        </div>
+      </div>
       <div class="list" id="recipeList"></div>
     </div>
 
-    <div class="panel">
-      <h2 id="detailTitle">Details / Tools</h2>
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title"><span id="detailTitle">Details / Tools</span></div>
+        <button class="btn ghost back" id="btnBackList">Back to list</button>
+      </div>
       <div class="detail">
         <div id="detail"></div>
 
-        <div>
-          <div class="small muted" id="inventoryHelp">Available ingredients (for search)</div>
-          <textarea id="inv" placeholder="berries=2\ncarrot=3\nmeat=1"></textarea>
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            <button id="btnFind" class="primary" style="flex:1;">Find cookable</button>
-            <button id="btnShowAll" style="flex:1;">Show all</button>
+        <div class="tool-card" id="toolExplore">
+          <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+          <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
+          <div class="row">
+            <button id="btnExplore" class="primary">Explore</button>
+            <button id="btnSim" class="btn">Simulate</button>
           </div>
         </div>
 
-        <div>
-          <div class="small muted" id="slotsHelp">Cookpot slots (requires total = 4)</div>
-          <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
-          <button id="btnSim" class="primary" style="width:100%; margin-top:8px;">Simulate</button>
+        <div class="tool-card tool-ingredients" id="ingredientPicker">
+          <div class="ingredient-head">
+            <div class="small muted" id="ingredientTitle">Ingredient picker</div>
+            <button id="ingredientClear" class="btn ghost">Clear slots</button>
+          </div>
+          <div class="ingredient-search">
+            <input id="ingredientSearch" type="text" placeholder="Filter ingredients..." />
+            <div class="small muted" id="ingredientHint">Click to add, Shift/Alt to remove</div>
+          </div>
+          <div class="ingredient-filters" id="ingredientFilters"></div>
+          <div class="ingredient-grid" id="ingredientGrid"></div>
         </div>
 
-        <div id="out" class="small"></div>
+        <div class="tool-card">
+          <div class="small muted" id="resultTitle">Results</div>
+          <div class="small muted" id="formula"></div>
+          <div id="out" class="small"></div>
+        </div>
+
         <div class="err" id="err"></div>
       </div>
     </div>
@@ -2245,6 +2827,16 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     const api = (path) => APP_ROOT + path;
 
     const el = (id) => document.getElementById(id);
+    const isNarrow = () => window.matchMedia('(max-width: 860px)').matches;
+    const focusPanel = (id) => {
+      if (!isNarrow()) return;
+      const node = el(id);
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const focusDetail = () => focusPanel('detailPanel');
+    const focusList = () => focusPanel('listPanel');
+    const backBtn = el('btnBackList');
+    if (backBtn) backBtn.onclick = () => focusList();
 
     function setError(msg) {
       el('err').textContent = msg || '';
@@ -2326,7 +2918,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       const cfg = state.icon || {};
       const mode = String(cfg.mode || 'off');
       const enc = encodeURIComponent(iid);
-      const staticBaseRaw = String(cfg.static_base || '/static/icons');
+      const staticBaseRaw = String(cfg.static_base || '/static/data/icons');
       const staticBase = (APP_ROOT && staticBaseRaw.startsWith('/') && !staticBaseRaw.startsWith(APP_ROOT + '/'))
         ? (APP_ROOT + staticBaseRaw)
         : staticBaseRaw;
@@ -2423,6 +3015,12 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
       const label = el('labelModeLabel');
       if (label) label.textContent = t('label.mode', 'Label');
+      const modeEncy = el('modeEncy');
+      if (modeEncy) modeEncy.textContent = t('cooking.mode.encyclopedia', 'Encyclopedia');
+      const modeExplore = el('modeExplore');
+      if (modeExplore) modeExplore.textContent = t('cooking.mode.explore', 'Explore');
+      const modeSim = el('modeSim');
+      if (modeSim) modeSim.textContent = t('cooking.mode.simulate', 'Simulate');
       const btnSearch = el('btnSearch');
       if (btnSearch) btnSearch.textContent = t('btn.search', 'Search');
       const btnToggle = el('btnToggle');
@@ -2442,22 +3040,32 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       }
       const detailTitle = el('detailTitle');
       if (detailTitle) detailTitle.textContent = t('cooking.detail.title', 'Details / Tools');
-      const invHelp = el('inventoryHelp');
-      if (invHelp) invHelp.textContent = t('cooking.inventory.help', 'Available ingredients (for search)');
       const slotsHelp = el('slotsHelp');
-      if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (requires total = 4)');
+      if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (<=4 for explore, =4 for simulate)');
       const input = el('q');
       if (input) input.placeholder = t('cooking.search.placeholder', input.placeholder || '');
-      const inv = el('inv');
-      if (inv) inv.placeholder = t('cooking.inventory.placeholder', inv.placeholder || '');
       const slots = el('slots');
       if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
-      const btnFind = el('btnFind');
-      if (btnFind) btnFind.textContent = t('btn.find_cookable', 'Find cookable');
       const btnShowAll = el('btnShowAll');
       if (btnShowAll) btnShowAll.textContent = t('btn.show_all', 'Show all');
+      const btnExplore = el('btnExplore');
+      if (btnExplore) btnExplore.textContent = t('btn.explore', 'Explore');
       const btnSim = el('btnSim');
       if (btnSim) btnSim.textContent = t('btn.simulate', 'Simulate');
+      const btnViewCards = el('btnViewCards');
+      if (btnViewCards) btnViewCards.textContent = t('btn.view_cards', 'Cards');
+      const btnViewDense = el('btnViewDense');
+      if (btnViewDense) btnViewDense.textContent = t('btn.view_dense', 'Dense');
+      const resultTitle = el('resultTitle');
+      if (resultTitle) resultTitle.textContent = t('cooking.results.title', 'Results');
+      const ingredientTitle = el('ingredientTitle');
+      if (ingredientTitle) ingredientTitle.textContent = t('cooking.ingredients.title', 'Ingredient picker');
+      const ingredientHint = el('ingredientHint');
+      if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+      const ingredientSearch = el('ingredientSearch');
+      if (ingredientSearch) ingredientSearch.placeholder = t('cooking.ingredients.search', ingredientSearch.placeholder || 'Filter ingredients...');
+      const ingredientClear = el('ingredientClear');
+      if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
     }
 
     async function fetchTuningTrace(prefix) {
@@ -2541,6 +3149,9 @@ _COOKING_TEMPLATE = r"""<!doctype html>
 
     const state = {
       mode: 'foodtypes', // foodtypes | tags | all
+      view: 'encyclopedia', // encyclopedia | explore | simulate
+      listView: localStorage.getItem('ws_cooking_list') || 'card',
+      results: null,
       groups: [],
       activeGroup: null,
       recipes: [],
@@ -2548,6 +3159,10 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       activeRecipeData: null,
       assets: {},
       icon: null, // {mode, static_base, api_base}
+      ingredients: [],
+      ingredientFilter: 'all',
+      ingredientQuery: '',
+      ingredientSource: '',
 
       // label mode: en | zh | id (persisted in localStorage)
       labelMode: localStorage.getItem('ws_label_mode') || 'en',
@@ -2559,6 +3174,364 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       uiStrings: {},      // {lang: {key: text}}
       uiLoaded: {},       // {lang: true}
     };
+
+    const ING_CATEGORIES = [
+      { key: 'all', label: () => t('cooking.ingredients.all', 'All'), tags: [] },
+      { key: 'meat', label: () => t('cooking.ingredients.meat', 'Meat'), tags: ['meat'] },
+      { key: 'veggie', label: () => t('cooking.ingredients.veggie', 'Veggie'), tags: ['veggie', 'vegetable'] },
+      { key: 'fruit', label: () => t('cooking.ingredients.fruit', 'Fruit'), tags: ['fruit'] },
+      { key: 'fish', label: () => t('cooking.ingredients.fish', 'Fish'), tags: ['fish'] },
+      { key: 'egg', label: () => t('cooking.ingredients.egg', 'Egg'), tags: ['egg'] },
+      { key: 'dairy', label: () => t('cooking.ingredients.dairy', 'Dairy'), tags: ['dairy'] },
+      { key: 'sweetener', label: () => t('cooking.ingredients.sweetener', 'Sweetener'), tags: ['sweetener'] },
+      { key: 'fungus', label: () => t('cooking.ingredients.fungus', 'Fungus'), tags: ['fungus', 'mushroom'] },
+      { key: 'monster', label: () => t('cooking.ingredients.monster', 'Monster'), tags: ['monster'] },
+      { key: 'inedible', label: () => t('cooking.ingredients.filler', 'Filler'), tags: ['inedible', 'filler'] },
+      { key: 'other', label: () => t('cooking.ingredients.other', 'Other'), tags: [] },
+    ];
+
+    const ING_GUESS = {
+      meat: ['meat', 'morsel', 'drumstick', 'froglegs', 'batwing', 'smallmeat', 'monstermeat', 'leafymeat'],
+      fish: ['fish', 'eel', 'salmon', 'tuna', 'perch', 'trout', 'barnacle'],
+      egg: ['egg'],
+      dairy: ['milk', 'butter', 'cheese'],
+      sweetener: ['honey', 'sugar', 'nectar', 'syrup'],
+      fruit: ['berries', 'berry', 'banana', 'pomegranate', 'watermelon', 'dragonfruit', 'durian', 'fig'],
+      veggie: ['carrot', 'corn', 'pumpkin', 'eggplant', 'pepper', 'potato', 'tomato', 'onion', 'garlic', 'asparagus', 'cactus', 'kelp'],
+      fungus: ['mushroom', 'cap'],
+      monster: ['monster', 'durian'],
+      inedible: ['twigs', 'ice'],
+    };
+
+    function setView(view) {
+      state.view = String(view || 'encyclopedia');
+      document.body.dataset.view = state.view;
+
+      for (const btn of document.querySelectorAll('.mode-btn')) {
+        const v = btn.getAttribute('data-mode');
+        btn.classList.toggle('active', v === state.view);
+      }
+
+      const btnShowAll = el('btnShowAll');
+      if (btnShowAll) btnShowAll.style.display = (state.view === 'encyclopedia') ? '' : 'none';
+      const btnViewCards = el('btnViewCards');
+      if (btnViewCards) btnViewCards.style.display = (state.view === 'encyclopedia') ? 'none' : '';
+      const btnViewDense = el('btnViewDense');
+      if (btnViewDense) btnViewDense.style.display = (state.view === 'encyclopedia') ? 'none' : '';
+      const picker = el('ingredientPicker');
+      if (picker) picker.style.display = (state.view === 'encyclopedia') ? 'none' : '';
+
+      const title = el('pageTitle');
+      const sub = el('pageSub');
+      if (title) {
+        title.textContent = (state.view === 'simulate')
+          ? t('cooking.title.simulate', 'Cooking Simulate')
+          : (state.view === 'explore' ? t('cooking.title.explore', 'Cooking Explore') : t('cooking.title.encyclopedia', 'Cooking Lab'));
+      }
+      if (sub) {
+        sub.textContent = (state.view === 'simulate')
+          ? t('cooking.sub.simulate', 'Simulate results with full slots')
+          : (state.view === 'explore' ? t('cooking.sub.explore', 'Explore recipes with partial slots') : t('cooking.sub.encyclopedia', 'Recipe rules and cookpot tools'));
+      }
+
+      if (state.view !== 'encyclopedia') {
+        const listTitle = el('listTitle');
+        if (listTitle) listTitle.textContent = (state.view === 'simulate')
+          ? t('cooking.list.simulate', 'Simulate')
+          : t('cooking.list.explore', 'Explore');
+        const listCount = el('listCount');
+        if (listCount) listCount.textContent = '';
+      }
+
+      renderRecipeList();
+    }
+
+    function setListView(view) {
+      state.listView = String(view || 'card');
+      try { localStorage.setItem('ws_cooking_list', state.listView); } catch (e) {}
+      const btnViewCards = el('btnViewCards');
+      if (btnViewCards) btnViewCards.classList.toggle('active', state.listView === 'card');
+      const btnViewDense = el('btnViewDense');
+      if (btnViewDense) btnViewDense.classList.toggle('active', state.listView === 'dense');
+      renderRecipeList();
+    }
+
+    function formatMissing(missing) {
+      const rows = Array.isArray(missing) ? missing : [];
+      if (!rows.length) return '';
+      const parts = rows.slice(0, 4).map((m) => {
+        const key = String(m.key || '').trim();
+        const delta = Number(m.delta || 0);
+        const dir = String(m.direction || '');
+        const prefix = (m.type === 'name') ? 'name:' : 'tag:';
+        if (!key) return '';
+        if (dir === 'under') return `${prefix}${key} +${delta.toFixed(1)}`;
+        if (dir === 'over') return `${prefix}${key} -${delta.toFixed(1)}`;
+        if (dir === 'mismatch') return `${prefix}${key} != ${Number(m.required || 0).toFixed(1)}`;
+        return `${prefix}${key}`;
+      }).filter(Boolean);
+      if (!parts.length) return '';
+      const suffix = rows.length > 4 ? ' ...' : '';
+      return parts.join(', ') + suffix;
+    }
+
+    function renderResultList() {
+      const box = el('recipeList');
+      box.innerHTML = '';
+      const res = state.results;
+      const formula = res && res.formula ? String(res.formula) : '';
+      const formulaEl = el('formula');
+      if (formulaEl) {
+        formulaEl.textContent = formula ? `${t('label.formula', 'Formula')}: ${formula}` : '';
+      }
+      if (!res) {
+        box.innerHTML = `<div class="muted">${escHtml(t('cooking.results.empty', 'Run explore or simulate to see results.'))}</div>`;
+        el('listCount').textContent = '';
+        return;
+      }
+
+      const cookable = Array.isArray(res.cookable) ? res.cookable : [];
+      const near = Array.isArray(res.near_miss) ? res.near_miss : [];
+      el('listCount').textContent = (cookable.length || near.length) ? `${cookable.length}/${near.length}` : '';
+      const mode = res._mode || state.view;
+      el('listTitle').textContent = (mode === 'simulate')
+        ? t('cooking.list.simulate', 'Simulate')
+        : t('cooking.list.explore', 'Explore');
+
+      const sections = [
+        { title: t('cooking.results.cookable', 'Cookable'), items: cookable },
+        { title: t('cooking.results.near', 'Near miss'), items: near },
+      ];
+
+      let animIdx = 0;
+      for (const sec of sections) {
+        const wrap = document.createElement('div');
+        wrap.className = 'result-section';
+        const header = document.createElement('div');
+        header.className = 'result-header';
+        header.innerHTML = `<div class="panel-title">${escHtml(sec.title)}</div><div class="small muted">${sec.items.length}</div>`;
+        wrap.appendChild(header);
+
+        if (!sec.items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'muted small';
+          empty.textContent = t('cooking.results.none', 'None');
+          wrap.appendChild(empty);
+          box.appendChild(wrap);
+          continue;
+        }
+
+        if (state.listView === 'dense') {
+          for (const row of sec.items) {
+            const name = String(row.name || '').trim();
+            if (!name) continue;
+            const missing = formatMissing(row.missing || []) || t('label.ok', 'OK');
+            const score = Number(row.score || 0);
+            const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
+            const meta = `p=${Number(row.priority || 0)} · w=${Number(row.weight || 0)} · s=${score.toFixed(1)}${rule ? ' · ' + rule : ''}`;
+            const div = document.createElement('div');
+            const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
+            div.className = `result-row ${isMiss ? 'is-miss' : 'is-ok'}`;
+            div.style.animationDelay = `${Math.min(animIdx * 0.03, 0.4)}s`;
+            animIdx += 1;
+            div.innerHTML = `<div>${renderItem(name)}<div class="small muted">${escHtml(meta)}</div></div>` +
+              `<div class="result-missing">${escHtml(missing || '')}</div>`;
+            div.onclick = () => selectRecipe(name);
+            wrap.appendChild(div);
+          }
+          box.appendChild(wrap);
+          continue;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'result-grid';
+        for (const row of sec.items) {
+          const name = String(row.name || '').trim();
+          if (!name) continue;
+          const missing = formatMissing(row.missing || []) || t('label.ok', 'OK');
+          const score = Number(row.score || 0);
+          const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
+          const card = document.createElement('div');
+          const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
+          card.className = `result-card ${isMiss ? 'is-miss' : 'is-ok'}`;
+          card.style.animationDelay = `${Math.min(animIdx * 0.03, 0.4)}s`;
+          animIdx += 1;
+          card.innerHTML = `
+            <div>${renderItem(name)}</div>
+            <div class="result-meta">
+              <span class="pill">p=${escHtml(Number(row.priority || 0))}</span>
+              <span class="pill">w=${escHtml(Number(row.weight || 0))}</span>
+              <span class="pill">s=${escHtml(score.toFixed(1))}</span>
+              ${rule ? `<span class="pill">${escHtml(rule)}</span>` : ''}
+            </div>
+            <div class="result-missing">${escHtml(missing || '')}</div>
+          `;
+          card.onclick = () => selectRecipe(name);
+          grid.appendChild(card);
+        }
+        wrap.appendChild(grid);
+        box.appendChild(wrap);
+      }
+    }
+
+    function _guessTagsFromId(iid) {
+      const out = new Set();
+      const name = String(iid || '').toLowerCase();
+      for (const key in ING_GUESS) {
+        for (const needle of ING_GUESS[key]) {
+          if (name.includes(needle)) {
+            out.add(key);
+            break;
+          }
+        }
+      }
+      return Array.from(out);
+    }
+
+    function _normalizeIngredient(raw) {
+      if (!raw) return null;
+      const id = String(raw.id || raw.item_id || raw.name || '').trim();
+      if (!id) return null;
+      const tags = new Set();
+      const rawTags = raw.tags;
+      if (Array.isArray(rawTags)) {
+        for (const t of rawTags) tags.add(String(t).toLowerCase());
+      } else if (rawTags && typeof rawTags === 'object') {
+        for (const t of Object.keys(rawTags)) tags.add(String(t).toLowerCase());
+      }
+      const foodtype = raw.foodtype ? String(raw.foodtype).toLowerCase().replace('foodtype.', '') : '';
+      if (foodtype) tags.add(foodtype);
+      if (!tags.size) {
+        for (const t of _guessTagsFromId(id)) tags.add(t);
+      }
+      return {
+        id: id,
+        tags: Array.from(tags),
+        uses: Number(raw.uses || 0),
+      };
+    }
+
+    function _ingredientLabel(item) {
+      const m = (state.assets && state.assets[item.id]) ? state.assets[item.id] : null;
+      const enName = (m && m.name) ? m.name : item.id;
+      const zhName = getI18nName(item.id);
+      return resolveLabel(item.id, enName, zhName);
+    }
+
+    function _ingredientMatchesCategory(item, key) {
+      if (key === 'all') return true;
+      if (key === 'other') {
+        for (const cat of ING_CATEGORIES) {
+          if (cat.key === 'all' || cat.key === 'other') continue;
+          if (_ingredientMatchesCategory(item, cat.key)) return false;
+        }
+        return true;
+      }
+      const cat = ING_CATEGORIES.find(c => c.key === key);
+      if (!cat) return true;
+      return (cat.tags || []).some(tag => item.tags.includes(tag));
+    }
+
+    function _ingredientQueryMatch(item) {
+      const q = String(state.ingredientQuery || '').trim().toLowerCase();
+      if (!q) return true;
+      const label = _ingredientLabel(item).toLowerCase();
+      return String(item.id).toLowerCase().includes(q) || label.includes(q);
+    }
+
+    function renderIngredientFilters() {
+      const box = el('ingredientFilters');
+      if (!box) return;
+      box.innerHTML = '';
+      const items = state.ingredients || [];
+      for (const cat of ING_CATEGORIES) {
+        const count = items.filter(it => _ingredientMatchesCategory(it, cat.key)).length;
+        if (cat.key === 'other' && !count) continue;
+        const btn = document.createElement('button');
+        btn.className = 'ingredient-filter' + (state.ingredientFilter === cat.key ? ' active' : '');
+        btn.textContent = `${cat.label()}${count ? ' (' + count + ')' : ''}`;
+        btn.onclick = () => {
+          state.ingredientFilter = cat.key;
+          renderIngredientFilters();
+          renderIngredientGrid();
+        };
+        box.appendChild(btn);
+      }
+    }
+
+    function renderIngredientGrid() {
+      const grid = el('ingredientGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      if (!state.ingredients.length) {
+        grid.innerHTML = `<div class="muted small">${escHtml(t('cooking.ingredients.empty', 'Ingredient index not ready.'))}</div>`;
+        return;
+      }
+      const items = state.ingredients.filter(it => _ingredientMatchesCategory(it, state.ingredientFilter)).filter(_ingredientQueryMatch);
+      if (!items.length) {
+        grid.innerHTML = `<div class="muted small">${escHtml(t('cooking.ingredients.empty_filter', 'No ingredients match.'))}</div>`;
+        return;
+      }
+      for (const item of items) {
+        const btn = document.createElement('button');
+        btn.className = 'ingredient-item';
+        const uses = item.uses ? `${item.uses} recipes` : '';
+        const tags = item.tags.length ? item.tags.join(', ') : '';
+        btn.title = `${item.id}${tags ? ' | ' + tags : ''}`;
+        btn.innerHTML = `
+          <div>${renderItem(item.id)}</div>
+          <div class="ingredient-meta"><span>${escHtml(uses)}</span><span>${escHtml(tags)}</span></div>
+        `;
+        btn.onclick = (e) => {
+          const delta = (e.shiftKey || e.altKey) ? -1 : 1;
+          updateSlots(item.id, delta);
+        };
+        btn.oncontextmenu = (e) => {
+          e.preventDefault();
+          updateSlots(item.id, -1);
+        };
+        grid.appendChild(btn);
+      }
+    }
+
+    function formatSlots(inv) {
+      const keys = Object.keys(inv || {}).filter(Boolean).sort();
+      return keys.map(k => `${k}=${inv[k]}`).join('\n');
+    }
+
+    function updateSlots(itemId, delta) {
+      const slots = el('slots');
+      if (!slots) return;
+      const inv = parseSlots(slots.value);
+      const cur = Number(inv[itemId] || 0);
+      const next = cur + Number(delta || 0);
+      if (next <= 0) delete inv[itemId];
+      else inv[itemId] = Math.max(0, next);
+      slots.value = formatSlots(inv);
+      slots.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    async function loadIngredients() {
+      try {
+        const res = await fetchJson(api('/api/v1/cooking/ingredients'));
+        const raw = Array.isArray(res.ingredients) ? res.ingredients : [];
+        const items = raw.map(_normalizeIngredient).filter(Boolean);
+        state.ingredients = items;
+        state.ingredientSource = String(res.source || '');
+      } catch (e) {
+        state.ingredients = [];
+        state.ingredientSource = '';
+      }
+      const hint = el('ingredientHint');
+      if (hint && state.ingredientSource) {
+        const srcLabel = (state.ingredientSource === 'cooking_ingredients')
+          ? t('cooking.ingredients.source.tags', 'ingredient tags')
+          : t('cooking.ingredients.source.card', 'card ingredients');
+        hint.textContent = `${t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove')} · ${srcLabel}`;
+      }
+      renderIngredientFilters();
+      renderIngredientGrid();
+    }
 
     function renderGroupList() {
       const box = el('groupList');
@@ -2573,6 +3546,12 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     }
 
     function renderRecipeList() {
+      if (state.view !== 'encyclopedia') {
+        renderResultList();
+        return;
+      }
+      const formulaEl = el('formula');
+      if (formulaEl) formulaEl.textContent = '';
       const box = el('recipeList');
       box.innerHTML = '';
       el('listCount').textContent = state.recipes.length ? `${state.recipes.length}` : '';
@@ -2595,7 +3574,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       const card = (rec.card_ingredients || []).map(row => {
         const item = row[0];
         const cnt = row[1];
-        return `<div>• ${renderItem(item)} <span class="mono">x${escHtml(cnt)}</span></div>`;
+        return `<div class="line"><span>•</span><span>${renderItem(item)} <span class="mono">x${escHtml(cnt)}</span></span></div>`;
       }).join('');
 
 
@@ -2607,21 +3586,21 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         const expr = escHtml(rule.expr || '');
         const cons = rule.constraints || null;
         const title = includeTitle
-          ? `<div class="small muted">${escHtml(t('cooking.rule.title', 'Rule'))}${kind ? ` (${kind})` : ''}</div>`
+          ? `<div class="section-title">${escHtml(t('cooking.rule.title', 'Rule'))}${kind ? ` (${kind})` : ''}</div>`
           : '';
 
         let consHtml = '';
         if (cons) {
-          const tags = (cons.tags || []).map(c => `<div>• <span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
-          const names = (cons.names || []).map(c => `<div>• <span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
-          const unp = (cons.unparsed || []).map(x => `<div>• <span class="mono">${escHtml(x)}</span></div>`).join('');
+          const tags = (cons.tags || []).map(c => `<div class="line"><span>•</span><span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
+          const names = (cons.names || []).map(c => `<div class="line"><span>•</span><span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
+          const unp = (cons.unparsed || []).map(x => `<div class="line"><span>•</span><span class="mono">${escHtml(x)}</span></div>`).join('');
           const any = Boolean(tags || names || unp);
           consHtml = `
             <div style="margin-top:8px;">
-              <div class="small muted">${escHtml(t('cooking.rule.constraints', 'Constraints (best-effort)'))}</div>
-              ${tags ? `<div><div class="small muted">${escHtml(t('cooking.rule.constraints.tags', 'tags'))}</div>${tags}</div>` : ''}
-              ${names ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.names', 'names'))}</div>${names}</div>` : ''}
-              ${unp ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.unparsed', 'unparsed'))}</div>${unp}</div>` : ''}
+              <div class="section-title">${escHtml(t('cooking.rule.constraints', 'Constraints (best-effort)'))}</div>
+              ${tags ? `<div><div class="small muted">${escHtml(t('cooking.rule.constraints.tags', 'tags'))}</div><div class="list-lines">${tags}</div></div>` : ''}
+              ${names ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.names', 'names'))}</div><div class="list-lines">${names}</div></div>` : ''}
+              ${unp ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.unparsed', 'unparsed'))}</div><div class="list-lines">${unp}</div></div>` : ''}
               ${any ? '' : '<span class="muted">-</span>'}
             </div>
           `;
@@ -2629,13 +3608,13 @@ _COOKING_TEMPLATE = r"""<!doctype html>
 
         return `
           ${title}
-          <div class="mono" style="white-space:pre-wrap; line-height:1.35;">${expr || '<span class="muted">-</span>'}</div>
+          <div class="mono small" style="white-space:pre-wrap; line-height:1.35;">${expr || '<span class="muted">-</span>'}</div>
           ${consHtml}
         `;
       }
 
       const cardBody = card
-        ? card
+        ? `<div class="list-lines">${card}</div>`
         : (rule ? renderRule(rule, false) : '<span class="muted">-</span>');
       const tuning = rec._tuning || {};
       const traceKey = (field) => rec?.name ? `cooking:${rec.name}:${field}` : '';
@@ -2655,10 +3634,12 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         const tr = traceForField(field);
         const expr = tr ? (tr.expr ?? raw ?? '') : (raw ?? '');
         const val = tr && (tr.value !== null && tr.value !== undefined) ? tr.value : raw;
-        const hasVal = (val !== null && val !== undefined);
+        const hasVal = (val !== null && val !== undefined && val !== '');
+        const showExpr = expr && String(expr) !== String(val);
+        const titleAttr = showExpr ? ` title="${escHtml(expr)}"` : '';
 
         const main = hasVal
-          ? `<span class="mono">${escHtml(val)}</span> <span class="small muted mono">${escHtml(expr ?? '')}</span>`
+          ? `<span class="mono"${titleAttr}>${escHtml(val)}</span>`
           : `<span class="mono">${escHtml(expr ?? '')}</span>`;
 
         const enabled = Boolean(state.tuningTraceEnabled);
@@ -2668,38 +3649,53 @@ _COOKING_TEMPLATE = r"""<!doctype html>
           : '';
 
         const details = tr
-          ? `<details style="margin-top:4px;">
-              <summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary>
-              <div class="mono small" style="white-space:pre-wrap; line-height:1.35; border:1px solid rgba(35,48,66,0.9); border-radius:8px; padding:8px; background: rgba(17,27,41,0.35);">${escHtml(JSON.stringify(tr, null, 2))}</div>
-            </details>`
+          ? `<details style="margin-top:6px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(tr, null, 2))}</pre></details>`
           : '';
 
-        return `<div>${main}${btn}${details}</div>`;
+        const actions = btn ? `<span class="stat-actions">${btn}</span>` : '';
+        return `<div class="stat-row">${main}${actions}</div>${details}`;
       }
 
       const extraRule = (card && rule)
         ? `<div style="margin-top:10px;">${renderRule(rule, true)}</div>`
         : '';
+      const foodType = String(rec.foodtype || '').replace('FOODTYPE.','');
+      const heroMeta = foodType ? `<span class="pill">${escHtml(foodType)}</span>` : '<span class="muted">-</span>';
+      const statRows = [
+        {
+          label: t('label.priority', 'Priority'),
+          value: `<span class="mono">${escHtml(rec.priority ?? '')}</span>`,
+        },
+        { label: t('label.hunger', 'Hunger'), value: renderStat('hunger') },
+        { label: t('label.health', 'Health'), value: renderStat('health') },
+        { label: t('label.sanity', 'Sanity'), value: renderStat('sanity') },
+        { label: t('label.perish', 'Perish'), value: renderStat('perishtime') },
+        { label: t('label.cooktime', 'Cooktime'), value: renderStat('cooktime') },
+      ];
+      const statCards = statRows.map(row => `
+        <div class="stat-card">
+          <div class="stat-label">${escHtml(row.label)}</div>
+          <div class="stat-value">${row.value}</div>
+        </div>
+      `).join('');
 
       el('detail').innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
-          <div style="font-size:16px; font-weight:650;">${renderItem(rec.name || '')}</div>
-          <div class="small muted">${String(rec.foodtype || '').replace('FOODTYPE.','')}</div>
+        <div class="detail-hero">
+          <div>
+            <div class="hero-title">${renderItem(rec.name || '')}</div>
+            <div class="hero-sub">${escHtml(foodType || '-')}</div>
+          </div>
+          <div class="hero-meta">${heroMeta}</div>
         </div>
-        <div class="kv">
-          <div class="k">${escHtml(t('label.priority', 'Priority'))}</div><div class="mono">${rec.priority ?? ''}</div>
-          <div class="k">${escHtml(t('label.hunger', 'Hunger'))}</div><div>${renderStat('hunger')}</div>
-          <div class="k">${escHtml(t('label.health', 'Health'))}</div><div>${renderStat('health')}</div>
-          <div class="k">${escHtml(t('label.sanity', 'Sanity'))}</div><div>${renderStat('sanity')}</div>
-          <div class="k">${escHtml(t('label.perish', 'Perish'))}</div><div>${renderStat('perishtime')}</div>
-          <div class="k">${escHtml(t('label.cooktime', 'Cooktime'))}</div><div>${renderStat('cooktime')}</div>
+        <div class="stat-grid">
+          ${statCards}
         </div>
-        <div>
-          <div class="small muted">${escHtml(t('label.tags', 'Tags'))}</div>
+        <div class="section">
+          <div class="section-title">${escHtml(t('label.tags', 'Tags'))}</div>
           <div class="chips">${tags || '<span class="muted">-</span>'}</div>
         </div>
-        <div>
-          <div class="small muted">${escHtml(card ? t('cooking.card.ingredients', 'Card ingredients') : (rule ? t('cooking.rule.conditional', 'Recipe rule (conditional)') : t('cooking.card.ingredients', 'Card ingredients')))}</div>
+        <div class="section">
+          <div class="section-title">${escHtml(card ? t('cooking.card.ingredients', 'Card ingredients') : (rule ? t('cooking.rule.conditional', 'Recipe rule (conditional)') : t('cooking.card.ingredients', 'Card ingredients')))}</div>
           ${cardBody}
           ${extraRule}
         </div>
@@ -2790,12 +3786,14 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       // ensure name always present
       if (state.activeRecipeData && !state.activeRecipeData.name) state.activeRecipeData.name = name;
       renderRecipeDetail(state.activeRecipeData);
+      focusDetail();
     }
 
     async function doSearch() {
       setError('');
       const q = el('q').value.trim();
       if (!q) return;
+      setView('encyclopedia');
       const res = await fetchJson(api(`/api/v1/cooking/recipes/search?q=${encodeURIComponent(q)}&limit=200`));
       const results = (res.results || []).map(r => r.name).filter(Boolean);
       state.recipes = results;
@@ -2810,6 +3808,7 @@ _COOKING_TEMPLATE = r"""<!doctype html>
 
     async function showAll() {
       setError('');
+      setView('encyclopedia');
       const res = await fetchJson(api('/api/v1/cooking/recipes'));
       state.recipes = (res.recipes || []);
       state.activeGroup = null;
@@ -2821,31 +3820,33 @@ _COOKING_TEMPLATE = r"""<!doctype html>
       el('listTitle').textContent = t('cooking.list.all_recipes', 'All recipes');
     }
 
-    async function doFind() {
+    async function doExplore() {
       setError('');
-      const inv = parseInventory(el('inv').value);
-      const res = await fetchJson(api('/api/v1/cooking/find'), {
+      const slots = parseSlots(el('slots').value);
+      const res = await fetchJson(api('/api/v1/cooking/explore'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory: inv, limit: 200 }),
+        body: JSON.stringify({ slots: slots, limit: 200 }),
       });
 
-      const cookable = res.cookable || [];
-      state.recipes = cookable;
-      state.activeGroup = null;
-      state.activeRecipe = null;
-      state.activeRecipeData = null;
-      renderGroupList();
-      renderRecipeList();
-      renderRecipeDetail(null);
+      if (!res.ok) {
+        el('out').innerHTML = `<div class="err">${res.error || 'explore_failed'} (total=${res.total ?? ''})</div>`;
+        return;
+      }
 
-      el('listTitle').textContent = `${t('cooking.list.cookable', 'Cookable')} (${cookable.length})`;
-      el('out').innerHTML = res.note ? `<div class="muted">${res.note}</div>` : '';
+      state.results = Object.assign({ _mode: 'explore' }, res);
+      renderRecipeList();
+      el('out').innerHTML = `<div class="small muted">${escHtml(t('cooking.results.summary', 'Explore results updated.'))}</div>`;
     }
 
     async function doSimulate() {
       setError('');
       const slots = parseSlots(el('slots').value);
+      const total = Object.values(slots).reduce((acc, v) => acc + Number(v || 0), 0);
+      if (total < 4) {
+        await doExplore();
+        return;
+      }
       const res = await fetchJson(api('/api/v1/cooking/simulate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2857,17 +3858,19 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         return;
       }
 
+      state.results = {
+        _mode: 'simulate',
+        formula: res.formula || '',
+        cookable: res.cookable || [],
+        near_miss: res.near_miss || [],
+      };
+      renderRecipeList();
+
       const result = res.result || '(none)';
       const reason = res.reason || '';
-      const cand = res.candidates || [];
-      const lines = cand.length
-        ? cand.map(c => `• ${renderItem(c.name)} (p=${escHtml(c.priority)}, w=${escHtml(c.weight)})`).join('<br/>')
-        : '<span class="muted">No candidates (fallback).</span>';
-
       el('out').innerHTML = `
         <div class="ok">Result: ${renderItem(result)} <span class="muted">${reason ? '('+reason+')' : ''}</span></div>
-        <div class="small muted" style="margin-top:6px;">Top matches</div>
-        <div class="mono">${lines}</div>
+        <div class="small muted" style="margin-top:6px;">${escHtml(t('cooking.results.sim_summary', 'Candidates listed on the left.'))}</div>
       `;
 
       // auto-select result if exists
@@ -2907,9 +3910,56 @@ _COOKING_TEMPLATE = r"""<!doctype html>
     el('btnToggle').onclick = toggleMode;
     el('btnSearch').onclick = () => doSearch().catch(e => setError(String(e)));
     el('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch().catch(err => setError(String(err))); });
-    el('btnFind').onclick = () => doFind().catch(e => setError(String(e)));
-    el('btnSim').onclick = () => doSimulate().catch(e => setError(String(e)));
+    el('btnExplore').onclick = () => {
+      setView('explore');
+      doExplore().catch(e => setError(String(e)));
+    };
+    el('btnSim').onclick = () => {
+      setView('simulate');
+      doSimulate().catch(e => setError(String(e)));
+    };
     el('btnShowAll').onclick = () => showAll().catch(e => setError(String(e)));
+    el('btnViewCards').onclick = () => setListView('card');
+    el('btnViewDense').onclick = () => setListView('dense');
+
+    const modeEncy = el('modeEncy');
+    if (modeEncy) modeEncy.onclick = () => { setView('encyclopedia'); showAll().catch(e => setError(String(e))); };
+    const modeExplore = el('modeExplore');
+    if (modeExplore) modeExplore.onclick = () => { setView('explore'); doExplore().catch(e => setError(String(e))); };
+    const modeSim = el('modeSim');
+    if (modeSim) modeSim.onclick = () => { setView('simulate'); doSimulate().catch(e => setError(String(e))); };
+
+    const ingSearch = el('ingredientSearch');
+    if (ingSearch) {
+      ingSearch.addEventListener('input', () => {
+        state.ingredientQuery = ingSearch.value.trim();
+        renderIngredientGrid();
+      });
+    }
+    const ingClear = el('ingredientClear');
+    if (ingClear) {
+      ingClear.onclick = () => {
+        const slots = el('slots');
+        if (!slots) return;
+        slots.value = '';
+        slots.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+    }
+
+    let exploreTimer = null;
+    const slotsInput = el('slots');
+    if (slotsInput) {
+      slotsInput.addEventListener('input', () => {
+        if (state.view === 'encyclopedia') {
+          setView('explore');
+        }
+        if (exploreTimer) clearTimeout(exploreTimer);
+        exploreTimer = setTimeout(() => {
+          if (state.view === 'simulate') doSimulate().catch(e => setError(String(e)));
+          else doExplore().catch(e => setError(String(e)));
+        }, 400);
+      });
+    }
 
     function initFromUrl() {
       const params = new URLSearchParams(window.location.search || '');
@@ -2931,7 +3981,10 @@ _COOKING_TEMPLATE = r"""<!doctype html>
         await loadMeta();
         await ensureI18nNames(state.labelMode);
         await loadAssets();
+        await loadIngredients();
         await loadGroups();
+        setView(state.view);
+        setListView(state.listView);
         await showAll();
         initFromUrl();
       } catch (e) {
@@ -2948,4 +4001,6 @@ def render_cooking_html(app_root: str = "") -> str:
     """Render the Cooking UI page."""
     from html import escape as _esc
 
-    return _COOKING_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", _esc(app_root or ""))
+    root = str(app_root or "")
+    css = _SHARED_CSS.replace("__WAGSTAFF_APP_ROOT__", root)
+    return _COOKING_TEMPLATE.replace("__WAGSTAFF_APP_ROOT__", _esc(root)).replace("__SHARED_CSS__", css)

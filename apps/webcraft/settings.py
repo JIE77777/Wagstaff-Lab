@@ -11,7 +11,9 @@ class WebCraftSettings:
     """Runtime settings for WebCraft server.
 
     Notes
-    - catalog_path should point to data/index/wagstaff_catalog_v2.json
+    - catalog_path can point to wagstaff_catalog_v2.json or wagstaff_catalog_v2.sqlite
+      (SQLite is preferred when both exist).
+    - i18n requires wagstaff_i18n_v1.json (no runtime PO fallback).
     - root_path is for reverse-proxy mount (e.g. '/webcraft')
     """
 

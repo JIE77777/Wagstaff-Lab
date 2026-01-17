@@ -4,9 +4,8 @@
 echo "🔧 正在执行项目初始化..."
 
 # 1. 恢复执行权限 (Git 可能会丢失 chmod +x)
-chmod +x bin/*.sh
 chmod +x core/*.py
-chmod +x apps/cli/*.py
+chmod +x apps/cli/commands/*.py
 chmod +x apps/webcraft/*.py
 chmod +x devtools/*.py
 echo "✅ 脚本权限已修复"
@@ -24,7 +23,8 @@ if [ -z "$CONDA_DEFAULT_ENV" ] || [ "$CONDA_DEFAULT_ENV" != "dst_lab" ]; then
     fi
 fi
 
-# 3. 重新注册环境 (更新 PATH 和别名)
-python devtools/installer.py
+# 3. 通过 pyproject.toml 注册入口
+echo "建议执行: python -m pip install -e \".[cli]\" 以注册 wagstaff 入口"
+echo "如需完整依赖: python -m pip install -e \".[all]\""
 
-echo "🎉 项目环境同步完成！输入 'Wagstaff-Lab' 呼出控制台。"
+echo "🎉 项目环境同步完成！使用 wagstaff 进入控制台。"

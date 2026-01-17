@@ -7,8 +7,8 @@ from rich.console import Console
 from rich.progress import track
 
 # 挂载 core 并引入引擎
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "core"))
-from engine import WagstaffEngine
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.engine import WagstaffEngine
 
 console = Console()
 

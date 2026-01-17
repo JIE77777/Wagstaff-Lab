@@ -1,79 +1,141 @@
-# 🧪 Wagstaff-Lab (v3.0)
+# Wagstaff-Lab (v3)
 
-**Wagstaff-Lab** 是一个专为《饥荒联机版》(Don't Starve Together) 设计的服务器运维、源码分析与项目管理工具集。它采用“注册表驱动”架构，实现了从底层数据解析到高层 UI 展示的全自动化管理。
+Wagstaff-Lab 是 DST（Don't Starve Together）数据实验室：负责索引、分析与 WebCraft UI，所有上层展示都基于稳定的索引产物。当前架构为 `core/` 解析与索引、`apps/` 应用层、`devtools/` 构建与报告工具。
 
-## 🌟 核心理念 (Manifesto)
+## 必读
 
-本项目的开发严格遵循以下宗旨：
-* **分层清晰**：`core/` 负责解析与索引，`apps/` 承载 UI/服务，`devtools/` 提供流程工具。
-* **单向依赖**：上层 (`apps/`、`devtools/`) 可以依赖 `core/`，`core/` 不依赖上层。
-* **数据契约**：对外展示只依赖 `data/` 下的版本化产物，不直接读取原始脚本。
-* **路径自适应**：禁止硬编码绝对路径，统一通过 `__file__` 推导项目根目录。
-* **可追溯**：索引与报告必须携带来源元信息（scripts hash / schema_version）。
-* **稳健降级**：优先读取 `scripts.zip`，失败时自动降级为文件夹模式。
+- `docs/guides/DEV_GUIDE.md`：开发规范与强制约束
+- `docs/management/PROJECT_MANAGEMENT.md`：管理与进度执行入口
 
-## 🚀 快速开始
+## 当前能力
 
-### 1. 环境准备
-确保您的系统已安装 **Conda**，并创建了名为 `dst_lab` 的 Python 3.10+ 环境。
+- **Catalog v2**：以物品为中心的可标签化目录，含 stats 与 assets
+- **Tuning trace**：可选输出 TUNING 解析链路
+- **i18n index**：名称 + UI 词条（数据层与语言解耦）
+- **Icon pipeline**：静态图标 + 动态回退
+- **WebCraft**：FastAPI UI，严格使用索引产物
 
-### 2. 初始化项目
-在拉取代码后，运行一键初始化脚本：
+## 安装（pyproject 入口）
+
+建议在 `dst_lab` 环境中执行：
+
 ```bash
-./setup.sh
+python -m pip install -e ".[cli]"
 ```
-该脚本会自动：
-* 修复脚本执行权限。
-* 自动激活 `dst_lab` 环境。
-* 将项目工具路径注册到您的系统环境变量（`.bashrc` 或 `.profile`）。
 
-### 3. 生效配置
+全量依赖（web + icons + quality）：
+
 ```bash
-source ~/.bashrc
+python -m pip install -e ".[all]"
 ```
 
-## 🛠️ 工具箱说明书
+CLI 入口为 `wagstaff`。
 
-您可以通过输入 `Wagstaff-Lab` 呼出主控制面板。
+## 配置 DST 路径
 
-| 命令 | 别名 | 功能说明 |
-| :--- | :--- | :--- |
-| `Wagstaff-Lab` | - | **主入口**：查看项目概况与工具清单 |
-| `pm` | - | **项目管理**：交互式管理任务进度 |
-| `wagstaff wiki` | `wiki` | **百科**：查阅物品配方与数值 |
-| `wagstaff exp` | `exp` | **透视**：分析 Prefab 结构与逻辑 |
-| `wagstaff report` | `report` | **情报**：生成资产与配方报告 |
-| `wagstaff snap` | `snap` | **快照**：生成 LLM 友好代码快照 |
+在 `conf/settings.ini` 中配置 `DST_ROOT`，或通过命令参数 `--dst-root` 覆盖。
 
-## 🏗️ 新工具开发 SOP (v3.0 标准)
-
-若要在实验室中纳入新工具，请遵循以下流程：
-
-1.  **开发 (Develop)**：在 `core/`、`apps/` 或 `devtools/` 目录下编写您的 Python 脚本。
-2.  **注册 (Register)**：在 `apps/cli/registry.py` 的 `TOOLS` 列表中添加该工具的元数据。
-3.  **同步 (Apply)**：运行 `wagstaff install` (或 `python3 devtools/installer.py`)。
-4.  **记录 (Log)**：使用 `pm ui` 记录您的开发日志。
-
-## 🧭 开发规范与约定 (v3.0)
-
-- **代码落点**：`core/` 只放领域解析与索引；`apps/cli` 放交互命令；`apps/webcraft` 放 API+UI；`devtools/` 放构建/清理/报告。
-- **导入约定**：入口脚本负责挂载 `core/`（必要时 `apps/`）到 `sys.path`；核心模块不得自行修改 `sys.path`。
-- **数据产物**：全部落盘到 `data/`，并带版本后缀（例如 `wagstaff_catalog_v2.json`）。
-- **WebCraft**：UI 只通过 API 读取数据；API 不绕过索引产物直读脚本。
-- **变更同步**：重要重构必须同步更新 `README.md`、`PROJECT_STATUS.json` 与相关文档。
-- 详细规范与路线图：`docs/DEV_GUIDE.md`、`docs/ROADMAP.md`。
-
-## 📁 目录结构
-
-```text
-├── bin/                # 自动化生成的命令行包装器
-├── core/               # 业务核心代码 (Engine, Analyzer, Catalog)
-├── apps/               # 应用层
-│   ├── cli/            # CLI 工具 (guide/wiki/explorer/doctor)
-│   └── webcraft/       # WebCraft 服务 (FastAPI)
-├── devtools/           # 开发运维工具 (PM, Snap, Reporter, Installer)
-├── conf/               # 配置文件 (settings.ini)
-├── docs/               # 设计/约定/架构文档
-├── data/               # 持久化数据与报告
-└── PROJECT_STATUS.json # 项目进度与宗旨数据库
+示例：
 ```
+[PATHS]
+DST_ROOT=/path/to/dontstarvetogether_dedicated_server
+```
+
+## 构建流程
+
+所有产物落盘在 `data/`，并带版本后缀。
+
+一键构建：
+```bash
+make all
+```
+
+或分步构建：
+```bash
+wagstaff resindex   # resource index
+wagstaff catalog2   # catalog v2 (+ tuning trace)
+wagstaff catindex   # compact catalog index
+wagstaff i18n       # i18n index
+wagstaff icons      # icon export + icon index
+wagstaff catqa      # coverage/quality report
+wagstaff quality    # info-only quality gate
+```
+
+可选：生成 SQLite 版本 catalog：
+```bash
+make catalog-sqlite
+```
+
+## 启动 WebCraft
+
+```bash
+wagstaff web --host 0.0.0.0 --port 20000 --reload-catalog
+```
+
+WebCraft 优先读取 `data/index/wagstaff_catalog_v2.sqlite`（缺失时回退 JSON）。
+i18n 仅使用 `data/index/wagstaff_i18n_v1.json`（运行时不解析 PO）。
+
+默认本地启动：
+```bash
+wagstaff web
+```
+
+## CLI 总览
+
+- `wagstaff` / `wagstaff dash`：项目概览面板
+- `wagstaff doctor`：环境与产物检查（信息提示）
+- `wagstaff wiki`：配方/烹饪/Prefab 查询
+- `wagstaff exp`：源码与 Lua 解析探索
+- `wagstaff mgmt`：管理状态展示与同步
+- `wagstaff server`：DST 服务器管理（screen 会话）
+- `wagstaff snap`：LLM 快照导出
+
+## 服务器管理示例
+
+```bash
+wagstaff server status
+wagstaff server ui
+wagstaff server start
+wagstaff server stop --timeout 40 --force
+wagstaff server backup
+wagstaff server restore --latest --yes --start
+wagstaff server logs --shard master --follow
+wagstaff server cmd "c_announce(\"hello\")"
+```
+
+## 关键产物
+
+```
+data/index/wagstaff_resource_index_v1.json
+data/index/wagstaff_catalog_v2.json
+data/index/wagstaff_catalog_v2.sqlite
+data/index/wagstaff_catalog_index_v1.json
+data/index/wagstaff_i18n_v1.json
+data/index/wagstaff_icon_index_v1.json
+data/index/wagstaff_tuning_trace_v1.json
+data/reports/catalog_quality_report.md
+```
+
+## 项目结构
+
+```
+core/            解析 + 索引 + schemas
+core/indexers/   索引构建逻辑
+core/schemas/    数据契约 + meta 辅助
+apps/cli/        CLI dispatcher + commands
+apps/server/     DST server ops (isolated from data analysis)
+apps/webcraft/   WebCraft API + UI
+devtools/        构建/报告/快照工具
+conf/            配置与快照模板
+data/            产物与报告
+docs/            guides/ specs/ management/ architecture
+```
+
+## 文档入口
+
+- `docs/README.md`：文档索引
+- `docs/guides/DEV_GUIDE.md`：开发规范
+- `docs/guides/CLI_GUIDE.md`：CLI 角色与职责
+- `docs/specs/CATALOG_V2_SPEC.md`：Catalog v2 规范
+- `docs/management/ROADMAP.md`：项目路线图
+- `docs/management/PROJECT_MANAGEMENT.md`：项目管理与进度

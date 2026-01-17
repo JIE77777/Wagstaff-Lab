@@ -29,9 +29,9 @@ from typing import Dict, List, Tuple
 
 # Mount core/ (for repo usage). If you place this script elsewhere, ensure engine.py is importable.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT / "core"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from engine import WagstaffEngine  # type: ignore
+from core.engine import WagstaffEngine  # type: ignore
 
 REPORT_DIR = PROJECT_ROOT / "data" / "reports"
 

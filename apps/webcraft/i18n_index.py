@@ -21,6 +21,10 @@ class I18nIndexStore:
     def path(self) -> Path:
         return self._path
 
+    def mtime(self) -> float:
+        with self._lock:
+            return float(self._mtime or 0)
+
     def load(self, force: bool = False) -> bool:
         """Load index file if changed. Returns True if reload occurred."""
         with self._lock:

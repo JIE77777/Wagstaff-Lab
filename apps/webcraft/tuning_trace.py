@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+
+import bisect
 
 
 class TuningTraceStore:
@@ -15,17 +17,23 @@ class TuningTraceStore:
         self._lock = threading.RLock()
         self._mtime: float = -1.0
         self._doc: Dict[str, Any] = {}
+        self._keys: List[str] = []
         self.load(force=True)
 
     @property
     def path(self) -> Path:
         return self._path
 
+    def mtime(self) -> float:
+        with self._lock:
+            return float(self._mtime or 0)
+
     def load(self, force: bool = False) -> bool:
         """Load trace file if changed. Returns True if reload occurred."""
         with self._lock:
             if not self._path.exists():
                 self._doc = {}
+                self._keys = []
                 self._mtime = -1.0
                 return False
             try:
@@ -39,6 +47,7 @@ class TuningTraceStore:
             except Exception:
                 doc = {}
             self._doc = doc if isinstance(doc, dict) else {}
+            self._keys = sorted(k for k in self._doc.keys() if isinstance(k, str))
             self._mtime = mtime
             return True
 
@@ -61,9 +70,11 @@ class TuningTraceStore:
             return {}
         out: Dict[str, Any] = {}
         with self._lock:
-            for k, v in self._doc.items():
-                if not isinstance(k, str) or not k.startswith(p):
-                    continue
+            keys = self._keys
+            start = bisect.bisect_left(keys, p)
+            end = bisect.bisect_right(keys, p + "\uffff")
+            for k in keys[start:end]:
+                v = self._doc.get(k)
                 out[k] = dict(v) if isinstance(v, dict) else v
                 if len(out) >= limit:
                     break

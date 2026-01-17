@@ -44,8 +44,9 @@
         "PROJECT_STATUS.json",
         "README.md",
         "conf/settings.ini",
-        "docs/DEV_GUIDE.md",
-        "docs/ROADMAP.md",
+        "docs/guides/DEV_GUIDE.md",
+        "docs/management/ROADMAP.md",
+        "apps/cli/main.py",
         "apps/cli/registry.py"
       ],
       "max_file_bytes": 200000,
@@ -64,7 +65,6 @@
         "devtools/**/*.py",
         "docs/**/*.md",
         "tests/**/*.py",
-        "bin/**",
         "data/reports/**/*.md",
         "data/samples/**/*"
       ],
@@ -116,11 +116,11 @@
           "mode": "full"
         },
         {
-          "match": "apps/cli/explorer.py",
+          "match": "apps/cli/commands/explorer.py",
           "mode": "full"
         },
         {
-          "match": "apps/cli/wiki.py",
+          "match": "apps/cli/commands/wiki.py",
           "mode": "full"
         },
         {
@@ -148,11 +148,6 @@
           "match": "tests/**/*.py",
           "mode": "head",
           "head_lines": 220
-        },
-        {
-          "match": "bin/**",
-          "mode": "head",
-          "head_lines": 160
         },
         {
           "match": "conf/**",
@@ -344,11 +339,11 @@
           "mode": "full"
         },
         {
-          "match": "apps/cli/explorer.py",
+          "match": "apps/cli/commands/explorer.py",
           "mode": "full"
         },
         {
-          "match": "apps/cli/wiki.py",
+          "match": "apps/cli/commands/wiki.py",
           "mode": "full"
         },
         {
@@ -400,10 +395,6 @@
           "match": "data/samples/**/*.json",
           "mode": "head",
           "head_lines": 220
-        },
-        {
-          "match": "bin/**",
-          "mode": "skip"
         },
         {
           "match": "**/*",
@@ -505,23 +496,11 @@
           "mode": "interface"
         },
         {
-          "match": "bin/.dst_tool.sh.swp",
-          "mode": "skip"
-        },
-        {
           "match": "conf/settings.ini",
           "mode": "interface"
         },
         {
-          "match": "bin/Wagstaff-Lab",
-          "mode": "skip"
-        },
-        {
-          "match": "bin/dst_tool.sh",
-          "mode": "skip"
-        },
-        {
-          "match": "apps/cli/explorer.py",
+          "match": "apps/cli/main.py",
           "mode": "interface"
         },
         {
@@ -529,28 +508,20 @@
           "mode": "interface"
         },
         {
-          "match": "apps/cli/doctor.py",
+          "match": "apps/cli/commands/dash.py",
           "mode": "interface"
         },
         {
-          "match": "bin/wagstaff",
-          "mode": "skip"
-        },
-        {
-          "match": "apps/cli/guide.py",
-          "mode": "skip"
-        },
-        {
-          "match": "bin/boot.sh",
-          "mode": "skip"
-        },
-        {
-          "match": "apps/cli/wiki.py",
+          "match": "apps/cli/commands/doctor.py",
           "mode": "interface"
         },
         {
-          "match": "bin/pm",
-          "mode": "skip"
+          "match": "apps/cli/commands/wiki.py",
+          "mode": "interface"
+        },
+        {
+          "match": "apps/cli/commands/explorer.py",
+          "mode": "interface"
         },
         {
           "match": "PROJECT_STATUS.json",
@@ -610,10 +581,6 @@
           "mode": "interface"
         },
         {
-          "match": "bin/**",
-          "mode": "skip"
-        },
-        {
           "match": "core/**",
           "mode": "full"
         },
@@ -650,7 +617,6 @@
       "include_globs": [
         "PROJECT_STATUS.json",
         "README.md",
-        "bin/**/*",
         "conf/**/*",
         "conf/snapshot_templates.json",
         "data/index/**/*",
@@ -769,10 +735,6 @@
           "mode": "full"
         },
         {
-          "match": "bin/**",
-          "mode": "interface"
-        },
-        {
           "match": "**/*",
           "mode": "skip"
         }
@@ -782,11 +744,12 @@
         "PROJECT_STATUS.json",
         "conf/settings.ini",
         "conf/snapshot_templates.json",
+        "apps/cli/main.py",
         "apps/cli/registry.py",
         "core/engine.py",
         "core/analyzer.py",
-        "apps/cli/wiki.py",
-        "apps/cli/explorer.py",
+        "apps/cli/commands/wiki.py",
+        "apps/cli/commands/explorer.py",
         "apps/webcraft/app.py",
         "apps/webcraft/api.py",
         "apps/webcraft/catalog_store.py",

@@ -23,14 +23,14 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 import xml.etree.ElementTree as ET
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(PROJECT_ROOT / "core"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from analyzer import LuaCallExtractor, parse_lua_string, strip_lua_comments  # type: ignore
-from catalog import _extract_strings_names  # type: ignore
-from engine import WagstaffEngine  # type: ignore
+from core.analyzer import LuaCallExtractor, parse_lua_string, strip_lua_comments  # type: ignore
+from core.indexers.shared import _extract_strings_names  # type: ignore
+from core.engine import WagstaffEngine  # type: ignore
 
 try:
-    from utils import wagstaff_config  # type: ignore
+    from core.utils import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

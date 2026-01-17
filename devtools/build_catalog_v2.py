@@ -10,13 +10,14 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "core"))
+sys.path.insert(0, str(PROJECT_ROOT))
 
-from catalog_v2 import WagstaffCatalogV2  # noqa: E402
-from engine import WagstaffEngine  # noqa: E402
+from core.indexers.catalog_v2 import build_catalog_v2  # noqa: E402
+from core.schemas.catalog_v2 import WagstaffCatalogV2  # noqa: E402
+from core.engine import WagstaffEngine  # noqa: E402
 
 try:
-    from utils import wagstaff_config  # type: ignore
+    from core.utils import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 
@@ -75,7 +76,7 @@ def main() -> int:
 
     trace_out = "" if args.no_tuning_trace else str(args.tuning_trace_out or "")
 
-    catalog, tuning_trace = WagstaffCatalogV2.build(
+    catalog, tuning_trace = build_catalog_v2(
         engine=engine,
         resource_index=resource_index,
         tag_overrides_path=tag_overrides,
