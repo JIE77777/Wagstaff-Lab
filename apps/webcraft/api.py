@@ -195,6 +195,7 @@ class CookingSimulateRequest(BaseModel):
 
 class CookingExploreRequest(BaseModel):
     slots: Dict[str, float] = Field(default_factory=dict)
+    available: List[str] = Field(default_factory=list)
     limit: int = 200
 
 
@@ -597,7 +598,7 @@ def cooking_tags(store: CatalogStore = Depends(get_store)):
 
 @router.get("/cooking/ingredients")
 def cooking_ingredients(store: CatalogStore = Depends(get_store)):
-    raw = store.cooking_ingredients()
+    raw, source = store.cooking_ingredients_with_fallback()
     items: List[Dict[str, Any]] = []
     if raw:
         for iid, data in raw.items():
@@ -612,8 +613,7 @@ def cooking_ingredients(store: CatalogStore = Depends(get_store)):
                     "uses": len(store.list_cooking_by_ingredient(iid)),
                 }
             )
-        source = "cooking_ingredients"
-    else:
+    elif source == "card_ingredients":
         for iid in store.list_cooking_ingredients():
             items.append(
                 {
@@ -623,7 +623,6 @@ def cooking_ingredients(store: CatalogStore = Depends(get_store)):
                     "uses": len(store.list_cooking_by_ingredient(iid)),
                 }
             )
-        source = "card_ingredients"
 
     items.sort(key=lambda x: (-int(x.get("uses") or 0), str(x.get("id") or "")))
     return {"ingredients": items, "count": len(items), "source": source}
@@ -696,14 +695,20 @@ def cooking_find(req: CookingFindRequest, store: CatalogStore = Depends(get_stor
 @router.post("/cooking/explore")
 def cooking_explore(req: CookingExploreRequest, store: CatalogStore = Depends(get_store)):
     recipes = store.iter_cooking_recipes()
-    ingredients = store.cooking_ingredients()
-    return explore_cookpot(recipes, req.slots, ingredients=ingredients, limit=int(req.limit or 200))
+    ingredients, _ = store.cooking_ingredients_with_fallback()
+    return explore_cookpot(
+        recipes,
+        req.slots,
+        ingredients=ingredients,
+        available=req.available,
+        limit=int(req.limit or 200),
+    )
 
 
 @router.post("/cooking/simulate")
 def cooking_simulate(req: CookingSimulateRequest, request: Request, store: CatalogStore = Depends(get_store)):
     recipes = store.iter_cooking_recipes()
-    ingredients = store.cooking_ingredients()
+    ingredients, _ = store.cooking_ingredients_with_fallback()
     out = simulate_cookpot(recipes, req.slots, return_top=int(req.return_top or 25), ingredients=ingredients)
 
     # Attach result recipe details if available.

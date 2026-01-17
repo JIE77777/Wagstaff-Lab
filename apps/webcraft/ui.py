@@ -844,6 +844,74 @@ body.page--cooking .tool-card {
   border: 1px dashed rgba(31, 26, 22, 0.16);
   background: rgba(255, 255, 255, 0.7);
 }
+body.page--cooking .detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-areas: "main side";
+  gap: 18px;
+  align-items: start;
+}
+body.page--cooking[data-view="explore"] .detail-grid,
+body.page--cooking[data-view="simulate"] .detail-grid {
+  grid-template-columns: minmax(420px, 1.35fr) minmax(240px, 0.65fr);
+  grid-template-areas: "side main";
+}
+body.page--cooking .detail-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+body.page--cooking .detail-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+@media (max-width: 1120px) {
+  body.page--cooking .detail-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "side"
+      "main";
+  }
+}
+body.page--cooking .slot-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 2px;
+  min-height: 36px;
+}
+body.page--cooking .slot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(31, 26, 22, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+body.page--cooking .slot-chip:hover {
+  border-color: rgba(31, 122, 114, 0.5);
+  transform: translateY(-1px);
+}
+body.page--cooking .slot-chip .itemRef {
+  gap: 6px;
+}
+body.page--cooking .slot-chip .slot-count {
+  font-size: 10px;
+  color: var(--muted);
+}
+body.page--cooking .slot-chip .slot-remove {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 2px;
+}
 body.page--cooking .tool-ingredients {
   display: flex;
   flex-direction: column;
@@ -890,11 +958,15 @@ body.page--cooking .ingredient-filter.active {
 }
 body.page--cooking .ingredient-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
-  max-height: 240px;
+  max-height: 320px;
   overflow: auto;
   padding-right: 4px;
+}
+body.page--cooking[data-view="explore"] .ingredient-grid,
+body.page--cooking[data-view="simulate"] .ingredient-grid {
+  max-height: 420px;
 }
 body.page--cooking .ingredient-item {
   border: 1px solid rgba(31, 26, 22, 0.12);
@@ -904,6 +976,11 @@ body.page--cooking .ingredient-item {
   text-align: left;
   cursor: pointer;
   transition: border-color 0.2s ease, transform 0.2s ease;
+}
+body.page--cooking .ingredient-item.active {
+  border-color: rgba(31, 122, 114, 0.55);
+  background: rgba(31, 122, 114, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(31, 122, 114, 0.2);
 }
 body.page--cooking .ingredient-item:hover {
   border-color: rgba(195, 82, 58, 0.45);
@@ -1418,10 +1495,6 @@ rocks=10"></textarea>
     }
 
     function renderRecipeList() {
-      if (state.view !== 'encyclopedia') {
-        renderResultList();
-        return;
-      }
       const formulaEl = el('formula');
       if (formulaEl) formulaEl.textContent = '';
       const box = el('recipeList');
@@ -2787,37 +2860,41 @@ __SHARED_CSS__
         <button class="btn ghost back" id="btnBackList">Back to list</button>
       </div>
       <div class="detail">
-        <div id="detail"></div>
+        <div class="detail-grid">
+          <div class="detail-main">
+            <div id="detail"></div>
+            <div class="tool-card" id="toolResults">
+              <div class="small muted" id="resultTitle">Results</div>
+              <div class="small muted" id="formula"></div>
+              <div id="out" class="small"></div>
+            </div>
+            <div class="err" id="err"></div>
+          </div>
+          <div class="detail-side">
+            <div class="tool-card" id="toolExplore">
+              <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+              <div class="slot-preview" id="slotPreview"></div>
+              <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
+              <div class="row">
+                <button id="btnExplore" class="primary">Explore</button>
+                <button id="btnSim" class="btn">Simulate</button>
+              </div>
+            </div>
 
-        <div class="tool-card" id="toolExplore">
-          <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
-          <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
-          <div class="row">
-            <button id="btnExplore" class="primary">Explore</button>
-            <button id="btnSim" class="btn">Simulate</button>
+            <div class="tool-card tool-ingredients" id="ingredientPicker">
+              <div class="ingredient-head">
+                <div class="small muted" id="ingredientTitle">Ingredient picker</div>
+                <button id="ingredientClear" class="btn ghost">Clear slots</button>
+              </div>
+              <div class="ingredient-search">
+                <input id="ingredientSearch" type="text" placeholder="Filter ingredients..." />
+                <div class="small muted" id="ingredientHint">Click to add, Shift/Alt to remove</div>
+              </div>
+              <div class="ingredient-filters" id="ingredientFilters"></div>
+              <div class="ingredient-grid" id="ingredientGrid"></div>
+            </div>
           </div>
         </div>
-
-        <div class="tool-card tool-ingredients" id="ingredientPicker">
-          <div class="ingredient-head">
-            <div class="small muted" id="ingredientTitle">Ingredient picker</div>
-            <button id="ingredientClear" class="btn ghost">Clear slots</button>
-          </div>
-          <div class="ingredient-search">
-            <input id="ingredientSearch" type="text" placeholder="Filter ingredients..." />
-            <div class="small muted" id="ingredientHint">Click to add, Shift/Alt to remove</div>
-          </div>
-          <div class="ingredient-filters" id="ingredientFilters"></div>
-          <div class="ingredient-grid" id="ingredientGrid"></div>
-        </div>
-
-        <div class="tool-card">
-          <div class="small muted" id="resultTitle">Results</div>
-          <div class="small muted" id="formula"></div>
-          <div id="out" class="small"></div>
-        </div>
-
-        <div class="err" id="err"></div>
       </div>
     </div>
   </div>
@@ -3040,12 +3117,8 @@ __SHARED_CSS__
       }
       const detailTitle = el('detailTitle');
       if (detailTitle) detailTitle.textContent = t('cooking.detail.title', 'Details / Tools');
-      const slotsHelp = el('slotsHelp');
-      if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (<=4 for explore, =4 for simulate)');
       const input = el('q');
       if (input) input.placeholder = t('cooking.search.placeholder', input.placeholder || '');
-      const slots = el('slots');
-      if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
       const btnShowAll = el('btnShowAll');
       if (btnShowAll) btnShowAll.textContent = t('btn.show_all', 'Show all');
       const btnExplore = el('btnExplore');
@@ -3060,12 +3133,49 @@ __SHARED_CSS__
       if (resultTitle) resultTitle.textContent = t('cooking.results.title', 'Results');
       const ingredientTitle = el('ingredientTitle');
       if (ingredientTitle) ingredientTitle.textContent = t('cooking.ingredients.title', 'Ingredient picker');
-      const ingredientHint = el('ingredientHint');
-      if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
       const ingredientSearch = el('ingredientSearch');
       if (ingredientSearch) ingredientSearch.placeholder = t('cooking.ingredients.search', ingredientSearch.placeholder || 'Filter ingredients...');
+      updateSlotUi();
+    }
+
+    function updateSlotUi() {
+      const slotsHelp = el('slotsHelp');
+      const slots = el('slots');
+      const ingredientHint = el('ingredientHint');
       const ingredientClear = el('ingredientClear');
-      if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
+      if (state.view === 'explore') {
+        if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_explore', 'Available ingredients (types only)');
+        if (slots) slots.placeholder = t('cooking.slots.placeholder.explore', 'berries\ncarrot\nmonstermeat');
+        if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint_explore', 'Click to toggle availability');
+        if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear_explore', 'Clear selection');
+      } else if (state.view === 'simulate') {
+        if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_simulate', 'Cookpot slots (=4 items)');
+        if (slots) slots.placeholder = t('cooking.slots.placeholder.simulate', 'carrot=2\nberries=1\nbutterflywings=1');
+        if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+        if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
+      } else {
+        if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (<=4 for explore, =4 for simulate)');
+        if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
+        if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+        if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
+      }
+      updateIngredientSourceHint();
+      renderSlotPreview();
+      updateIngredientSelection();
+    }
+
+    function updateIngredientSourceHint() {
+      const hint = el('ingredientHint');
+      if (!hint || !state.ingredientSource) return;
+      const base = (state.view === 'explore')
+        ? t('cooking.ingredients.hint_explore', 'Click to toggle availability')
+        : t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+      const srcLabel = (state.ingredientSource === 'cooking_ingredients')
+        ? t('cooking.ingredients.source.tags', 'ingredient tags')
+        : (state.ingredientSource === 'items_fallback'
+          ? t('cooking.ingredients.source.fallback', 'fallback tags')
+          : t('cooking.ingredients.source.card', 'card ingredients'));
+      hint.textContent = `${base} · ${srcLabel}`;
     }
 
     async function fetchTuningTrace(prefix) {
@@ -3243,6 +3353,7 @@ __SHARED_CSS__
         if (listCount) listCount.textContent = '';
       }
 
+      updateSlotUi();
       renderRecipeList();
     }
 
@@ -3475,6 +3586,7 @@ __SHARED_CSS__
       for (const item of items) {
         const btn = document.createElement('button');
         btn.className = 'ingredient-item';
+        btn.setAttribute('data-id', item.id);
         const uses = item.uses ? `${item.uses} recipes` : '';
         const tags = item.tags.length ? item.tags.join(', ') : '';
         btn.title = `${item.id}${tags ? ' | ' + tags : ''}`;
@@ -3483,20 +3595,79 @@ __SHARED_CSS__
           <div class="ingredient-meta"><span>${escHtml(uses)}</span><span>${escHtml(tags)}</span></div>
         `;
         btn.onclick = (e) => {
+          if (state.view === 'explore') {
+            toggleAvailable(item.id);
+            return;
+          }
           const delta = (e.shiftKey || e.altKey) ? -1 : 1;
           updateSlots(item.id, delta);
         };
         btn.oncontextmenu = (e) => {
           e.preventDefault();
+          if (state.view === 'explore') {
+            toggleAvailable(item.id, true);
+            return;
+          }
           updateSlots(item.id, -1);
         };
         grid.appendChild(btn);
       }
+      updateIngredientSelection();
     }
 
     function formatSlots(inv) {
       const keys = Object.keys(inv || {}).filter(Boolean).sort();
       return keys.map(k => `${k}=${inv[k]}`).join('\n');
+    }
+
+    function parseAvailable(text) {
+      const inv = parseSlots(text);
+      return Object.keys(inv || {}).filter(Boolean);
+    }
+
+    function formatAvailable(items) {
+      return (items || []).filter(Boolean).join('\n');
+    }
+
+    function updateIngredientSelection() {
+      const grid = el('ingredientGrid');
+      if (!grid) return;
+      const selected = new Set(parseAvailable(el('slots')?.value || ''));
+      for (const btn of grid.querySelectorAll('button.ingredient-item')) {
+        const iid = btn.getAttribute('data-id') || '';
+        btn.classList.toggle('active', selected.has(iid));
+      }
+    }
+
+    function renderSlotPreview() {
+      const box = el('slotPreview');
+      if (!box) return;
+      box.innerHTML = '';
+      const inv = parseSlots(el('slots')?.value || '');
+      const ids = Object.keys(inv || {}).filter(Boolean);
+      if (!ids.length) {
+        box.innerHTML = `<span class="muted small">${escHtml(t('cooking.slots.empty', 'No ingredients selected.'))}</span>`;
+        return;
+      }
+      ids.sort();
+      for (const iid of ids) {
+        const count = Number(inv[iid] || 0);
+        const btn = document.createElement('button');
+        btn.className = 'slot-chip';
+        btn.innerHTML = `
+          ${renderItem(iid)}
+          ${count > 1 ? `<span class="slot-count">x${escHtml(count)}</span>` : ''}
+          <span class="slot-remove">x</span>
+        `;
+        btn.onclick = () => {
+          if (state.view === 'explore') {
+            toggleAvailable(iid, true);
+          } else {
+            updateSlots(iid, -count);
+          }
+        };
+        box.appendChild(btn);
+      }
     }
 
     function updateSlots(itemId, delta) {
@@ -3511,6 +3682,20 @@ __SHARED_CSS__
       slots.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    function toggleAvailable(itemId, forceRemove) {
+      const slots = el('slots');
+      if (!slots) return;
+      const items = parseAvailable(slots.value);
+      const set = new Set(items);
+      const iid = String(itemId || '').trim();
+      if (!iid) return;
+      if (forceRemove) set.delete(iid);
+      else if (set.has(iid)) set.delete(iid);
+      else set.add(iid);
+      slots.value = formatAvailable(Array.from(set).sort());
+      slots.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
     async function loadIngredients() {
       try {
         const res = await fetchJson(api('/api/v1/cooking/ingredients'));
@@ -3522,13 +3707,7 @@ __SHARED_CSS__
         state.ingredients = [];
         state.ingredientSource = '';
       }
-      const hint = el('ingredientHint');
-      if (hint && state.ingredientSource) {
-        const srcLabel = (state.ingredientSource === 'cooking_ingredients')
-          ? t('cooking.ingredients.source.tags', 'ingredient tags')
-          : t('cooking.ingredients.source.card', 'card ingredients');
-        hint.textContent = `${t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove')} · ${srcLabel}`;
-      }
+      updateIngredientSourceHint();
       renderIngredientFilters();
       renderIngredientGrid();
     }
@@ -3584,32 +3763,13 @@ __SHARED_CSS__
         if (!rule) return '';
         const kind = escHtml(rule.kind || '');
         const expr = escHtml(rule.expr || '');
-        const cons = rule.constraints || null;
         const title = includeTitle
           ? `<div class="section-title">${escHtml(t('cooking.rule.title', 'Rule'))}${kind ? ` (${kind})` : ''}</div>`
           : '';
 
-        let consHtml = '';
-        if (cons) {
-          const tags = (cons.tags || []).map(c => `<div class="line"><span>•</span><span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
-          const names = (cons.names || []).map(c => `<div class="line"><span>•</span><span class="mono">${escHtml(c.text || '')}</span></div>`).join('');
-          const unp = (cons.unparsed || []).map(x => `<div class="line"><span>•</span><span class="mono">${escHtml(x)}</span></div>`).join('');
-          const any = Boolean(tags || names || unp);
-          consHtml = `
-            <div style="margin-top:8px;">
-              <div class="section-title">${escHtml(t('cooking.rule.constraints', 'Constraints (best-effort)'))}</div>
-              ${tags ? `<div><div class="small muted">${escHtml(t('cooking.rule.constraints.tags', 'tags'))}</div><div class="list-lines">${tags}</div></div>` : ''}
-              ${names ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.names', 'names'))}</div><div class="list-lines">${names}</div></div>` : ''}
-              ${unp ? `<div style="margin-top:6px;"><div class="small muted">${escHtml(t('cooking.rule.constraints.unparsed', 'unparsed'))}</div><div class="list-lines">${unp}</div></div>` : ''}
-              ${any ? '' : '<span class="muted">-</span>'}
-            </div>
-          `;
-        }
-
         return `
           ${title}
           <div class="mono small" style="white-space:pre-wrap; line-height:1.35;">${expr || '<span class="muted">-</span>'}</div>
-          ${consHtml}
         `;
       }
 
@@ -3822,11 +3982,11 @@ __SHARED_CSS__
 
     async function doExplore() {
       setError('');
-      const slots = parseSlots(el('slots').value);
+      const available = parseAvailable(el('slots').value);
       const res = await fetchJson(api('/api/v1/cooking/explore'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slots: slots, limit: 200 }),
+        body: JSON.stringify({ slots: {}, available: available, limit: 200 }),
       });
 
       if (!res.ok) {
@@ -3950,6 +4110,8 @@ __SHARED_CSS__
     const slotsInput = el('slots');
     if (slotsInput) {
       slotsInput.addEventListener('input', () => {
+        renderSlotPreview();
+        updateIngredientSelection();
         if (state.view === 'encyclopedia') {
           setView('explore');
         }

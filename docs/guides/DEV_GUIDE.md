@@ -102,6 +102,10 @@ dev_guide:
   - `git pull --rebase` 同步最新
   - 完成与改动相关的自检（参考 6.1 检查清单）
 - 禁止对共享分支强推（`--force`/`--force-with-lease`）
+- 收尾（强制）：
+  - `git diff --stat` 自检改动范围，确认未误入 `data/index`/`data/static/icons`
+  - `PROJECT_STATUS.json` 追加 `RECENT_LOGS`（必要时同步 README/管理文档）
+  - `git add -A` → `git commit -m "type(scope): summary"` → `git status` clean
 
 ## 7. Snapshot 友好开发规范 (面向后续开发)
 

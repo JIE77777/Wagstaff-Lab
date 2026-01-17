@@ -81,6 +81,90 @@ class CatalogError(RuntimeError):
     pass
 
 
+COOKING_TAG_KEYS = {
+    "meat",
+    "monster",
+    "fish",
+    "egg",
+    "dairy",
+    "sweetener",
+    "fruit",
+    "veggie",
+    "vegetable",
+    "inedible",
+    "fungus",
+    "mushroom",
+    "frozen",
+    "seed",
+    "fat",
+    "magic",
+}
+
+COOKING_TAG_HINTS = {
+    "meat": ["meat", "leafymeat"],
+    "monster": ["monstermeat", "durian"],
+    "fish": ["fish", "eel", "salmon", "tuna", "perch", "trout", "barnacle"],
+    "egg": ["bird_egg", "tallbirdegg", "egg"],
+    "dairy": ["goatmilk", "milk", "butter", "cheese"],
+    "sweetener": ["honey", "sugar", "nectar", "syrup", "maplesyrup"],
+    "fruit": ["berries", "berry", "banana", "pomegranate", "watermelon", "dragonfruit", "durian", "fig", "cave_banana"],
+    "veggie": ["carrot", "corn", "pumpkin", "eggplant", "pepper", "potato", "tomato", "onion", "garlic", "asparagus", "cactus", "kelp"],
+    "fungus": ["mushroom", "cap"],
+    "inedible": ["twigs", "ice"],
+    "frozen": ["ice"],
+    "seed": ["seed"],
+    "fat": ["butter", "goatmilk", "milk", "cheese"],
+    "magic": ["mandrake", "nightmarefuel", "glommerfuel"],
+}
+
+COOKING_SMALL_MEAT = ["morsel", "smallmeat", "drumstick", "froglegs", "batwing"]
+
+
+def normalize_cooking_tags(raw: Any) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            key = str(k or "").strip().lower()
+            if not key:
+                continue
+            if key not in COOKING_TAG_KEYS:
+                continue
+            try:
+                out[key] = float(v)
+            except Exception:
+                continue
+        return out
+    if isinstance(raw, (list, tuple, set)):
+        for k in raw:
+            key = str(k or "").strip().lower()
+            if not key or key not in COOKING_TAG_KEYS:
+                continue
+            out[key] = 1.0
+    return out
+
+
+def guess_cooking_tags(item_id: str, item: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    iid = str(item_id or "").strip().lower()
+    if not iid:
+        return {}
+    tags = normalize_cooking_tags((item or {}).get("tags") if item else None)
+
+    if "eggplant" in iid:
+        tags.setdefault("veggie", 1.0)
+    for key in COOKING_SMALL_MEAT:
+        if key in iid:
+            tags["meat"] = min(tags.get("meat", 1.0), 0.5)
+            break
+
+    for tag, hints in COOKING_TAG_HINTS.items():
+        if tag == "egg" and "eggplant" in iid:
+            continue
+        if any(h in iid for h in hints):
+            tags.setdefault(tag, 1.0)
+
+    return tags
+
+
 class CatalogStore:
     """Load + index wagstaff catalog for fast queries (thread-safe).
 
@@ -1158,6 +1242,49 @@ class CatalogStore:
     def cooking_ingredients(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:
             return dict(self._cooking_ingredients)
+
+    def cooking_ingredients_with_fallback(self) -> Tuple[Dict[str, Dict[str, Any]], str]:
+        with self._lock:
+            if self._cooking_ingredients:
+                return dict(self._cooking_ingredients), "cooking_ingredients"
+
+            items: Dict[str, Dict[str, Any]] = {}
+
+            def _is_foodish(item: Dict[str, Any]) -> bool:
+                comps = item.get("components") or []
+                if isinstance(comps, (list, tuple, set)) and "edible" in comps:
+                    return True
+                beh = item.get("behaviors") or []
+                if isinstance(beh, (list, tuple, set)) and "edible" in beh:
+                    return True
+                cats = item.get("categories") or []
+                if isinstance(cats, (list, tuple, set)) and "food" in cats:
+                    return True
+                return False
+
+            cooking_ids = set(self._cooking.keys())
+            for iid, item in self._items.items():
+                foodish = _is_foodish(item)
+                tags = guess_cooking_tags(iid, item if foodish else None)
+                if not tags:
+                    continue
+                kind = str(item.get("kind") or "").strip().lower()
+                if not foodish and set(tags.keys()) <= {"magic"}:
+                    continue
+                if kind in ("creature", "structure", "character", "world") and not foodish:
+                    continue
+                if not foodish and iid in cooking_ids and iid not in self._cook_by_ingredient:
+                    continue
+                items[iid] = {"id": iid, "tags": tags, "foodtype": None}
+
+            for iid in self._cook_by_ingredient.keys():
+                if iid in items:
+                    continue
+                tags = guess_cooking_tags(iid, self._items.get(iid))
+                items[iid] = {"id": iid, "tags": tags, "foodtype": None}
+
+            source = "items_fallback" if items else "card_ingredients"
+            return items, source
 
     def list_cooking_ingredients(self) -> List[str]:
         with self._lock:
