@@ -118,7 +118,22 @@
     "[2026-01-17 15:43] CatalogV2: CookingIngredientAnalyzer 支持 AddIngredientValues 解析并生成 cooking_ingredients 索引。",
     "[2026-01-17 15:52] WebCraft: Cooking 详情区改为主从双列布局，探索/模拟区工具侧栏固定可见。",
     "[2026-01-17 15:58] WebCraft: Cooking 食材选择区提升权重与密度，探索/模拟改为多列栅格。",
-    "[2026-01-17 16:05] DevGuide: 补充 Git 收尾流程要求。"
+    "[2026-01-17 16:05] DevGuide: 补充 Git 收尾流程要求。",
+    "[2026-01-17 16:18] WebCraft: Cooking 探索/模拟收敛 slot 文本输入权重，改为手动输入折叠并提升食材选择区密度。",
+    "[2026-01-17 16:34] WebCraft: Cooking 预测体验优化，Near miss 分级并压低填充物类推荐权重。",
+    "[2026-01-17 16:47] CatalogV2: 补齐 oceanfish *_inv 入锅食材解析，料理食材列表实现全覆盖。",
+    "[2026-01-17 17:02] WebCraft: Cooking 探索/模拟收紧 slot 与食材选择区间距，强调中部交互焦点。",
+    "[2026-01-17 17:05] WebCraft: Cooking 规则约束支持 names OR 分组，修复 dragonpie 类探索/模拟缺失提示。",
+    "[2026-01-17 17:06] WebCraft: Cooking Near miss 分档改为优先特征菜谱，填充物需求不再降级。",
+    "[2026-01-17 17:08] WebCraft: 补齐 UI i18n 缺失词条，新增 OR 组提示模板并收敛 i18n/ID 流程到 DEV_GUIDE。",
+    "[2026-01-17 18:18] WebCraft: Cooking tags 接入 i18n（含 source 标记），卡片新增食谱属性，缺失条件展示与 p/w/s 权重显示优化。",
+    "[2026-01-17 18:36] WebCraft: ID 模式下 tag 展示附带 tags_meta source 标识，标签分组展示统一走 label。",
+    "[2026-01-17 18:44] WebCraft: Cooking 头部紧凑化，调换食材选择/锅位位置并补齐 ensureI18nTags。",
+    "[2026-01-17 18:52] WebCraft: 修复 cooking 脚本缺失 ensureI18nTags 导致的食材面板失效。",
+    "[2026-01-17 19:05] WebCraft: 进一步收窄全站表头，Cooking 锅位与食材区复位并压缩手动输入占位，紧凑模式切换与结果列表底部遮挡修复。",
+    "[2026-01-17 19:18] WebCraft: ID 模式 tag 来源改为弱提示样式，Cooking 模式切换与锅位输入进一步压缩。",
+    "[2026-01-17 19:28] WebCraft: Cooking label mode 增加 ensureI18nTags 容错，避免食材面板因函数缺失报错。",
+    "[2026-01-17 20:10] WebCraft: Cooking 规则解析补齐 names OR 组合计数约束，修复 mashedpotatoes 误判双材料问题。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

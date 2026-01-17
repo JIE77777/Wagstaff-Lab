@@ -87,6 +87,26 @@ class I18nIndexStore:
                 return {}
             return {str(k): str(v) for k, v in ui.items() if k and v}
 
+    def tags(self, lang: str) -> Dict[str, str]:
+        l = str(lang or "").strip().lower()
+        if not l:
+            return {}
+        with self._lock:
+            tags = (self._doc.get("tags") or {}).get(l) if isinstance(self._doc.get("tags"), dict) else None
+            if not isinstance(tags, dict):
+                return {}
+            return {str(k): str(v) for k, v in tags.items() if k and v}
+
+    def tags_meta(self, lang: str) -> Dict[str, str]:
+        l = str(lang or "").strip().lower()
+        if not l:
+            return {}
+        with self._lock:
+            meta = (self._doc.get("tags_meta") or {}).get(l) if isinstance(self._doc.get("tags_meta"), dict) else None
+            if not isinstance(meta, dict):
+                return {}
+            return {str(k): str(v) for k, v in meta.items() if k and v}
+
     def public_meta(self) -> Dict[str, Any]:
         name_langs = self.langs()
         return {
@@ -102,3 +122,6 @@ class I18nIndexStore:
 
     def count_ui(self, lang: str) -> int:
         return len(self.ui_strings(lang))
+
+    def count_tags(self, lang: str) -> int:
+        return len(self.tags(lang))

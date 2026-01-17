@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, List
+from typing import Any, Dict, Iterable, Optional, List, Tuple
 
 
 _NAMES_PREFIX = "STRINGS.NAMES."
@@ -190,3 +190,44 @@ def load_ui_strings(path: Path) -> Dict[str, Dict[str, str]]:
             continue
         out[l] = {str(k): str(v) for k, v in mp.items() if k and v}
     return out
+
+
+def load_tag_strings(path: Path) -> Tuple[Dict[str, Dict[str, str]], Dict[str, Dict[str, str]]]:
+    """Load tag strings JSON: {lang: {tag: {text, source}}}."""
+
+    p = Path(path)
+    if not p.exists() or not p.is_file():
+        return {}, {}
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}, {}
+    if not isinstance(doc, dict):
+        return {}, {}
+
+    tags: Dict[str, Dict[str, str]] = {}
+    meta: Dict[str, Dict[str, str]] = {}
+    for lang, mp in doc.items():
+        if not isinstance(mp, dict):
+            continue
+        l = _normalize_key(lang)
+        if not l:
+            continue
+        tags.setdefault(l, {})
+        meta.setdefault(l, {})
+        for key, val in mp.items():
+            k = _normalize_key(key)
+            if not k:
+                continue
+            text = ""
+            source = "manual"
+            if isinstance(val, dict):
+                text = str(val.get("text") or val.get("label") or "").strip()
+                source = str(val.get("source") or val.get("src") or "manual").strip().lower() or "manual"
+            else:
+                text = str(val or "").strip()
+            if not text:
+                continue
+            tags[l][k] = text
+            meta[l][k] = source
+    return tags, meta

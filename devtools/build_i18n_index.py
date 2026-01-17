@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.indexers.i18n_index import build_item_name_map, load_ui_strings  # noqa: E402
+from core.indexers.i18n_index import build_item_name_map, load_ui_strings, load_tag_strings  # noqa: E402
 from core.schemas.meta import build_meta  # noqa: E402
 
 try:
@@ -191,6 +191,7 @@ def main() -> int:
     p.add_argument("--catalog", default="data/index/wagstaff_catalog_v2.json", help="Catalog JSON path")
     p.add_argument("--icon-index", default="data/index/wagstaff_icon_index_v1.json", help="Icon index JSON path")
     p.add_argument("--ui", default="conf/i18n_ui.json", help="UI strings JSON path")
+    p.add_argument("--tags", default="conf/i18n_tags.json", help="Tag strings JSON path")
     p.add_argument("--lang", default="zh", help="Language code (default: zh)")
     p.add_argument("--po", default=None, help="Override PO file path")
     p.add_argument("--scripts-zip", default=None, help="Override scripts.zip path")
@@ -225,7 +226,10 @@ def main() -> int:
     ui_path = (PROJECT_ROOT / args.ui).resolve()
     ui_strings = load_ui_strings(ui_path)
 
-    langs = sorted(set([lang] + list(ui_strings.keys())))
+    tags_path = (PROJECT_ROOT / args.tags).resolve() if args.tags else None
+    tag_strings, tag_meta = load_tag_strings(tags_path) if tags_path else ({}, {})
+
+    langs = sorted(set([lang] + list(ui_strings.keys()) + list(tag_strings.keys())))
 
     meta = build_meta(
         schema=1,
@@ -237,6 +241,7 @@ def main() -> int:
             "catalog": str(catalog_path),
             "icon_index": str(icon_index_path) if icon_index_path else "",
             "ui_source": str(ui_path),
+            "tags_source": str(tags_path) if tags_path else "",
         },
         extra={
             "lang": lang,
@@ -246,9 +251,11 @@ def main() -> int:
             "catalog": str(catalog_path),
             "icon_index": str(icon_index_path) if icon_index_path else "",
             "ui_source": str(ui_path),
+            "tags_source": str(tags_path) if tags_path else "",
             "counts": {
                 "names": len(names),
                 "ui": {k: len(v) for k, v in (ui_strings or {}).items()},
+                "tags": {k: len(v) for k, v in (tag_strings or {}).items()},
             },
         },
     )
@@ -259,6 +266,8 @@ def main() -> int:
         "langs": langs,
         "names": {lang: names} if names else {},
         "ui": ui_strings or {},
+        "tags": tag_strings or {},
+        "tags_meta": tag_meta or {},
     }
 
     out_path = (PROJECT_ROOT / args.out).resolve()

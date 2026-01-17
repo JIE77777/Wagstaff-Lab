@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -9,6 +10,33 @@ from .catalog_store import CookingRecipe, guess_cooking_tags, normalize_cooking_
 TAG_PENALTY = 10.0
 NAME_PENALTY = 50.0
 MAX_AVAILABLE_COMBOS = 15000
+FILLER_TAGS = {"inedible", "frozen", "dried"}
+FILLER_NAMES = {"twigs", "ice", "lightninggoathorn", "boneshard"}
+NEAR_TIER_ORDER = {"primary": 0, "secondary": 1, "filler": 2}
+
+_NAME_SUM_RE = re.compile(
+    r"\(+\s*names\.(?P<a>[A-Za-z0-9_]+)\s+and\s+names\.(?P=a)\s*(?:>=|>)\s*(?P<n1>[0-9]+)\s*\)+\s+or\s+"
+    r"\(+\s*names\.(?P<b>[A-Za-z0-9_]+)\s+and\s+names\.(?P=b)\s*(?:>=|>)\s*(?P<n2>[0-9]+)\s*\)+\s+or\s+"
+    r"\(+\s*names\.(?P<x>[A-Za-z0-9_]+)\s+and\s+names\.(?P<y>[A-Za-z0-9_]+)\s*\)+"
+)
+
+
+def _derive_names_sum_constraints(expr: str) -> List[Dict[str, Any]]:
+    if not expr:
+        return []
+    e = re.sub(r"\s+", " ", str(expr)).strip()
+    if not e:
+        return []
+    out: List[Dict[str, Any]] = []
+    for m in _NAME_SUM_RE.finditer(e):
+        a = m.group("a")
+        b = m.group("b")
+        x = m.group("x")
+        y = m.group("y")
+        if not a or not b or {x, y} != {a, b}:
+            continue
+        out.append({"keys": [a, b], "min": 2, "text": m.group(0).strip()})
+    return out
 
 
 def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
@@ -107,6 +135,139 @@ def _merge_slots(base: Dict[str, int], extra: Dict[str, int]) -> Dict[str, int]:
     for k, v in extra.items():
         out[k] = out.get(k, 0) + int(v)
     return out
+
+
+def _collect_pool(
+    items: Iterable[str],
+    tags_by_item: Dict[str, Dict[str, float]],
+) -> Tuple[Set[str], Set[str]]:
+    pool_names: Set[str] = set()
+    pool_tags: Set[str] = set()
+    for item in items or []:
+        iid = str(item or "").strip().lower()
+        if not iid:
+            continue
+        pool_names.add(iid)
+        for tag in (tags_by_item.get(iid) or {}).keys():
+            pool_tags.add(str(tag).strip().lower())
+    return pool_names, pool_tags
+
+
+def _is_filler_name(name: str, tags_by_item: Dict[str, Dict[str, float]]) -> bool:
+    key = str(name or "").strip().lower()
+    if not key:
+        return False
+    if key in FILLER_NAMES:
+        return True
+    tags = tags_by_item.get(key) or {}
+    if tags and all(str(t).strip().lower() in FILLER_TAGS for t in tags.keys()):
+        return True
+    return False
+
+
+def _missing_is_filler(entry: Dict[str, Any], tags_by_item: Dict[str, Dict[str, float]]) -> bool:
+    mtype = str(entry.get("type") or "").strip().lower()
+    key = str(entry.get("key") or "").strip().lower()
+    if mtype == "tag":
+        return key in FILLER_TAGS
+    if mtype == "name":
+        return _is_filler_name(key, tags_by_item)
+    if mtype == "name_any":
+        options = entry.get("options") or []
+        opts = [str(o).strip().lower() for o in options if str(o).strip()]
+        return bool(opts) and all(_is_filler_name(opt, tags_by_item) for opt in opts)
+    return False
+
+
+def _classify_near_miss(
+    row: Dict[str, Any],
+    *,
+    pool_names: Set[str],
+    pool_tags: Set[str],
+    tags_by_item: Dict[str, Dict[str, float]],
+) -> Tuple[str, int, int, int]:
+    missing = row.get("missing") or []
+    if row.get("rule_mode") == "none":
+        non_filler = sum(1 for m in missing if not _missing_is_filler(m, tags_by_item))
+        return "filler", 0, 0, non_filler
+
+    req_names = {str(n).strip().lower() for n in (row.get("req_names") or []) if str(n).strip()}
+    req_groups = row.get("req_name_groups") or []
+    req_tags = {str(t).strip().lower() for t in (row.get("req_tags") or []) if str(t).strip()}
+
+    name_hits = sum(1 for name in req_names if name in pool_names and not _is_filler_name(name, tags_by_item))
+    group_hits = 0
+    for group in req_groups:
+        if not isinstance(group, list):
+            continue
+        opts = [str(o).strip().lower() for o in group if str(o).strip()]
+        if not opts:
+            continue
+        if any(opt in pool_names and not _is_filler_name(opt, tags_by_item) for opt in opts):
+            group_hits += 1
+
+    tag_hits = sum(1 for tag in req_tags if tag in pool_tags and tag not in FILLER_TAGS)
+    feature_hits = name_hits + group_hits
+
+    non_filler = sum(1 for m in missing if not _missing_is_filler(m, tags_by_item))
+
+    if feature_hits > 0:
+        tier = "primary"
+    elif tag_hits > 0:
+        tier = "secondary"
+    else:
+        tier = "filler"
+    return tier, feature_hits, tag_hits, non_filler
+
+
+def _rank_near_miss(
+    rows: List[Dict[str, Any]],
+    *,
+    pool_names: Set[str],
+    pool_tags: Set[str],
+    tags_by_item: Dict[str, Dict[str, float]],
+    limit: int,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    enriched: List[Dict[str, Any]] = []
+    for row in rows:
+        tier, feature_hits, tag_hits, non_filler = _classify_near_miss(
+            row,
+            pool_names=pool_names,
+            pool_tags=pool_tags,
+            tags_by_item=tags_by_item,
+        )
+        row["near_tier"] = tier
+        row["near_feature_hits"] = feature_hits
+        row["near_tag_hits"] = tag_hits
+        row["near_missing_non_filler"] = non_filler
+        enriched.append(row)
+
+    def _key(r: Dict[str, Any]) -> Tuple[Any, ...]:
+        tier = str(r.get("near_tier") or "secondary")
+        return (
+            NEAR_TIER_ORDER.get(tier, 9),
+            -int(r.get("near_feature_hits") or 0),
+            -int(r.get("near_tag_hits") or 0),
+            int(r.get("near_missing_non_filler") or 0),
+            -float(r.get("score") or 0.0),
+            str(r.get("name") or ""),
+        )
+
+    enriched.sort(key=_key)
+    tiers: Dict[str, List[Dict[str, Any]]] = {"primary": [], "secondary": [], "filler": []}
+    limited: List[Dict[str, Any]] = []
+    for row in enriched:
+        if limit and len(limited) >= limit:
+            break
+        limited.append(row)
+        tier = str(row.get("near_tier") or "secondary")
+        tiers.setdefault(tier, []).append(row)
+
+    tier_list = []
+    for key in ("primary", "secondary", "filler"):
+        if tiers.get(key):
+            tier_list.append({"key": key, "count": len(tiers[key]), "items": tiers[key]})
+    return limited, tier_list
 
 
 def _requirements_satisfied(req: List[Tuple[str, float]], available: Dict[str, float]) -> bool:
@@ -240,10 +401,25 @@ def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any
     if not isinstance(cons, dict):
         return {}
     out: Dict[str, List[Dict[str, Any]]] = {}
-    for key in ("tags", "names", "unparsed"):
+    for key in ("tags", "names", "names_any", "names_sum", "unparsed"):
         rows = cons.get(key)
         if isinstance(rows, list):
             out[key] = [r for r in rows if isinstance(r, dict)]
+
+    if not out.get("names_sum"):
+        derived = _derive_names_sum_constraints(rule.get("expr") or "")
+        if derived:
+            out["names_sum"] = derived
+
+    sum_keys: Set[str] = set()
+    for g in out.get("names_sum") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            continue
+        for k in keys_raw:
+            key = str(k).strip().lower()
+            if key:
+                sum_keys.add(key)
 
     tags = out.get("tags") or []
     if tags:
@@ -263,7 +439,98 @@ def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any
                     continue
                 filtered.append(c)
             out["tags"] = filtered
+
+    if sum_keys and out.get("names"):
+        filtered: List[Dict[str, Any]] = []
+        for c in out.get("names") or []:
+            key = str(c.get("key") or "").strip().lower()
+            op = str(c.get("op") or "").strip()
+            rhs = _coerce_constraint_value(c.get("value"))
+            if key in sum_keys and _is_positive_requirement(op, rhs):
+                continue
+            filtered.append(c)
+        out["names"] = filtered
     return out
+
+
+def _is_positive_requirement(op: str, rhs: Optional[float]) -> bool:
+    if rhs is None:
+        return False
+    if op in (">", ">="):
+        return rhs >= 0
+    if op == "==":
+        return rhs > 0
+    return False
+
+
+def _extract_recipe_requirements(recipe: CookingRecipe) -> Dict[str, Any]:
+    req_names: Set[str] = set()
+    req_tags: Set[str] = set()
+    req_groups: List[List[str]] = []
+
+    for item, need in (recipe.card_ingredients or []):
+        try:
+            if float(need) <= 0:
+                continue
+        except Exception:
+            continue
+        iid = str(item or "").strip().lower()
+        if iid:
+            req_names.add(iid)
+
+    cons = _get_rule_constraints(recipe)
+    for c in cons.get("names") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if key and _is_positive_requirement(op, rhs):
+            req_names.add(key)
+    for g in cons.get("names_any") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if keys:
+            req_groups.append(keys)
+    for g in cons.get("names_sum") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if keys:
+            req_groups.append(keys)
+    for c in cons.get("tags") or []:
+        key = str(c.get("key") or "").strip().lower()
+        op = str(c.get("op") or "").strip()
+        rhs = _coerce_constraint_value(c.get("value"))
+        if key and _is_positive_requirement(op, rhs):
+            req_tags.add(key)
+
+    return {
+        "req_names": sorted(req_names),
+        "req_name_groups": req_groups,
+        "req_tags": sorted(req_tags),
+    }
+
+
+def _stat_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        if "value" in value:
+            return value.get("value")
+        if "expr" in value:
+            return value.get("expr")
+    return value
+
+
+def _recipe_attrs(recipe: CookingRecipe) -> Dict[str, Any]:
+    return {
+        "foodtype": recipe.foodtype,
+        "hunger": _stat_value(recipe.hunger),
+        "health": _stat_value(recipe.health),
+        "sanity": _stat_value(recipe.sanity),
+        "perishtime": _stat_value(recipe.perishtime),
+        "cooktime": _stat_value(recipe.cooktime),
+    }
 
 
 def _evaluate_constraints(
@@ -274,6 +541,62 @@ def _evaluate_constraints(
 ) -> Tuple[bool, List[Dict[str, Any]], List[str]]:
     missing: List[Dict[str, Any]] = []
     warnings: List[str] = []
+
+    for g in constraints.get("names_any") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            warnings.append(str(getattr(g, "text", "") or "names_any_unparsed"))
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if not keys:
+            warnings.append(str(g.get("text") or "names_any_unparsed"))
+            continue
+        if any(names_total.get(k, 0) > 0 for k in keys):
+            continue
+        missing.append(
+            {
+                "type": "name_any",
+                "key": "|".join(keys),
+                "options": keys,
+                "op": ">",
+                "required": 1.0,
+                "actual": 0.0,
+                "delta": 1.0,
+                "direction": "under",
+                "text": g.get("text") or "",
+            }
+        )
+
+    for g in constraints.get("names_sum") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            warnings.append(str(getattr(g, "text", "") or "names_sum_unparsed"))
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if not keys:
+            warnings.append(str(g.get("text") or "names_sum_unparsed"))
+            continue
+        min_val = _coerce_constraint_value(g.get("min"))
+        if min_val is None:
+            min_val = _coerce_constraint_value(g.get("required"))
+        if min_val is None:
+            warnings.append(str(g.get("text") or "names_sum_unparsed"))
+            continue
+        total = float(sum(names_total.get(k, 0) for k in keys))
+        if total + 1e-9 < float(min_val):
+            missing.append(
+                {
+                    "type": "name_sum",
+                    "key": "|".join(keys),
+                    "options": keys,
+                    "min": float(min_val),
+                    "required": float(min_val),
+                    "actual": total,
+                    "delta": float(min_val) - total,
+                    "direction": "under",
+                    "text": g.get("text") or "",
+                }
+            )
 
     for c in constraints.get("tags") or []:
         key = str(c.get("key") or "").strip().lower()
@@ -332,7 +655,7 @@ def _score_recipe(priority: float, weight: float, missing: List[Dict[str, Any]])
         delta = float(m.get("delta") or 0.0)
         if m.get("type") == "tag":
             penalty += delta * TAG_PENALTY
-        elif m.get("type") == "name":
+        elif m.get("type") in ("name", "name_any"):
             penalty += delta * NAME_PENALTY
     score = float(priority) * 1000.0 + float(weight) * 100.0 - penalty
     return score, penalty
@@ -409,6 +732,42 @@ def _possible_with_remaining(
     max_by_tag: Dict[str, float],
     available_names: Optional[Set[str]] = None,
 ) -> bool:
+    for g in constraints.get("names_any") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if not keys:
+            continue
+        if any(names_total.get(k, 0) > 0 for k in keys):
+            continue
+        if available_names is not None:
+            if not any(k in available_names for k in keys):
+                return False
+        elif remaining <= 0:
+            return False
+
+    for g in constraints.get("names_sum") or []:
+        keys_raw = g.get("keys") if isinstance(g, dict) else None
+        if not isinstance(keys_raw, list):
+            continue
+        keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+        if not keys:
+            continue
+        min_val = _coerce_constraint_value(g.get("min"))
+        if min_val is None:
+            min_val = _coerce_constraint_value(g.get("required"))
+        if min_val is None:
+            continue
+        total = float(sum(names_total.get(k, 0) for k in keys))
+        if total >= float(min_val) - 1e-9:
+            continue
+        if available_names is not None and not any(k in available_names for k in keys):
+            return False
+        max_possible = total + float(max(0, remaining))
+        if max_possible + 1e-9 < float(min_val):
+            return False
+
     for c in constraints.get("tags") or []:
         key = str(c.get("key") or "").strip().lower()
         op = str(c.get("op") or "").strip()
@@ -521,6 +880,8 @@ def simulate_cookpot(
     candidate_rows: List[Dict[str, Any]] = []
     near_miss: List[Dict[str, Any]] = []
     for r in recipes:
+        req = _extract_recipe_requirements(r)
+        attrs = _recipe_attrs(r)
         ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
         score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
         row = {
@@ -532,6 +893,10 @@ def simulate_cookpot(
             "missing": ev.get("missing") or [],
             "rule_mode": ev.get("rule_mode"),
             "warnings": ev.get("warnings") or [],
+            "req_names": req.get("req_names") or [],
+            "req_name_groups": req.get("req_name_groups") or [],
+            "req_tags": req.get("req_tags") or [],
+            "attrs": attrs,
         }
         if ev.get("ok"):
             candidates.append(r)
@@ -545,6 +910,14 @@ def simulate_cookpot(
         candidates.sort(key=lambda x: (-float(x.priority), -float(x.weight), x.name))
         best = candidates[0]
         top = [SimCandidate(name=r.name, priority=float(r.priority), weight=float(r.weight)) for r in candidates[:return_top]]
+        pool_names, pool_tags = _collect_pool(slots_i.keys(), tags_by_item)
+        near_sorted, near_tiers = _rank_near_miss(
+            near_miss,
+            pool_names=pool_names,
+            pool_tags=pool_tags,
+            tags_by_item=tags_by_item,
+            limit=return_top,
+        )
         return {
             "ok": True,
             "result": best.name,
@@ -552,7 +925,8 @@ def simulate_cookpot(
             "candidates": [c.__dict__ for c in top],
             "cookable": sorted(candidate_rows, key=lambda x: (-x.get("score", 0.0), x.get("name", "")))[: return_top],
             "slots": slots_i,
-            "near_miss": sorted(near_miss, key=lambda x: (-x.get("score", 0.0), x.get("name", "")))[: return_top],
+            "near_miss": near_sorted,
+            "near_miss_tiers": near_tiers,
             "formula": "score = priority*1000 + weight*100 - missing_penalty",
         }
 
@@ -614,6 +988,8 @@ def explore_cookpot(
             cookable: List[Dict[str, Any]] = []
             near_miss: List[Dict[str, Any]] = []
             for r in recipes:
+                req = _extract_recipe_requirements(r)
+                attrs = _recipe_attrs(r)
                 best_ok: Optional[Dict[str, Any]] = None
                 best_any: Optional[Dict[str, Any]] = None
                 for combo in combos:
@@ -629,6 +1005,10 @@ def explore_cookpot(
                         "missing": ev.get("missing") or [],
                         "rule_mode": ev.get("rule_mode"),
                         "warnings": ev.get("warnings") or [],
+                        "req_names": req.get("req_names") or [],
+                        "req_name_groups": req.get("req_name_groups") or [],
+                        "req_tags": req.get("req_tags") or [],
+                        "attrs": attrs,
                     }
                     if best_any is None or score > float(best_any.get("score", 0.0)):
                         best_any = row
@@ -641,6 +1021,14 @@ def explore_cookpot(
 
             cookable.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
             near_miss.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
+            pool_names, pool_tags = _collect_pool(list(slots_i.keys()) + avail_list, tags_by_item)
+            near_sorted, near_tiers = _rank_near_miss(
+                near_miss,
+                pool_names=pool_names,
+                pool_tags=pool_tags,
+                tags_by_item=tags_by_item,
+                limit=limit,
+            )
             return {
                 "ok": True,
                 "slots": slots_i,
@@ -648,13 +1036,16 @@ def explore_cookpot(
                 "remaining": remaining,
                 "available": avail_list,
                 "cookable": cookable[:limit],
-                "near_miss": near_miss[:limit],
+                "near_miss": near_sorted,
+                "near_miss_tiers": near_tiers,
                 "formula": "score = priority*1000 + weight*100 - missing_penalty",
             }
 
     cookable: List[Dict[str, Any]] = []
     near_miss: List[Dict[str, Any]] = []
     for r in recipes:
+        req = _extract_recipe_requirements(r)
+        attrs = _recipe_attrs(r)
         ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
         score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
         row = {
@@ -666,6 +1057,10 @@ def explore_cookpot(
             "missing": ev.get("missing") or [],
             "rule_mode": ev.get("rule_mode"),
             "warnings": ev.get("warnings") or [],
+            "req_names": req.get("req_names") or [],
+            "req_name_groups": req.get("req_name_groups") or [],
+            "req_tags": req.get("req_tags") or [],
+            "attrs": attrs,
         }
         if ev.get("rule_mode") == "rule":
             possible = _possible_with_remaining(
@@ -689,14 +1084,21 @@ def explore_cookpot(
             near_miss.append(row)
 
     cookable.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
-    near_miss.sort(key=lambda x: (-x.get("score", 0.0), x.get("name", "")))
-
+    pool_names, pool_tags = _collect_pool(list(slots_i.keys()) + avail_list, tags_by_item)
+    near_sorted, near_tiers = _rank_near_miss(
+        near_miss,
+        pool_names=pool_names,
+        pool_tags=pool_tags,
+        tags_by_item=tags_by_item,
+        limit=limit,
+    )
     return {
         "ok": True,
         "slots": slots_i,
         "total": total,
         "remaining": remaining,
         "cookable": cookable[:limit],
-        "near_miss": near_miss[:limit],
+        "near_miss": near_sorted,
+        "near_miss_tiers": near_tiers,
         "formula": "score = priority*1000 + weight*100 - missing_penalty",
     }

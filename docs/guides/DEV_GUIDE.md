@@ -76,6 +76,19 @@ dev_guide:
 
 - 任何 UI 设计/重构任务默认使用 `frontend-design` skill 产出方案与代码。
 
+## 5.2 i18n 与文本规范
+
+- **ID 优先**：代码层/数据层以游戏内 ID（prefab/item id）为唯一主键与引用标准。
+- **英文为默认语义**：英文是 UI fallback 与默认显示语言；中文仅作为 i18n 映射，方便扩展更多语言。
+- **统一 i18n 链路**：
+  - UI 文本一律使用 `t('key', 'English fallback')`，不得硬编码中文/英文。
+  - UI 字符串来源：`conf/i18n_ui.json` → `devtools/build_i18n_index.py` → `data/index/wagstaff_i18n_v1.json`。
+  - 新增/调整 UI 文本必须补齐 `conf/i18n_ui.json` 并执行 `make i18n`。
+- **名称映射**：前端展示名称使用 `/api/v1/i18n/names/{lang}`，禁止额外本地映射或重复维护。
+- **标签映射**：`conf/i18n_tags.json` 维护 cooking tags，多语言条目必须附带 `source`（`game`/`manual`/`virtual`），优先对齐游戏内资源；前端使用 `/api/v1/i18n/tags/{lang}` 获取标签文本（`tags_meta` 不用于展示）。
+- **ID 模式展示**：当 UI 使用 `id` 模式时，标签文本需附带 `tags_meta` 的 `source` 信息，用于标识翻译来源。
+- **流程收敛**：去除分散的字符串表或临时翻译逻辑，确保同一 key 在全站复用。
+
 ## 6. 变更与文档
 
 - 重要重构必须同步更新：

@@ -410,6 +410,22 @@ def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_st
     return _json({"lang": str(lang), "names": {}, "count": 0})
 
 
+@router.get("/i18n/tags/{lang}")
+def i18n_tags(lang: str, request: Request):
+    """Return tag->localized label mapping (with optional source meta)."""
+    store = _get_i18n_index_store(request)
+    if store is None:
+        return _json({"lang": str(lang), "tags": {}, "meta": {}, "count": 0})
+    try:
+        mp = store.tags(str(lang))
+        meta = store.tags_meta(str(lang))
+    except Exception:
+        mp, meta = {}, {}
+    etag = f'W/"i18n-tags-{int(getattr(store, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
+    headers = _cache_headers(request, max_age=600, etag=etag)
+    return _json({"lang": str(lang), "tags": mp, "meta": meta, "count": len(mp or {})}, headers=headers)
+
+
 @router.get("/items/{item_id}")
 def item_detail(item_id: str, request: Request, store: CatalogStore = Depends(get_store)):
     """Return best-effort item-centric view.

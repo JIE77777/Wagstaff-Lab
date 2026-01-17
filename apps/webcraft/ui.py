@@ -119,8 +119,8 @@ a:hover { color: #0a5d51; }
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px 18px;
-  padding: 14px 20px;
+  gap: 6px 12px;
+  padding: 8px 14px;
 }
 .topbar { justify-content: space-between; }
 .subbar {
@@ -139,30 +139,30 @@ a:hover { color: #0a5d51; }
 }
 .topbar-right { margin-left: auto; }
 .subbar-right { flex: 1 1 360px; justify-content: flex-end; }
-.subbar-left { flex-direction: column; align-items: flex-start; gap: 4px; }
+.subbar-left { flex-direction: column; align-items: flex-start; gap: 2px; }
 .brand {
   display: flex;
   align-items: baseline;
   gap: 6px;
   font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
   font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.34em;
+  font-size: 10px;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
 }
 .brand-sub {
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.22em;
   color: var(--muted);
   font-weight: 600;
 }
 .page-title {
   font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
 }
 .page-sub {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
 }
 .nav-links {
@@ -171,10 +171,10 @@ a:hover { color: #0a5d51; }
   gap: 8px;
 }
 .nav-link {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--muted);
-  padding: 6px 12px;
+  padding: 3px 9px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--panel);
@@ -194,17 +194,17 @@ a:hover { color: #0a5d51; }
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--muted);
 }
 .mode-toggle {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
 .mode-btn {
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 10px;
+  padding: 3px 8px;
 }
 .mode-btn.active {
   background: var(--ink);
@@ -216,8 +216,16 @@ a:hover { color: #0a5d51; }
   flex: 1 1 300px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: 560px;
+  gap: 6px;
+  max-width: 500px;
+}
+.subbar .search input[type="text"] {
+  padding: 7px 9px;
+  font-size: 11px;
+}
+.subbar .search button {
+  padding: 5px 10px;
+  font-size: 10px;
 }
 input[type="text"],
 textarea {
@@ -489,6 +497,14 @@ body[data-view="simulate"] #searchBar {
   background: rgba(15, 123, 108, 0.08);
   border-color: rgba(15, 123, 108, 0.25);
 }
+.tag-source {
+  margin-left: 6px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.6;
+}
 
 .stat-grid {
   display: grid;
@@ -584,7 +600,43 @@ body[data-view="simulate"] #searchBar {
   color: var(--muted);
 }
 .result-score { font-size: 12px; color: var(--muted); }
-.result-missing { font-size: 12px; color: #9a3412; }
+.result-attrs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.attr-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(27, 28, 31, 0.12);
+  font-size: 11px;
+  color: #1f2937;
+  background: rgba(255, 255, 255, 0.82);
+}
+.result-missing {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7c2d12;
+  background: rgba(124, 45, 18, 0.08);
+  border: 1px solid rgba(124, 45, 18, 0.16);
+  padding: 2px 6px;
+  border-radius: 8px;
+  display: inline-block;
+  line-height: 1.35;
+}
+.result-ok {
+  font-size: 12px;
+  color: #0f766e;
+}
+.pill-pw { opacity: 0.4; }
+.pill-s { opacity: 0.12; }
+.pill-rule { opacity: 0.7; }
+.meta-pw { opacity: 0.45; }
+.meta-s { opacity: 0.12; }
+.meta-rule { opacity: 0.7; }
 .result-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -737,9 +789,15 @@ body.page--cooking .page-title {
   text-transform: uppercase;
 }
 body.page--cooking .page-sub {
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  display: none;
+  font-size: 10px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+body.page--cooking .subbar-left {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
 }
 body.page--cooking .search {
   background: rgba(255, 255, 255, 0.65);
@@ -757,7 +815,7 @@ body.page--cooking .nav-link.active {
   border-color: var(--accent);
 }
 body.page--cooking .mode-toggle {
-  padding: 4px;
+  padding: 2px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(31, 26, 22, 0.12);
@@ -766,12 +824,12 @@ body.page--cooking .mode-toggle {
 body.page--cooking .mode-btn {
   border: none;
   box-shadow: none;
-  padding: 6px 14px;
+  padding: 4px 10px;
 }
 body.page--cooking .mode-btn::before {
   content: attr(data-icon);
-  margin-right: 6px;
-  font-size: 12px;
+  margin-right: 4px;
+  font-size: 11px;
 }
 body.page--cooking .layout {
   gap: 24px;
@@ -779,6 +837,7 @@ body.page--cooking .layout {
 }
 body.page--cooking .list {
   max-height: min(64vh, 720px);
+  padding-bottom: 12px;
 }
 body.page--cooking .list .item,
 body.page--cooking .result-row {
@@ -844,6 +903,28 @@ body.page--cooking .tool-card {
   border: 1px dashed rgba(31, 26, 22, 0.16);
   background: rgba(255, 255, 255, 0.7);
 }
+body.page--cooking .slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+body.page--cooking .slot-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+body.page--cooking .slot-actions .btn {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+body.page--cooking .slot-preview-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+}
 body.page--cooking .detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
@@ -870,6 +951,10 @@ body.page--cooking .detail-side {
   gap: 12px;
   min-width: 0;
 }
+body.page--cooking[data-view="explore"] .detail-side,
+body.page--cooking[data-view="simulate"] .detail-side {
+  gap: 8px;
+}
 @media (max-width: 1120px) {
   body.page--cooking .detail-grid {
     grid-template-columns: 1fr;
@@ -882,8 +967,8 @@ body.page--cooking .slot-preview {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 4px 2px;
-  min-height: 36px;
+  padding: 2px 2px;
+  min-height: 32px;
 }
 body.page--cooking .slot-chip {
   display: inline-flex;
@@ -912,10 +997,67 @@ body.page--cooking .slot-chip .slot-remove {
   color: var(--muted);
   margin-left: 2px;
 }
+body.page--cooking .slot-input {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+body.page--cooking .slot-input[open] {
+  border-top: 1px dashed rgba(31, 26, 22, 0.14);
+  padding-top: 8px;
+}
+body.page--cooking .slot-input summary {
+  list-style: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 26, 22, 0.16);
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+}
+body.page--cooking .slot-input summary::-webkit-details-marker {
+  display: none;
+}
+body.page--cooking .slot-input summary::after {
+  content: "▾";
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+body.page--cooking .slot-input[open] summary::after {
+  transform: rotate(180deg);
+}
+body.page--cooking #slots {
+  min-height: 56px;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.6);
+}
+@media (max-width: 860px) {
+  body.page--cooking .slot-preview-wrap {
+    padding-top: 0;
+  }
+  body.page--cooking .slot-input summary {
+    position: static;
+    margin-bottom: 4px;
+  }
+}
 body.page--cooking .tool-ingredients {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+body.page--cooking[data-view="explore"] .tool-card,
+body.page--cooking[data-view="simulate"] .tool-card {
+  padding: 10px;
+}
+body.page--cooking[data-view="explore"] .tool-ingredients,
+body.page--cooking[data-view="simulate"] .tool-ingredients {
+  gap: 6px;
 }
 body.page--cooking .ingredient-head {
   display: flex;
@@ -927,6 +1069,10 @@ body.page--cooking .ingredient-search {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+body.page--cooking[data-view="explore"] .ingredient-search,
+body.page--cooking[data-view="simulate"] .ingredient-search {
+  gap: 4px;
 }
 body.page--cooking .ingredient-search input {
   width: 100%;
@@ -940,6 +1086,10 @@ body.page--cooking .ingredient-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+body.page--cooking[data-view="explore"] .ingredient-filters,
+body.page--cooking[data-view="simulate"] .ingredient-filters {
+  gap: 4px;
 }
 body.page--cooking .ingredient-filter {
   border: 1px solid rgba(31, 26, 22, 0.16);
@@ -960,13 +1110,19 @@ body.page--cooking .ingredient-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
-  max-height: 320px;
+  max-height: 240px;
   overflow: auto;
   padding-right: 4px;
 }
 body.page--cooking[data-view="explore"] .ingredient-grid,
 body.page--cooking[data-view="simulate"] .ingredient-grid {
-  max-height: 420px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  max-height: 320px;
+  gap: 6px;
+}
+body.page--cooking[data-view="explore"] #ingredientPicker,
+body.page--cooking[data-view="simulate"] #ingredientPicker {
+  flex: 1 1 auto;
 }
 body.page--cooking .ingredient-item {
   border: 1px solid rgba(31, 26, 22, 0.12);
@@ -1481,6 +1637,39 @@ rocks=10"></textarea>
       `</span>`;
     }
 
+    function itemLabel(id) {
+      const iid = String(id || '').trim();
+      if (!iid) return '';
+      const m = (state.assets && state.assets[iid]) ? state.assets[iid] : null;
+      const enName = (m && m.name) ? m.name : iid;
+      const zhName = getI18nName(iid);
+      return resolveLabel(iid, enName, zhName);
+    }
+
+    function tagLabel(tag) {
+      const key = String(tag || '').trim().toLowerCase();
+      if (!key) return '';
+      const en = (state.i18nTags && state.i18nTags.en && state.i18nTags.en[key]) ? state.i18nTags.en[key] : key;
+      const zh = (state.i18nTags && state.i18nTags.zh && state.i18nTags.zh[key]) ? state.i18nTags.zh[key] : '';
+      return resolveLabel(key, en || key, zh);
+    }
+
+    function tagSource(tag) {
+      const key = String(tag || '').trim().toLowerCase();
+      if (!key) return '';
+      return (state.i18nTagsMeta && state.i18nTagsMeta.en && state.i18nTagsMeta.en[key])
+        ? state.i18nTagsMeta.en[key]
+        : ((state.i18nTagsMeta && state.i18nTagsMeta.zh && state.i18nTagsMeta.zh[key]) ? state.i18nTagsMeta.zh[key] : '');
+    }
+
+    function renderTagLabel(tag) {
+      const label = tagLabel(tag);
+      if (!label) return '';
+      const src = (state.labelMode === 'id') ? tagSource(tag) : '';
+      if (!src) return escHtml(label);
+      return `${escHtml(label)} <span class="tag-source">${escHtml(src)}</span>`;
+    }
+
 
     function renderGroupList() {
       const box = el('groupList');
@@ -1488,7 +1677,10 @@ rocks=10"></textarea>
       for (const g of state.groups) {
         const div = document.createElement('div');
         div.className = 'item' + (state.activeGroup === g.name ? ' active' : '');
-        div.innerHTML = `<span class="name">${g.name}</span><span class="meta">${g.count ?? ''}</span>`;
+        const labelHtml = (state.mode === 'tags')
+          ? renderTagLabel(g.name)
+          : escHtml(g.label || g.name);
+        div.innerHTML = `<span class="name">${labelHtml}</span><span class="meta">${g.count ?? ''}</span>`;
         div.onclick = () => selectGroup(g.name);
         box.appendChild(div);
       }
@@ -1893,6 +2085,9 @@ __SHARED_CSS__
       i18n: null,         // meta from /api/v1/meta (set in loadMeta)
       i18nNames: {},      // {lang: {id: name}}
       i18nLoaded: {},     // {lang: true}
+      i18nTags: {},       // {lang: {tag: label}}
+      i18nTagsMeta: {},   // {lang: {tag: source}}
+      i18nTagsLoaded: {}, // {lang: true}
       tuningTrace: {},    // {trace_key: trace}
       tuningTraceEnabled: false,
       uiStrings: {},      // {lang: {key: text}}
@@ -1975,6 +2170,25 @@ __SHARED_CSS__
         state.i18nLoaded.zh = true;
       } catch (e) {
         state.i18nLoaded.zh = false;
+      }
+    }
+
+    async function ensureI18nTags(mode) {
+      const m = String(mode || 'en');
+      if (m === 'id') return;
+      const lang = (m === 'zh') ? 'zh' : 'en';
+      if (state.i18nTagsLoaded && state.i18nTagsLoaded[lang]) return;
+      const enabled = Boolean(state.i18n && state.i18n.enabled);
+      if (!enabled) return;
+      try {
+        const res = await fetchJson(api(`/api/v1/i18n/tags/${encodeURIComponent(lang)}`));
+        state.i18nTags[lang] = res.tags || {};
+        state.i18nTagsMeta[lang] = res.meta || {};
+        state.i18nTagsLoaded[lang] = true;
+      } catch (e) {
+        state.i18nTags[lang] = {};
+        state.i18nTagsMeta[lang] = {};
+        state.i18nTagsLoaded[lang] = false;
       }
     }
     // ui i18n (catalog)
@@ -2872,12 +3086,19 @@ __SHARED_CSS__
           </div>
           <div class="detail-side">
             <div class="tool-card" id="toolExplore">
-              <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
-              <div class="slot-preview" id="slotPreview"></div>
-              <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
-              <div class="row">
-                <button id="btnExplore" class="primary">Explore</button>
-                <button id="btnSim" class="btn">Simulate</button>
+              <div class="slot-head">
+                <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+                <div class="slot-actions">
+                  <button id="btnExplore" class="primary">Explore</button>
+                  <button id="btnSim" class="btn">Simulate</button>
+                </div>
+              </div>
+              <div class="slot-preview-wrap">
+                <div class="slot-preview" id="slotPreview"></div>
+                <details class="slot-input">
+                  <summary class="small muted" id="slotInputLabel">Manual input</summary>
+                  <textarea id="slots" placeholder="carrot=2\nberries=1\nbutterflywings=1"></textarea>
+                </details>
               </div>
             </div>
 
@@ -3058,6 +3279,25 @@ __SHARED_CSS__
       }
     }
 
+    async function ensureI18nTags(mode) {
+      const m = String(mode || 'en');
+      if (m === 'id') return;
+      const lang = (m === 'zh') ? 'zh' : 'en';
+      if (state.i18nTagsLoaded && state.i18nTagsLoaded[lang]) return;
+      const enabled = Boolean(state.i18n && state.i18n.enabled);
+      if (!enabled) return;
+      try {
+        const res = await fetchJson(api(`/api/v1/i18n/tags/${encodeURIComponent(lang)}`));
+        state.i18nTags[lang] = res.tags || {};
+        state.i18nTagsMeta[lang] = res.meta || {};
+        state.i18nTagsLoaded[lang] = true;
+      } catch (e) {
+        state.i18nTags[lang] = {};
+        state.i18nTagsMeta[lang] = {};
+        state.i18nTagsLoaded[lang] = false;
+      }
+    }
+
     // ui i18n (cooking)
     function uiLang() {
       return (state.labelMode === 'zh') ? 'zh' : 'en';
@@ -3133,6 +3373,8 @@ __SHARED_CSS__
       if (resultTitle) resultTitle.textContent = t('cooking.results.title', 'Results');
       const ingredientTitle = el('ingredientTitle');
       if (ingredientTitle) ingredientTitle.textContent = t('cooking.ingredients.title', 'Ingredient picker');
+      const slotInputLabel = el('slotInputLabel');
+      if (slotInputLabel) slotInputLabel.textContent = t('cooking.slots.manual', 'Manual input');
       const ingredientSearch = el('ingredientSearch');
       if (ingredientSearch) ingredientSearch.placeholder = t('cooking.ingredients.search', ingredientSearch.placeholder || 'Filter ingredients...');
       updateSlotUi();
@@ -3216,8 +3458,15 @@ __SHARED_CSS__
       try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
       applyLabelModeUI();
       await ensureI18nNames(state.labelMode);
+      if (typeof ensureI18nTags === 'function') {
+        await ensureI18nTags(state.labelMode);
+      }
       await ensureUiStrings(uiLang());
       applyUiStrings();
+      renderGroupList();
+      renderIngredientFilters();
+      renderIngredientGrid();
+      updateSlotUi();
       renderRecipeList();
       renderRecipeDetail(state.activeRecipeData);
     }
@@ -3256,6 +3505,47 @@ __SHARED_CSS__
       `</span>`;
     }
 
+    function itemLabel(id) {
+      const iid = String(id || '').trim();
+      if (!iid) return '';
+      const m = (state.assets && state.assets[iid]) ? state.assets[iid] : null;
+      const enName = (m && m.name) ? m.name : iid;
+      const zhName = getI18nName(iid);
+      return resolveLabel(iid, enName, zhName);
+    }
+
+    function tagLabel(tag) {
+      const key = String(tag || '').trim().toLowerCase();
+      if (!key) return '';
+      const en = (state.i18nTags && state.i18nTags.en && state.i18nTags.en[key]) ? state.i18nTags.en[key] : key;
+      const zh = (state.i18nTags && state.i18nTags.zh && state.i18nTags.zh[key]) ? state.i18nTags.zh[key] : '';
+      return resolveLabel(key, en || key, zh);
+    }
+
+    function tagSource(tag) {
+      const key = String(tag || '').trim().toLowerCase();
+      if (!key) return '';
+      return (state.i18nTagsMeta && state.i18nTagsMeta.en && state.i18nTagsMeta.en[key])
+        ? state.i18nTagsMeta.en[key]
+        : ((state.i18nTagsMeta && state.i18nTagsMeta.zh && state.i18nTagsMeta.zh[key]) ? state.i18nTagsMeta.zh[key] : '');
+    }
+
+    function tagLabelPlain(tag) {
+      const label = tagLabel(tag);
+      if (!label) return '';
+      if (state.labelMode !== 'id') return label;
+      const src = tagSource(tag);
+      return src ? `${label} [${src}]` : label;
+    }
+
+    function renderTagLabel(tag) {
+      const label = tagLabel(tag);
+      if (!label) return '';
+      const src = (state.labelMode === 'id') ? tagSource(tag) : '';
+      if (!src) return escHtml(label);
+      return `${escHtml(label)} <span class="tag-source">${escHtml(src)}</span>`;
+    }
+
 
     const state = {
       mode: 'foodtypes', // foodtypes | tags | all
@@ -3279,6 +3569,9 @@ __SHARED_CSS__
       i18n: null,         // meta from /api/v1/meta (set in loadMeta)
       i18nNames: {},      // {lang: {id: name}}
       i18nLoaded: {},     // {lang: true}
+      i18nTags: {},       // {lang: {tag: label}}
+      i18nTagsMeta: {},   // {lang: {tag: source}}
+      i18nTagsLoaded: {}, // {lang: true}
       tuningTrace: {},    // {trace_key: trace}
       tuningTraceEnabled: false,
       uiStrings: {},      // {lang: {key: text}}
@@ -3370,20 +3663,103 @@ __SHARED_CSS__
     function formatMissing(missing) {
       const rows = Array.isArray(missing) ? missing : [];
       if (!rows.length) return '';
-      const parts = rows.slice(0, 4).map((m) => {
+      const best = {};
+      for (const m of rows) {
+        const key = String(m.key || '').trim();
+        const tpe = String(m.type || '').trim();
+        const optKey = key || (Array.isArray(m.options) ? m.options.join('|') : '');
+        if (!optKey && tpe !== 'name_any') continue;
+        const id = `${tpe}:${optKey}`;
+        const delta = Number(m.delta || 0);
+        if (!best[id] || delta > Number(best[id].delta || 0)) {
+          best[id] = m;
+        }
+      }
+      const picked = Object.values(best);
+      const typeRank = { name_any: 0, name: 1, tag: 2 };
+      picked.sort((a, b) => {
+        const ra = typeRank[String(a.type || '')] ?? 9;
+        const rb = typeRank[String(b.type || '')] ?? 9;
+        if (ra !== rb) return ra - rb;
+        const da = Number(a.delta || 0);
+        const db = Number(b.delta || 0);
+        if (db !== da) return db - da;
+        return String(a.key || '').localeCompare(String(b.key || ''));
+      });
+      const fmtNum = (num) => {
+        const v = Number(num || 0);
+        if (!Number.isFinite(v)) return '';
+        const out = v.toFixed(1);
+        return out.endsWith('.0') ? out.slice(0, -2) : out;
+      };
+      const parts = picked.slice(0, 4).map((m) => {
         const key = String(m.key || '').trim();
         const delta = Number(m.delta || 0);
         const dir = String(m.direction || '');
-        const prefix = (m.type === 'name') ? 'name:' : 'tag:';
+        if (m.type === 'name_sum') {
+          const opts = Array.isArray(m.options) ? m.options : key.split('|');
+          const label = opts.map((v) => itemLabel(v)).filter(Boolean).join(' | ');
+          const minVal = (m.min !== undefined && m.min !== null) ? m.min : (m.required ?? 0);
+          const tpl = t('cooking.missing.name_sum', 'sum of: {items} >= {min}');
+          return label ? String(tpl || '')
+            .replace('{items}', label)
+            .replace('{min}', fmtNum(minVal))
+            : (tpl || 'sum of');
+        }
+        if (m.type === 'name_any') {
+          const opts = Array.isArray(m.options) ? m.options : key.split('|');
+          const label = opts.map((v) => itemLabel(v)).filter(Boolean).join(' | ');
+          const tpl = t('cooking.missing.name_any', 'any of: {items}');
+          return label ? String(tpl || '').replace('{items}', label) : (tpl || 'any of');
+        }
         if (!key) return '';
-        if (dir === 'under') return `${prefix}${key} +${delta.toFixed(1)}`;
-        if (dir === 'over') return `${prefix}${key} -${delta.toFixed(1)}`;
-        if (dir === 'mismatch') return `${prefix}${key} != ${Number(m.required || 0).toFixed(1)}`;
-        return `${prefix}${key}`;
+        const isName = m.type === 'name';
+        const prefix = isName ? t('cooking.missing.item_prefix', 'item') : t('cooking.missing.tag_prefix', 'tag');
+        const label = isName ? itemLabel(key) : tagLabelPlain(key);
+        const base = `${prefix}:${label || key}`;
+        if (dir === 'under' && delta > 0) return `${base} +${fmtNum(delta)}`;
+        if (dir === 'over' && delta > 0) return `${base} -${fmtNum(delta)}`;
+        if (dir === 'mismatch') return `${base} ≠ ${fmtNum(m.required || 0)}`;
+        return base;
       }).filter(Boolean);
       if (!parts.length) return '';
       const suffix = rows.length > 4 ? ' ...' : '';
       return parts.join(', ') + suffix;
+    }
+
+    function _formatAttrValue(val) {
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        const out = val.toFixed(1);
+        return out.endsWith('.0') ? out.slice(0, -2) : out;
+      }
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object' && val.value !== undefined) {
+        const num = Number(val.value);
+        if (Number.isFinite(num)) {
+          const out = num.toFixed(1);
+          return out.endsWith('.0') ? out.slice(0, -2) : out;
+        }
+      }
+      return '';
+    }
+
+    function renderAttrPills(row) {
+      const attrs = row && row.attrs ? row.attrs : {};
+      const specs = [
+        { key: 'hunger', label: 'H', title: t('label.hunger', 'Hunger') },
+        { key: 'health', label: 'HP', title: t('label.health', 'Health') },
+        { key: 'sanity', label: 'SAN', title: t('label.sanity', 'Sanity') },
+        { key: 'perishtime', label: 'PER', title: t('label.perish', 'Perish') },
+        { key: 'cooktime', label: 'COOK', title: t('label.cooktime', 'Cooktime') },
+      ];
+      const pills = [];
+      for (const spec of specs) {
+        const val = _formatAttrValue(attrs[spec.key]);
+        if (!val) continue;
+        pills.push(`<span class="attr-pill" title="${escHtml(spec.title)}">${escHtml(spec.label)} ${escHtml(val)}</span>`);
+      }
+      return pills.join('');
     }
 
     function renderResultList() {
@@ -3403,6 +3779,7 @@ __SHARED_CSS__
 
       const cookable = Array.isArray(res.cookable) ? res.cookable : [];
       const near = Array.isArray(res.near_miss) ? res.near_miss : [];
+      const nearTiers = Array.isArray(res.near_miss_tiers) ? res.near_miss_tiers : [];
       el('listCount').textContent = (cookable.length || near.length) ? `${cookable.length}/${near.length}` : '';
       const mode = res._mode || state.view;
       el('listTitle').textContent = (mode === 'simulate')
@@ -3411,8 +3788,20 @@ __SHARED_CSS__
 
       const sections = [
         { title: t('cooking.results.cookable', 'Cookable'), items: cookable },
-        { title: t('cooking.results.near', 'Near miss'), items: near },
       ];
+      if (nearTiers.length) {
+        const label = (key) => {
+          if (key === 'primary') return t('cooking.results.near_tier_primary', 'Near miss · current pool');
+          if (key === 'filler') return t('cooking.results.near_tier_filler', 'Near miss · filler-heavy');
+          return t('cooking.results.near_tier_secondary', 'Near miss · needs extra');
+        };
+        for (const tier of nearTiers) {
+          const items = Array.isArray(tier.items) ? tier.items : [];
+          sections.push({ title: label(String(tier.key || 'secondary')), items });
+        }
+      } else {
+        sections.push({ title: t('cooking.results.near', 'Near miss'), items: near });
+      }
 
       let animIdx = 0;
       for (const sec of sections) {
@@ -3439,13 +3828,17 @@ __SHARED_CSS__
             const missing = formatMissing(row.missing || []) || t('label.ok', 'OK');
             const score = Number(row.score || 0);
             const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
-            const meta = `p=${Number(row.priority || 0)} · w=${Number(row.weight || 0)} · s=${score.toFixed(1)}${rule ? ' · ' + rule : ''}`;
+            const meta = `
+              <span class="meta-pw">p=${escHtml(Number(row.priority || 0))} · w=${escHtml(Number(row.weight || 0))}</span>
+              <span class="meta-s">· s=${escHtml(score.toFixed(1))}</span>
+              ${rule ? `<span class="meta-rule">· ${escHtml(rule)}</span>` : ''}
+            `;
             const div = document.createElement('div');
             const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
             div.className = `result-row ${isMiss ? 'is-miss' : 'is-ok'}`;
             div.style.animationDelay = `${Math.min(animIdx * 0.03, 0.4)}s`;
             animIdx += 1;
-            div.innerHTML = `<div>${renderItem(name)}<div class="small muted">${escHtml(meta)}</div></div>` +
+            div.innerHTML = `<div>${renderItem(name)}<div class="small muted result-meta">${meta}</div></div>` +
               `<div class="result-missing">${escHtml(missing || '')}</div>`;
             div.onclick = () => selectRecipe(name);
             wrap.appendChild(div);
@@ -3459,9 +3852,10 @@ __SHARED_CSS__
         for (const row of sec.items) {
           const name = String(row.name || '').trim();
           if (!name) continue;
-          const missing = formatMissing(row.missing || []) || t('label.ok', 'OK');
+          const missing = formatMissing(row.missing || []);
           const score = Number(row.score || 0);
           const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
+          const attrs = renderAttrPills(row);
           const card = document.createElement('div');
           const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
           card.className = `result-card ${isMiss ? 'is-miss' : 'is-ok'}`;
@@ -3469,13 +3863,14 @@ __SHARED_CSS__
           animIdx += 1;
           card.innerHTML = `
             <div>${renderItem(name)}</div>
+            ${missing ? `<div class="result-missing">${escHtml(missing)}</div>` : `<div class="result-ok">${escHtml(t('label.ok', 'OK'))}</div>`}
+            ${attrs ? `<div class="result-attrs">${attrs}</div>` : ''}
             <div class="result-meta">
-              <span class="pill">p=${escHtml(Number(row.priority || 0))}</span>
-              <span class="pill">w=${escHtml(Number(row.weight || 0))}</span>
-              <span class="pill">s=${escHtml(score.toFixed(1))}</span>
-              ${rule ? `<span class="pill">${escHtml(rule)}</span>` : ''}
+              <span class="pill pill-pw">p=${escHtml(Number(row.priority || 0))}</span>
+              <span class="pill pill-pw">w=${escHtml(Number(row.weight || 0))}</span>
+              <span class="pill pill-s">s=${escHtml(score.toFixed(1))}</span>
+              ${rule ? `<span class="pill pill-rule">${escHtml(rule)}</span>` : ''}
             </div>
-            <div class="result-missing">${escHtml(missing || '')}</div>
           `;
           card.onclick = () => selectRecipe(name);
           grid.appendChild(card);
@@ -3588,11 +3983,13 @@ __SHARED_CSS__
         btn.className = 'ingredient-item';
         btn.setAttribute('data-id', item.id);
         const uses = item.uses ? `${item.uses} recipes` : '';
-        const tags = item.tags.length ? item.tags.join(', ') : '';
-        btn.title = `${item.id}${tags ? ' | ' + tags : ''}`;
+        const tagLabels = item.tags.map(tagLabelPlain).filter(Boolean);
+        const tagsPlain = tagLabels.length ? tagLabels.join(', ') : '';
+        const tagsHtml = item.tags.map(tag => renderTagLabel(tag)).filter(Boolean).join(', ');
+        btn.title = `${item.id}${tagsPlain ? ' | ' + tagsPlain : ''}`;
         btn.innerHTML = `
           <div>${renderItem(item.id)}</div>
-          <div class="ingredient-meta"><span>${escHtml(uses)}</span><span>${escHtml(tags)}</span></div>
+          <div class="ingredient-meta"><span>${escHtml(uses)}</span><span>${tagsHtml || ''}</span></div>
         `;
         btn.onclick = (e) => {
           if (state.view === 'explore') {
@@ -3718,7 +4115,9 @@ __SHARED_CSS__
       for (const g of state.groups) {
         const div = document.createElement('div');
         div.className = 'item' + (state.activeGroup === g.name ? ' active' : '');
-        div.innerHTML = `<span class="name">${g.name}</span><span class="meta">${g.count ?? ''}</span>`;
+        const label = g.label || g.name;
+        const labelHtml = (state.mode === 'tags') ? renderTagLabel(g.name) : escHtml(label);
+        div.innerHTML = `<span class="name">${labelHtml}</span><span class="meta">${g.count ?? ''}</span>`;
         div.onclick = () => selectGroup(g.name);
         box.appendChild(div);
       }
@@ -3749,7 +4148,7 @@ __SHARED_CSS__
         return;
       }
 
-      const tags = (rec.tags || []).map(x => `<span class="chip">${x}</span>`).join('');
+      const tags = (rec.tags || []).map(x => `<span class="chip">${renderTagLabel(x) || escHtml(x)}</span>`).join('');
       const card = (rec.card_ingredients || []).map(row => {
         const item = row[0];
         const cnt = row[1];
@@ -3899,7 +4298,11 @@ __SHARED_CSS__
       } else if (state.mode === 'tags') {
         el('groupTitle').textContent = t('cooking.group.tags', 'Tags');
         const res = await fetchJson(api('/api/v1/cooking/tags'));
-        state.groups = (res.tags || []).map(t => ({ name: t.name, count: t.count }));
+        state.groups = (res.tags || []).map(t => ({
+          name: t.name,
+          label: tagLabel(t.name),
+          count: t.count,
+        }));
       } else {
         el('groupTitle').textContent = t('cooking.group.all', 'All');
         const res = await fetchJson(api('/api/v1/cooking/recipes'));
@@ -4142,6 +4545,9 @@ __SHARED_CSS__
       try {
         await loadMeta();
         await ensureI18nNames(state.labelMode);
+        if (typeof ensureI18nTags === 'function') {
+          await ensureI18nTags(state.labelMode);
+        }
         await loadAssets();
         await loadIngredients();
         await loadGroups();

@@ -33,7 +33,13 @@ try:
 except Exception:  # pragma: no cover
     wagstaff_config = None  # type: ignore
 
-from core.analyzer import CookingIngredientAnalyzer, CookingRecipeAnalyzer, LuaAnalyzer, TuningResolver
+from core.analyzer import (
+    CookingIngredientAnalyzer,
+    CookingRecipeAnalyzer,
+    LuaAnalyzer,
+    TuningResolver,
+    parse_oceanfish_ingredients,
+)
 from core.craft_recipes import CraftRecipeDB
 
 logger = logging.getLogger(__name__)
@@ -430,6 +436,16 @@ class WagstaffEngine:
             extra = CookingIngredientAnalyzer(cook_src, source=cook_path).ingredients
             if extra:
                 self.cooking_ingredients = _merge_cooking_ingredients(self.cooking_ingredients, extra)
+
+        fish_path = "scripts/prefabs/oceanfishdef.lua"
+        fish_src = self.read_file(fish_path)
+        if not fish_src:
+            fish_path = "prefabs/oceanfishdef.lua"
+            fish_src = self.read_file(fish_path)
+        if fish_src:
+            fish_extra = parse_oceanfish_ingredients(fish_src, source=fish_path)
+            if fish_extra:
+                self.cooking_ingredients = _merge_cooking_ingredients(self.cooking_ingredients, fish_extra)
 
     # --------------------------------------------------------
     # High-level helpers
