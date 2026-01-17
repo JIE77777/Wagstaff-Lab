@@ -109,7 +109,8 @@
     "[2026-01-17 10:46] Docs: DEV_GUIDE 增加 UI 设计与 Git 流程规范。",
     "[2026-01-17 10:46] WebCraft: Cooking UI 以 skill 方式重塑布局与结果呈现。",
     "[2026-01-17 11:47] WebCraft: 修复 Craft/Cooking 模板错位与 setView 缺失，恢复料理模式切换与配色。",
-    "[2026-01-17 12:29] WebCraft: Cooking 探索/模拟新增食材选择面板与分组筛选。"
+    "[2026-01-17 12:29] WebCraft: Cooking 探索/模拟新增食材选择面板与分组筛选。",
+    "[2026-01-17 14:10] Repo: 收敛仓库体积，data/index 与 data/static/icons 产物改为忽略并移出版本控制。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

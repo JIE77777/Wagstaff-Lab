@@ -47,8 +47,8 @@ htmlcov/
 # 忽略前端与依赖缓存
 node_modules/
 
-# 忽略生成产物 (保留 samples)
+# 忽略生成产物 (索引/报告/快照/图标)
 data/index/
 data/reports/
 data/snapshots/
-data/static/
+data/static/icons/

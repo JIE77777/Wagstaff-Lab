@@ -58,6 +58,7 @@ dev_guide:
   - `data/index/wagstaff_catalog_v2.json`
   - `data/index/wagstaff_catalog_v2.sqlite`
   - `data/index/wagstaff_icon_index_v1.json`
+- 产物默认不入库：`data/index/` 与 `data/static/icons/` 由工具生成，需要时用 `make catalog` / `make icons` 重建。
 - 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
 - Catalog v2 产物新增 `cooking_ingredients` 字段用于料理食材 tags 索引。
