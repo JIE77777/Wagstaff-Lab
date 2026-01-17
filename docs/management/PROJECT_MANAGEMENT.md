@@ -81,6 +81,7 @@
 ## 5. 最近完成（摘要）
 
 - wagstaff server 接入，运维模块独立化
+- WebCraft UI 模块化：模板迁移至 `apps/webcraft/templates/`，CSS/JS 拆分到 `apps/webcraft/static/`
 - Catalog index v1 规范与 WebCraft API 契约补齐
 - pyproject 入口统一、bin/installer 清理完成
 

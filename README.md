@@ -131,6 +131,10 @@ data/            产物与报告
 docs/            guides/ specs/ management/ architecture
 ```
 
+WebCraft UI 模板与静态资源：
+- `apps/webcraft/templates/`：HTML 模板
+- `apps/webcraft/static/`：CSS/JS/字体（对外挂载 `/static/app`）
+
 ## 文档入口
 
 - `docs/README.md`：文档索引

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
+  <title>Wagstaff WebCraft - Cooking Tools</title>
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/base.css" />
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/cooking.css" />
+  <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
+</head>
+<body class="page--cooking" data-page="cooking" data-role="tool" data-view="explore">
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a id="navCraft" class="nav-link" href="#">Craft</a>
+          <a id="navCooking" class="nav-link active" href="#">Cooking</a>
+          <a id="navCatalog" class="nav-link" href="#">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title" id="pageTitle">Cooking Tools</div>
+        <div class="page-sub" id="pageSub">Explore and simulate with focused inputs</div>
+      </div>
+      <div class="subbar-right"></div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="detailTitle">Details / Tools</div>
+      </div>
+      <div class="detail">
+        <div class="detail-grid">
+          <div class="detail-main">
+            <div id="detail">
+              <div class="muted">Add ingredients to explore or simulate.</div>
+            </div>
+            <div class="tool-card" id="resultBox">
+              <div class="slot-head">
+                <div class="small muted" id="resultTitle">Results</div>
+                <div class="slot-actions">
+                  <button class="btn" id="btnViewCards">Cards</button>
+                  <button class="btn" id="btnViewDense">Dense</button>
+                </div>
+              </div>
+              <div id="out" class="small muted"></div>
+              <div class="list" id="results"></div>
+            </div>
+          </div>
+
+          <div class="detail-side">
+            <div class="tool-card" id="toolBox">
+              <div class="tool-switch">
+                <div class="small muted" id="toolModeLabel">Mode</div>
+                <div class="tool-switch-actions">
+                  <button class="btn ghost tool-toggle" id="toolExplore">Explore</button>
+                  <button class="btn ghost tool-toggle" id="toolSim">Simulate</button>
+                </div>
+              </div>
+              <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+              <div class="slot-preview-wrap">
+                <div class="slot-preview" id="slotPreview"></div>
+                <details class="slot-input" id="slotInput">
+                  <summary><span id="slotInputLabel">Manual input</span></summary>
+                  <textarea id="slots" placeholder="carrot=2
+berries=1
+butterflywings=1"></textarea>
+                </details>
+              </div>
+              <div class="grid2" style="margin-top:8px;">
+                <button class="primary" id="btnExplore">Explore</button>
+                <button id="btnSim">Simulate</button>
+              </div>
+            </div>
+
+            <div class="tool-card tool-ingredients" id="ingredientPicker">
+              <div class="ingredient-head">
+                <div class="small muted" id="ingredientTitle">Ingredient picker</div>
+                <button id="ingredientClear" class="btn ghost">Clear slots</button>
+              </div>
+              <div class="ingredient-search">
+                <input id="ingredientSearch" type="text" placeholder="Filter ingredients..." />
+                <div class="small muted" id="ingredientHint">Click to add, Shift/Alt to remove</div>
+              </div>
+              <div class="ingredient-filters" id="ingredientFilters"></div>
+              <div class="ingredient-grid" id="ingredientGrid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="err fixed" id="err"></div>
+</body>
+</html>

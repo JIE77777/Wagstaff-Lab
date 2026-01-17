@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
+  <title>Wagstaff Catalog</title>
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/base.css" />
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/catalog.css" />
+  <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
+</head>
+<body class="page--catalog" data-page="catalog">
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a class="nav-link" id="navCraft" href="__WAGSTAFF_APP_ROOT__/">Craft</a>
+          <a class="nav-link" id="navCooking" href="__WAGSTAFF_APP_ROOT__/cooking">Cooking</a>
+          <a class="nav-link active" id="navCatalog" href="__WAGSTAFF_APP_ROOT__/catalog">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta">...</div>
+      </div>
+    </div>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title">Catalog Index</div>
+        <div class="page-sub">Items, stats, and prefab links</div>
+      </div>
+      <div class="subbar-right">
+        <div class="search">
+          <input id="q" type="text" placeholder="Search item id / name. Examples: beefalo, axe, spear, monstermeat" />
+          <button class="btn primary" id="btnSearch">Search</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="panel panel--list" id="listPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="listTitle">Catalog</div>
+        <span class="small muted" id="stats"></span>
+      </div>
+      <div class="panel-body panel-body--meta">
+        <div class="small muted" id="searchHelp">Hints: kind:structure cat:weapon src:craft tag:monster comp:equippable slot:head</div>
+      </div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="detailTitle">Item Detail</div>
+        <button class="btn ghost back" id="btnBackList">Back to list</button>
+      </div>
+      <div class="detail" id="detail">
+        <div class="muted" id="detailEmpty">Select an item.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="err fixed" id="err"></div>
+</body>
+</html>

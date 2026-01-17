@@ -16,7 +16,7 @@ from .icon_service import IconConfig, IconService
 from .i18n_index import I18nIndexStore
 from .settings import WebCraftSettings
 from .tuning_trace import TuningTraceStore
-from .ui import render_index_html, render_cooking_html, render_catalog_html
+from .ui import render_index_html, render_cooking_html, render_cooking_tools_html, render_catalog_html
 
 
 def create_app(
@@ -187,6 +187,15 @@ def create_app(
         root = request.scope.get("root_path") or ""
         return HTMLResponse(render_cooking_html(app_root=str(root)))
 
+    @app.get("/cooking/explore", response_class=HTMLResponse)
+    def cooking_explore(request: Request):
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_cooking_tools_html(app_root=str(root)))
+
+    @app.get("/cooking/simulate", response_class=HTMLResponse)
+    def cooking_simulate(request: Request):
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_cooking_tools_html(app_root=str(root)))
 
     @app.get("/catalog", response_class=HTMLResponse)
     def catalog(request: Request):

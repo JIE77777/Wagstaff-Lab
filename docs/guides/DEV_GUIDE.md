@@ -66,6 +66,7 @@ dev_guide:
 ## 5. WebCraft 约定
 
 - API 统一在 `/api/v1` 下，UI 与 API 使用同一 `root_path`。
+- UI 路由固定：`/`(Craft 图鉴)、`/cooking`(Cooking 图鉴)、`/cooking/explore`、`/cooking/simulate`、`/catalog`。
 - UI 仅通过 API 访问数据；静态资源来自 `data/static/`。
 - 新增字段须保证向后兼容或同步更新 `schema_version`。
 - WebCraft 运行时优先使用 `data/index/wagstaff_catalog_v2.sqlite`，缺失时回退 JSON。
@@ -88,6 +89,18 @@ dev_guide:
 - **标签映射**：`conf/i18n_tags.json` 维护 cooking tags，多语言条目必须附带 `source`（`game`/`manual`/`virtual`），优先对齐游戏内资源；前端使用 `/api/v1/i18n/tags/{lang}` 获取标签文本（`tags_meta` 不用于展示）。
 - **ID 模式展示**：当 UI 使用 `id` 模式时，标签文本需附带 `tags_meta` 的 `source` 信息，用于标识翻译来源。
 - **流程收敛**：去除分散的字符串表或临时翻译逻辑，确保同一 key 在全站复用。
+
+## 5.3 WebCraft UI 模块化规范
+
+- `apps/webcraft/ui.py` 仅保留模板渲染与变量注入，禁止大段内联 CSS/JS。
+- UI 静态资源统一落盘 `apps/webcraft/static/`，目录规范：
+  - `static/css/`：样式层（base + page）。
+  - `static/js/core/`：共享工具与基础能力（api/dom/i18n/icons）。
+  - `static/js/pages/`：页面入口（catalog/craft/cooking），不得互相依赖。
+  - `static/js/app.js`：统一启动脚本，按 `body` 标记加载页面模块。
+- 模板目录统一为 `apps/webcraft/templates/`（index/catalog/cooking）。
+- 共享 UI 片段必须收敛到 `core/`，避免跨页函数缺失与重复定义。
+- 大型 UI 重构必须先产出计划文档（`docs/management/*.md`），并在 `PROJECT_STATUS.json` 记录。
 
 ## 6. 变更与文档
 

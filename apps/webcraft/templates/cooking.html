@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
+  <title>Wagstaff WebCraft - Cooking</title>
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/base.css" />
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/cooking.css" />
+  <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
+</head>
+<body class="page--cooking" data-page="cooking" data-role="encyclopedia" data-view="encyclopedia">
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a id="navCraft" class="nav-link" href="#">Craft</a>
+          <a id="navCooking" class="nav-link active" href="#">Cooking</a>
+          <a id="navCatalog" class="nav-link" href="#">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title" id="pageTitle">Cooking Atlas</div>
+        <div class="page-sub" id="pageSub">Recipes, rules, and cookpot insights</div>
+      </div>
+      <div class="subbar-right">
+        <div class="search">
+          <input id="q" type="text" placeholder="Search recipes / tags. Examples: meatballs, tag:meat, tag:monster" />
+          <button id="btnSearch" class="primary">Search</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="panel panel--filters">
+      <div class="panel-head">
+        <div class="panel-title" id="groupTitle">FoodTypes</div>
+        <div class="panel-actions">
+          <button class="btn ghost" id="btnToggle">Toggle</button>
+        </div>
+      </div>
+      <div class="list" id="groupList"></div>
+    </div>
+
+    <div class="panel panel--list" id="listPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="listTitle">Recipes</div>
+        <span class="small muted" id="listCount"></span>
+      </div>
+      <div class="list" id="recipeList"></div>
+    </div>
+
+    <div class="panel panel--primary" id="detailPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="detailTitle">Details</div>
+        <button class="btn ghost back" id="btnBackList">Back to list</button>
+      </div>
+      <div class="detail">
+        <div id="detail"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="err fixed" id="err"></div>
+</body>
+</html>
