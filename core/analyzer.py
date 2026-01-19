@@ -1397,6 +1397,7 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     e = re.sub(r"\s+", " ", expr)
 
     seen = set()
+    sum_seen: Set[Tuple[str, str, int]] = set()
     or_names: Set[str] = set()
     or_spans: List[Tuple[int, int]] = []
 
@@ -1406,6 +1407,19 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
             return
         seen.add(rec)
         out["names"].append({"key": key, "op": op, "value": value, "text": text})
+
+    def _add_names_sum(keys: List[str], min_val: int, text: str) -> None:
+        if len(keys) != 2:
+            return
+        a = str(keys[0]).strip()
+        b = str(keys[1]).strip()
+        if not a or not b or a == b:
+            return
+        key = tuple(sorted((a, b))) + (int(min_val),)
+        if key in sum_seen:
+            return
+        sum_seen.add(key)
+        out["names_sum"].append({"keys": [a, b], "min": int(min_val), "text": text})
 
     # detect parenthesized OR groups: (names.a or names.b)
     paren_pat = re.compile(r"\(([^()]+)\)")
@@ -1460,7 +1474,25 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
         y = m.group("y")
         if not a or not b or {x, y} != {a, b}:
             continue
-        out["names_sum"].append({"keys": [a, b], "min": 2, "text": m.group(0).strip()})
+        _add_names_sum([a, b], 2, m.group(0).strip())
+
+    # detect plus sum groups: (names.a + names.b >= N)
+    plus_pat = re.compile(
+        r"\(?\s*\(?\s*names\.(?P<a>[A-Za-z0-9_]+)\s*(?:or\s*0)?\s*\)?\s*\+\s*"
+        r"\(?\s*names\.(?P<b>[A-Za-z0-9_]+)\s*(?:or\s*0)?\s*\)?\s*\)?\s*(?P<op>>=|>)\s*(?P<n>[0-9]+)"
+    )
+    for m in plus_pat.finditer(e):
+        a = m.group("a")
+        b = m.group("b")
+        op = m.group("op") or ">="
+        n = m.group("n") or "0"
+        try:
+            min_val = int(n)
+        except Exception:
+            continue
+        if op == ">":
+            min_val += 1
+        _add_names_sum([a, b], min_val, m.group(0).strip())
 
     # comparisons: tags.X <op> (number|nil|identifier)
     cmp_pat = re.compile(

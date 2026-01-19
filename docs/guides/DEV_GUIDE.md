@@ -164,6 +164,11 @@ dev_guide:
 - `make quality` / `make gate`
 - `make webcraft` / `make snap`
 
+## 9.1 增量构建 (devtools)
+
+- `build_resource_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
+- 需强制全量重建时，追加 `--force`。
+
 ## 10. 最低自检清单
 
 - `wagstaff dash` (主界面可运行)

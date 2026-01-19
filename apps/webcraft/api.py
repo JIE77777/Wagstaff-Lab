@@ -616,6 +616,21 @@ def cooking_tags(store: CatalogStore = Depends(get_store)):
 def cooking_ingredients(store: CatalogStore = Depends(get_store)):
     raw, source = store.cooking_ingredients_with_fallback()
     items: List[Dict[str, Any]] = []
+    virtual_ids = {
+        "batnose_dried",
+        "cutlichen_cooked",
+        "egg",
+        "egg_cooked",
+        "honey_cooked",
+        "honeycomb_cooked",
+        "mandrake_cooked",
+        "meat_cooked",
+        "monstermeat_cooked",
+        "pondeel_cooked",
+        "royal_jelly_cooked",
+        "smallmeat_cooked",
+    }
+
     if raw:
         for iid, data in raw.items():
             tags = data.get("tags")
@@ -627,6 +642,7 @@ def cooking_ingredients(store: CatalogStore = Depends(get_store)):
                     "tags": tags,
                     "foodtype": data.get("foodtype"),
                     "uses": len(store.list_cooking_by_ingredient(iid)),
+                    "virtual": iid in virtual_ids,
                 }
             )
     elif source == "card_ingredients":
@@ -637,6 +653,7 @@ def cooking_ingredients(store: CatalogStore = Depends(get_store)):
                     "tags": {},
                     "foodtype": None,
                     "uses": len(store.list_cooking_by_ingredient(iid)),
+                    "virtual": iid in virtual_ids,
                 }
             )
 

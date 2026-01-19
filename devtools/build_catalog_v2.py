@@ -15,6 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from core.indexers.catalog_v2 import build_catalog_v2  # noqa: E402
 from core.schemas.catalog_v2 import WagstaffCatalogV2  # noqa: E402
 from core.engine import WagstaffEngine  # noqa: E402
+from devtools.build_cache import file_sig, load_cache, save_cache, files_sig  # noqa: E402
 
 try:
     from core.utils import wagstaff_config  # type: ignore
@@ -49,6 +50,7 @@ def main() -> int:
     p.add_argument("--scripts-zip", default=None, help="Override scripts zip path")
     p.add_argument("--scripts-dir", default=None, help="Override scripts folder path")
     p.add_argument("--dst-root", default=None, help="Override DST root (default from config)")
+    p.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
     p.add_argument("--silent", action="store_true")
 
     args = p.parse_args()
@@ -69,12 +71,45 @@ def main() -> int:
     if not res_path.exists():
         raise SystemExit(f"Resource index not found: {res_path}")
 
+    scripts_sig = {}
+    if engine.mode == "zip" and hasattr(engine.source, "filename"):
+        scripts_sig = {"mode": "zip", "source": file_sig(Path(engine.source.filename))}
+    elif engine.mode == "folder" and engine.source:
+        base = Path(str(engine.source))
+        files = [base / p for p in (engine.file_list or [])]
+        scripts_sig = {"mode": "folder", "source": files_sig(files, label=str(base))}
+
     resource_index = _load_resource_index(res_path)
 
     overrides_path = (PROJECT_ROOT / args.tag_overrides).resolve()
     tag_overrides = str(overrides_path) if overrides_path.exists() else None
 
     trace_out = "" if args.no_tuning_trace else str(args.tuning_trace_out or "")
+
+    out_path = (PROJECT_ROOT / args.out).resolve()
+    summary_path = (PROJECT_ROOT / args.summary).resolve()
+    trace_path = (PROJECT_ROOT / trace_out).resolve() if trace_out else None
+
+    inputs_sig = {
+        "dst_root": str(dst_root),
+        "resource_index": file_sig(res_path),
+        "tag_overrides": file_sig(overrides_path),
+        "scripts": scripts_sig,
+        "tuning_mode": str(args.tuning_mode),
+        "tuning_trace": bool(trace_out),
+    }
+    outputs_sig = {
+        "out": file_sig(out_path),
+        "summary": file_sig(summary_path),
+        "trace": file_sig(trace_path) if trace_path else {"path": "", "exists": False},
+    }
+    cache = load_cache()
+    cache_key = "catalog_v2"
+    if not args.force:
+        entry = cache.get(cache_key) or {}
+        if entry.get("signature") == inputs_sig and entry.get("outputs") == outputs_sig:
+            print("✅ Catalog v2 up-to-date; skip rebuild")
+            return 0
 
     catalog, tuning_trace = build_catalog_v2(
         engine=engine,
@@ -84,19 +119,24 @@ def main() -> int:
         include_tuning_trace=bool(trace_out),
     )
 
-    out_path = (PROJECT_ROOT / args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(catalog.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
 
-    summary_path = (PROJECT_ROOT / args.summary).resolve()
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(_render_summary(catalog), encoding="utf-8")
 
     if trace_out and tuning_trace is not None:
-        trace_path = (PROJECT_ROOT / trace_out).resolve()
         trace_path.parent.mkdir(parents=True, exist_ok=True)
         trace_path.write_text(json.dumps(tuning_trace, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"✅ Tuning trace written: {trace_path}")
+
+    outputs_sig = {
+        "out": file_sig(out_path),
+        "summary": file_sig(summary_path),
+        "trace": file_sig(trace_path) if trace_out else {"path": "", "exists": False},
+    }
+    cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
+    save_cache(cache)
 
     print(f"✅ Catalog v2 written: {out_path}")
     print(f"✅ Summary written: {summary_path}")

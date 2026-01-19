@@ -18,6 +18,12 @@ from core.klei_atlas_tex import (
 
 
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_ICON_ALIAS_ELEMENTS = {
+    "onion": ["quagmire_onion"],
+    "onion_cooked": ["quagmire_onion_cooked"],
+    "tomato": ["quagmire_tomato"],
+    "tomato_cooked": ["quagmire_tomato_cooked"],
+}
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,7 @@ class IconService:
         self._tex_cache: Dict[Path, Tuple[float, Any]] = {}  # PIL.Image.Image, but keep Any to avoid import
         self._tex_cache_order: list[Path] = []
         self._tex_cache_max = 4
+        self._inventory_atlases: Optional[list[Path]] = None
 
         # Ensure static directory exists (even in off mode).
         try:
@@ -128,9 +135,11 @@ class IconService:
             gd = self.cfg.game_data_dir
             if gd is None:
                 return None
-            if not asset:
-                return None
-            ok = self._build_from_asset(item_id, asset, out_path=p)
+            ok = False
+            if asset:
+                ok = self._build_from_asset(item_id, asset, out_path=p)
+            if not ok:
+                ok = self._build_from_inventory_alias(item_id, out_path=p)
             return p if ok and p.exists() else None
 
         return None
@@ -164,6 +173,10 @@ class IconService:
             "waterpump": ["waterpump_item"],
             "hermit_bundle_shells": ["hermit_bundle"],
             "dragonboat_kit": ["dragonboat_pack"],
+            "onion": ["quagmire_onion"],
+            "onion_cooked": ["quagmire_onion_cooked"],
+            "tomato": ["quagmire_tomato"],
+            "tomato_cooked": ["quagmire_tomato_cooked"],
         }
         for v in explicit.get(item_id, []):
             _push(v)
@@ -322,6 +335,48 @@ class IconService:
             return True
         except Exception:
             return False
+
+    def _build_from_inventory_alias(self, item_id: str, *, out_path: Path) -> bool:
+        alias_names = _ICON_ALIAS_ELEMENTS.get(item_id)
+        if not alias_names:
+            return False
+        atlases = self._inventory_atlas_paths()
+        if not atlases:
+            return False
+        for xml_path in atlases:
+            atlas_rel = self._atlas_rel(xml_path)
+            if not atlas_rel:
+                continue
+            for name in alias_names:
+                asset = {"atlas": atlas_rel, "image": f"{name}.tex"}
+                if self._build_from_asset(item_id, asset, out_path=out_path):
+                    return True
+        return False
+
+    def _inventory_atlas_paths(self) -> list[Path]:
+        if self._inventory_atlases is not None:
+            return list(self._inventory_atlases)
+        gd = self.cfg.game_data_dir
+        if gd is None:
+            self._inventory_atlases = []
+            return []
+        img_dir = gd / "images"
+        if not img_dir.is_dir():
+            self._inventory_atlases = []
+            return []
+        paths = sorted(img_dir.glob("inventoryimages*.xml"), key=lambda p: p.name.lower())
+        self._inventory_atlases = paths
+        return list(paths)
+
+    def _atlas_rel(self, xml_path: Path) -> str:
+        gd = self.cfg.game_data_dir
+        if gd is None:
+            return ""
+        try:
+            rel = xml_path.resolve().relative_to(gd.resolve())
+        except Exception:
+            return ""
+        return str(rel).replace("\\", "/")
 
     @staticmethod
     def _invert_v_for_atlas(atlas_rel: str) -> bool:

@@ -53,6 +53,15 @@ def _classify_script(path: str) -> str:
     return "other"
 
 
+def _clean_id(raw: Any) -> Optional[str]:
+    if not isinstance(raw, str):
+        return None
+    s = raw.strip().lower()
+    if not s or not _ID_RE.match(s):
+        return None
+    return s
+
+
 def _scan_scripts(file_list: Iterable[str]) -> Dict[str, Any]:
     files = [str(f) for f in file_list]
     lua_files = [f for f in files if f.endswith(".lua")]
@@ -237,12 +246,96 @@ def _scan_prefabs(engine: Any) -> Dict[str, Any]:
     }
 
 
-def _scan_inventory_icons(dst_root: Path) -> Tuple[Set[str], List[str]]:
+def _scan_inventory_icons(dst_root: Path, *, id_filter: Optional[Set[str]] = None) -> Tuple[Set[str], List[str]]:
     icons: Set[str] = set()
     xmls: List[str] = []
     data_dir = dst_root / "data"
     img_dir = data_dir / "images"
-    bundle_zip = data_dir / "databundles" / "images.zip"
+    bundles_dir = data_dir / "databundles"
+
+    scan_all_images = bool(id_filter)
+
+    def _parse_xml_bytes(label: str, data: bytes) -> None:
+        try:
+            root = ET.fromstring(data)
+        except Exception:
+            return
+        matched = False
+        for el in root.findall(".//Element"):
+            name = el.attrib.get("name")
+            if name:
+                n = name.strip().lower()
+                if n.endswith(".tex"):
+                    n = n[:-4]
+                if not _ID_RE.match(n):
+                    continue
+                if id_filter is not None and n not in id_filter:
+                    continue
+                icons.add(n)
+                matched = True
+        if matched and label and label not in xmls:
+            xmls.append(label)
+
+    def _is_inventory_xml(path: str) -> bool:
+        base = os.path.basename(path).lower()
+        return base.startswith("inventoryimages") and base.endswith(".xml")
+
+    def _is_images_xml(path: str) -> bool:
+        p = (path or "").replace("\\", "/").lstrip("/")
+        return p.startswith("images/") and p.endswith(".xml")
+
+    if bundles_dir.is_dir():
+        for bundle_zip in sorted(bundles_dir.glob("*.zip")):
+            if bundle_zip.name.lower() == "scripts.zip":
+                continue
+            try:
+                with zipfile.ZipFile(bundle_zip, "r") as zf:
+                    for name in zf.namelist():
+                        nrm = (name or "").replace("\\", "/")
+                        if not nrm.lower().endswith(".xml"):
+                            continue
+                        if scan_all_images:
+                            if not _is_images_xml(nrm):
+                                continue
+                        else:
+                            if not _is_inventory_xml(nrm):
+                                continue
+                        try:
+                            _parse_xml_bytes(
+                                (bundle_zip.relative_to(dst_root).as_posix() + ":" + name),
+                                zf.read(name),
+                            )
+                        except Exception:
+                            continue
+            except Exception:
+                continue
+
+    if img_dir.is_dir():
+        if scan_all_images:
+            files = sorted(img_dir.rglob("*.xml"))
+        else:
+            files = sorted(img_dir.glob("inventoryimages*.xml"))
+        for p in files:
+            try:
+                rel = p.relative_to(dst_root).as_posix()
+                if scan_all_images or _is_inventory_xml(rel):
+                    _parse_xml_bytes(rel, p.read_bytes())
+            except Exception:
+                continue
+
+    return icons, xmls
+
+
+def _scan_inventory_icon_traces(dst_root: Path, trace_ids: Set[str]) -> Dict[str, List[Dict[str, str]]]:
+    trace_ids = {(_clean_id(x) or "") for x in (trace_ids or set())}
+    trace_ids = {x for x in trace_ids if x}
+    if not trace_ids:
+        return {}
+
+    out: Dict[str, Set[Tuple[str, str]]] = {tid: set() for tid in trace_ids}
+    data_dir = dst_root / "data"
+    img_dir = data_dir / "images"
+    bundles_dir = data_dir / "databundles"
 
     def _parse_xml_bytes(label: str, data: bytes) -> None:
         try:
@@ -251,40 +344,110 @@ def _scan_inventory_icons(dst_root: Path) -> Tuple[Set[str], List[str]]:
             return
         for el in root.findall(".//Element"):
             name = el.attrib.get("name")
-            if name:
-                n = name.strip().lower()
-                if n.endswith(".tex"):
-                    n = n[:-4]
-                if _ID_RE.match(n):
-                    icons.add(n)
-        if label and label not in xmls:
-            xmls.append(label)
+            if not name:
+                continue
+            base = name.strip().lower()
+            if base.endswith(".tex"):
+                base = base[:-4]
+            if not _ID_RE.match(base):
+                continue
+            for tid in trace_ids:
+                if tid in base:
+                    out[tid].add((label, name))
 
-    if bundle_zip.exists():
-        try:
-            with zipfile.ZipFile(bundle_zip, "r") as zf:
-                for name in zf.namelist():
-                    base = os.path.basename(name)
-                    if not base.startswith("inventoryimages") or not base.endswith(".xml"):
-                        continue
-                    try:
-                        _parse_xml_bytes(
-                            (bundle_zip.relative_to(dst_root).as_posix() + ":" + name),
-                            zf.read(name),
-                        )
-                    except Exception:
-                        continue
-        except Exception:
-            pass
+    def _is_images_xml(path: str) -> bool:
+        p = (path or "").replace("\\", "/").lstrip("/")
+        return p.startswith("images/") and p.endswith(".xml")
 
-    if img_dir.is_dir():
-        for p in sorted(img_dir.glob("inventoryimages*.xml")):
+    if bundles_dir.is_dir():
+        for bundle_zip in sorted(bundles_dir.glob("*.zip")):
+            if bundle_zip.name.lower() == "scripts.zip":
+                continue
             try:
-                _parse_xml_bytes(p.relative_to(dst_root).as_posix(), p.read_bytes())
+                with zipfile.ZipFile(bundle_zip, "r") as zf:
+                    for name in zf.namelist():
+                        nrm = (name or "").replace("\\", "/")
+                        if not nrm.lower().endswith(".xml"):
+                            continue
+                        if not _is_images_xml(nrm):
+                            continue
+                        try:
+                            _parse_xml_bytes(
+                                (bundle_zip.relative_to(dst_root).as_posix() + ":" + name),
+                                zf.read(name),
+                            )
+                        except Exception:
+                            continue
             except Exception:
                 continue
 
-    return icons, xmls
+    if img_dir.is_dir():
+        for p in sorted(img_dir.rglob("*.xml")):
+            try:
+                rel = p.relative_to(dst_root).as_posix()
+                if _is_images_xml(rel):
+                    _parse_xml_bytes(rel, p.read_bytes())
+            except Exception:
+                continue
+
+    result: Dict[str, List[Dict[str, str]]] = {}
+    for tid in sorted(out.keys()):
+        rows = [{"atlas": a, "element": e} for a, e in sorted(out[tid])]
+        result[tid] = rows
+    return result
+
+
+def _collect_known_item_ids(engine: Any, prefabs: Dict[str, Any]) -> Set[str]:
+    ids: Set[str] = set()
+    prefab_items = prefabs.get("items") or {}
+    if isinstance(prefab_items, dict):
+        for key in prefab_items.keys():
+            cid = _clean_id(key)
+            if cid:
+                ids.add(cid)
+
+    craft = getattr(engine, "recipes", None)
+    craft_recipes = getattr(craft, "recipes", {}) if craft is not None else {}
+    if isinstance(craft_recipes, dict):
+        for name, rec in craft_recipes.items():
+            cid = _clean_id(name)
+            if cid:
+                ids.add(cid)
+            if not isinstance(rec, dict):
+                continue
+            prod = _clean_id(rec.get("product"))
+            if prod:
+                ids.add(prod)
+            for ing in rec.get("ingredients", []) or []:
+                if not isinstance(ing, dict):
+                    continue
+                item = _clean_id(ing.get("item"))
+                if item:
+                    ids.add(item)
+
+    cooking_recipes = getattr(engine, "cooking_recipes", {}) or {}
+    if isinstance(cooking_recipes, dict):
+        for name, rec in cooking_recipes.items():
+            cid = _clean_id(name)
+            if cid:
+                ids.add(cid)
+            if not isinstance(rec, dict):
+                continue
+            for row in (rec.get("card_ingredients") or []):
+                if not isinstance(row, (list, tuple)) or not row:
+                    continue
+                item = _clean_id(row[0])
+                if item:
+                    ids.add(item)
+
+    cooking_ingredients = getattr(engine, "cooking_ingredients", {}) or {}
+    if isinstance(cooking_ingredients, dict):
+        for key in cooking_ingredients.keys():
+            cid = _clean_id(key)
+            if cid:
+                ids.add(cid)
+
+    return ids
 
 
 def _scan_data_dir(
@@ -389,11 +552,14 @@ def build_resource_index(
     max_data_files: int = 0,
     include_bundle_files: bool = False,
     max_bundle_files: int = 0,
+    icon_trace_ids: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     files = list(getattr(engine, "file_list", []) or [])
     scripts = _scan_scripts(files)
     prefabs = _scan_prefabs(engine)
-    icons, icon_sources = _scan_inventory_icons(dst_root)
+    known_ids = _collect_known_item_ids(engine, prefabs)
+    icons, icon_sources = _scan_inventory_icons(dst_root, id_filter=known_ids if known_ids else None)
+    icon_traces = _scan_inventory_icon_traces(dst_root, set(icon_trace_ids or []))
     data_scan = _scan_data_dir(dst_root, include_files=include_data_files, max_files=max_data_files)
     bundle_scan = _scan_bundles(dst_root, include_entries=include_bundle_files, max_entries=max_bundle_files)
 
@@ -426,6 +592,7 @@ def build_resource_index(
         "assets": {
             "inventory_icons": sorted(icons),
             "inventory_atlases": icon_sources,
+            "inventory_icon_traces": icon_traces,
         },
         "data": data_scan,
         "bundles": bundle_scan,
@@ -490,6 +657,9 @@ def render_resource_index_summary(index: Dict[str, Any]) -> str:
     lines.append("```yaml")
     lines.append(f"inventory_icons: {len(assets.get('inventory_icons') or [])}")
     lines.append(f"inventory_atlases: {len(assets.get('inventory_atlases') or [])}")
+    traces = assets.get("inventory_icon_traces") or {}
+    if isinstance(traces, dict):
+        lines.append(f"inventory_icon_traces: {len(traces)}")
     lines.append("```")
 
     if data:

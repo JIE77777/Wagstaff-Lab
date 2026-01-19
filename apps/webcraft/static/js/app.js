@@ -6,9 +6,15 @@
   var base = root + '/static/app/js/';
   var page = (document.body && document.body.dataset) ? (document.body.dataset.page || '') : '';
   var pageMap = {
-    craft: 'pages/craft.js',
-    catalog: 'pages/catalog.js',
-    cooking: 'pages/cooking.js',
+    craft: ['pages/craft.js'],
+    catalog: ['pages/catalog.js'],
+    cooking: function () {
+      var role = (document.body && document.body.dataset) ? (document.body.dataset.role || '') : '';
+      var items = ['pages/cooking_shared.js'];
+      if (role === 'tool') items.push('pages/cooking_tool.js');
+      else items.push('pages/cooking_encyclopedia.js');
+      return items;
+    },
   };
 
   var scripts = [
@@ -17,7 +23,10 @@
     'core/api.js',
   ];
   if (pageMap[page]) {
-    scripts.push(pageMap[page]);
+    var entry = pageMap[page];
+    if (typeof entry === 'function') entry = entry();
+    if (Array.isArray(entry)) scripts = scripts.concat(entry);
+    else scripts.push(entry);
   }
 
   function loadScript(src) {

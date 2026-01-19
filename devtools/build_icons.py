@@ -48,6 +48,7 @@ except Exception as e:  # pragma: no cover
         "ERROR: cannot import core.klei_atlas_tex.decode_ktex_to_image. Ensure project root is on PYTHONPATH.\n"
         f"{e}"
     )
+from devtools.build_cache import dir_sig, file_sig, load_cache, paths_sig, save_cache  # noqa: E402
 
 # ---------------------------- utils ----------------------------
 
@@ -119,6 +120,11 @@ def _is_inventory_atlas(path: str, extra_globs: Sequence[str]) -> bool:
         if fnmatch(p, g):
             return True
     return False
+
+
+def _is_images_xml(path: str) -> bool:
+    p = _norm(path)
+    return p.startswith("images/") and p.endswith(".xml")
 
 
 def _to_pil(img_obj):
@@ -343,7 +349,7 @@ class LocalFS:
         except Exception:
             return None
 
-    def scan_inventory_atlas_xmls(self, extra_globs: Sequence[str]) -> List[str]:
+    def scan_inventory_atlas_xmls(self, extra_globs: Sequence[str], *, include_all_images: bool = False) -> List[str]:
         """
         Return paths relative to data_dir, like 'images/inventoryimages.xml'
         """
@@ -351,9 +357,13 @@ class LocalFS:
         img_dir = self.data_dir / "images"
         if not img_dir.is_dir():
             return out
-        for p in img_dir.glob("inventoryimages*.xml"):
+        if include_all_images:
+            files = img_dir.rglob("*.xml")
+        else:
+            files = img_dir.glob("inventoryimages*.xml")
+        for p in files:
             rel = p.relative_to(self.data_dir).as_posix()
-            if _is_inventory_atlas(rel, extra_globs):
+            if include_all_images or _is_inventory_atlas(rel, extra_globs):
                 out.append(rel)
         out.sort()
         return out
@@ -528,6 +538,7 @@ def main() -> None:
     ap.add_argument("--all-elements", action="store_true", help="Export all elements from inventoryimages*.xml atlases.")
     ap.add_argument("--count-missing-tex", action="store_true", help="Strict: count elements whose texture cannot be resolved.")
     ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
     ap.add_argument("--verbose", action="store_true")
 
     ap.add_argument("--unpremultiply", action="store_true", default=True, help="Unpremultiply alpha (default: true).")
@@ -586,12 +597,44 @@ def main() -> None:
 
     fs = ResourceFS(zip_fs, local_fs)
 
+    export_all = bool(args.all_elements)
+    scan_all_images = (not export_all) and (len(args.atlas_glob) == 0)
+
+    inputs_sig = {
+        "catalog": file_sig(catalog_path),
+        "bundles": paths_sig(bundle_paths),
+        "args": {
+            "all_elements": export_all,
+            "atlas_glob": sorted(args.atlas_glob or []),
+            "ids": str(args.ids or ""),
+            "invert_v": bool(args.invert_v) and not bool(args.no_invert_v),
+            "unpremultiply": bool(args.unpremultiply) and not bool(args.no_unpremultiply),
+            "overwrite": bool(args.overwrite),
+            "scan_all_images": scan_all_images,
+        },
+    }
+    if data_dir:
+        inputs_sig["data_images_xml"] = dir_sig(Path(data_dir) / "images", suffixes=[".xml"], glob="**/*.xml", label="images_xml")
+        inputs_sig["data_tex"] = dir_sig(Path(data_dir) / "tex", suffixes=[".tex"], glob="**/*.tex", label="tex")
+
+    outputs_sig = {
+        "index": file_sig(index_path),
+        "out_dir": dir_sig(out_dir, suffixes=[".png"], glob="**/*.png", label="icons"),
+    }
+    cache = load_cache()
+    cache_key = "icons"
+    if not args.force:
+        entry = cache.get(cache_key) or {}
+        if entry.get("signature") == inputs_sig and entry.get("outputs") == outputs_sig:
+            print("✅ build_icons up-to-date; skip rebuild")
+            return
+
     # atlas xmls: from zip + (optional) local
     atlas_xmls: List[Tuple[str, str]] = []  # (source, rel_path) where rel_path uses "images/xxx.xml"
     seen: Set[str] = set()
 
     if local_fs is not None:
-        for rel in local_fs.scan_inventory_atlas_xmls(args.atlas_glob):
+        for rel in local_fs.scan_inventory_atlas_xmls(args.atlas_glob, include_all_images=scan_all_images):
             if rel in seen:
                 continue
             seen.add(rel)
@@ -601,7 +644,8 @@ def main() -> None:
         if not p.lower().endswith(".xml"):
             continue
         if not _is_inventory_atlas(p, args.atlas_glob):
-            continue
+            if not (scan_all_images and _is_images_xml(p)):
+                continue
         if p in seen:
             continue
         seen.add(p)
@@ -614,8 +658,6 @@ def main() -> None:
         if data_dir:
             print(f"[i] data_dir: {data_dir}")
         print(f"[i] atlas xml count: {len(atlas_xmls)}")
-
-    export_all = bool(args.all_elements)
 
     if args.ids:
         catalog_ids = {x.strip() for x in args.ids.split(",") if x.strip()}
@@ -663,6 +705,9 @@ def main() -> None:
 
         tex_ref, elems_uv = _parse_atlas_xml(xml_bytes)
         if not tex_ref or not elems_uv:
+            continue
+
+        if not export_all and not any(el_name in wanted_match for el_name in elems_uv.keys()):
             continue
 
         xml_dir = os.path.dirname(_norm(xml_path))
@@ -765,6 +810,12 @@ def main() -> None:
         "icons": icon_index,
     }
     index_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    outputs_sig = {
+        "index": file_sig(index_path),
+        "out_dir": dir_sig(out_dir, suffixes=[".png"], glob="**/*.png", label="icons"),
+    }
+    cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
+    save_cache(cache)
 
     print("✅ build_icons finished")
     print(f"  catalog: {catalog_path}")

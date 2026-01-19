@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.indexers.catalog_index import build_catalog_index, load_icon_index  # noqa: E402
+from devtools.build_cache import file_sig, load_cache, save_cache  # noqa: E402
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
@@ -481,6 +482,7 @@ def main() -> int:
     p.add_argument("--catalog", default="data/index/wagstaff_catalog_v2.json", help="Catalog JSON path")
     p.add_argument("--icon-index", default="data/index/wagstaff_icon_index_v1.json", help="Icon index JSON path")
     p.add_argument("--out", default="data/index/wagstaff_catalog_v2.sqlite", help="Output SQLite path")
+    p.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
     args = p.parse_args()
 
     catalog_path = (PROJECT_ROOT / args.catalog).resolve()
@@ -492,7 +494,24 @@ def main() -> int:
         icon_index_path = None
 
     out_path = (PROJECT_ROOT / args.out).resolve()
+
+    inputs_sig = {
+        "catalog": file_sig(catalog_path),
+        "icon_index": file_sig(icon_index_path) if icon_index_path else {"path": "", "exists": False},
+    }
+    outputs_sig = {"out": file_sig(out_path)}
+    cache = load_cache()
+    cache_key = "catalog_sqlite"
+    if not args.force:
+        entry = cache.get(cache_key) or {}
+        if entry.get("signature") == inputs_sig and entry.get("outputs") == outputs_sig:
+            print("✅ Catalog SQLite up-to-date; skip rebuild")
+            return 0
+
     _build_sqlite(catalog_path, out_path, icon_index_path)
+    outputs_sig = {"out": file_sig(out_path)}
+    cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
+    save_cache(cache)
     print(f"OK: Catalog SQLite written: {out_path}")
     return 0
 

@@ -144,7 +144,15 @@
     "[2026-01-18 20:17] WebCraft: 立项 Cooking Tools Atlas Ledger 桌面/移动端重构 (docs/management/WEBCRAFT_ATLAS_LEDGER_UI_REFACTOR.md)。",
     "[2026-01-19 01:14] WebCraft UI: Cooking Atlas Ledger 工具页区分桌面/移动端视觉策略，移动端工具化、桌面保留丰富信息，slot/食材卡片布局同步优化。",
     "[2026-01-19 01:29] WebCraft UI: 清理 Cooking 工具页 lab 测试资产与旧工具栏/抽屉逻辑，收敛 CSS/JS 并移除相关 i18n 项。",
-    "[2026-01-19 12:32] WebCraft: Cooking 模拟优化版本归档。"
+    "[2026-01-19 12:32] WebCraft: Cooking 模拟优化版本归档。",
+    "[2026-01-19 21:08] Tooling: build_resource_index/build_icons/build_catalog_v2 支持增量缓存与 icon trace 扫描。",
+    "[2026-01-19 22:14] WebCraft: 图标 alias 补齐 onion/tomato 映射，SQLite 构建支持增量缓存。",
+    "[2026-01-19 23:41] WebCraft: Cooking 食材列表标记虚拟食材，桌面可切换显示虚拟栏，虚拟食材禁用 PNG 图标请求。",
+    "[2026-01-19 23:54] WebCraft: onion/tomato 别名食材使用动态图标生成并避免静态 404 请求。",
+    "[2026-01-20 00:12] WebCraft: 修复 cooking 规则中 names.* 求和表达式解析，避免藤壶中细面等误判需要生熟共存。",
+    "[2026-01-20 00:28] Core: cooking rule 解析补齐 names 求和约束，Cooking 模拟移除运行时 names_sum 兜底逻辑以收敛流程。",
+    "[2026-01-20 00:41] WebCraft UI: Cooking 结果卡缺失提示改为分色 chip，区分缺物品/缺标签，增强可读性。",
+    "[2026-01-20 01:02] WebCraft UI: Cooking 结果卡改为条件清单展示，满足条件高亮绿色。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

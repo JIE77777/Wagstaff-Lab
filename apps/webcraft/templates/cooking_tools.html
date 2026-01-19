@@ -52,6 +52,7 @@
             <div class="panel-meta ingredient-meta-tools">
               <input id="ingredientSearch" class="field ingredient-search-field" type="text" placeholder="Filter ingredients..." />
               <button id="ingredientClear" class="btn ghost">Clear</button>
+              <button id="ingredientVirtualToggle" class="btn ghost ingredient-virtual-toggle" type="button">Virtual ingredients</button>
             </div>
           </div>
           <div class="panel-body">
@@ -61,7 +62,13 @@
               <div class="filter-row" id="ingredientFilters"></div>
               <button class="filter-nav" id="ingredientFilterNext" type="button">&gt;</button>
             </div>
-            <div class="ingredient-grid" id="ingredientGrid"></div>
+            <div class="ingredient-grid-wrap" id="ingredientGridWrap">
+              <div class="ingredient-grid" id="ingredientGrid"></div>
+              <div class="ingredient-virtual" id="ingredientVirtualPanel">
+                <div class="ingredient-virtual-title" id="ingredientVirtualTitle">Virtual ingredients</div>
+                <div class="ingredient-grid ingredient-grid-virtual" id="ingredientGridVirtual"></div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -73,7 +80,7 @@
             <div class="slot-line">
               <div class="slot-preview" id="slotPreview"></div>
               <div class="slot-meter">
-                <button class="tool-mode-toggle" id="toolModeToggle" type="button">Explore / Simulate</button>
+                <button class="tool-mode-toggle" type="button">Explore / Simulate</button>
               </div>
             </div>
             <div class="slot-hint small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>

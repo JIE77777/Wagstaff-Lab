@@ -8,7 +8,7 @@
 ## Scope
 - Template: apps/webcraft/templates/cooking_tools.html
 - Styles: apps/webcraft/static/css/cooking.css (tool page only)
-- JS: apps/webcraft/static/js/pages/cooking.js (viewport vars + mobile tabs)
+- JS: apps/webcraft/static/js/pages/cooking_tool.js (viewport vars + tool UX), apps/webcraft/static/js/pages/cooking_shared.js (shared cooking state)
 - i18n: conf/i18n_ui.json (new tab labels)
 - No API or route changes.
 
@@ -21,7 +21,7 @@
 ## Tasks
 1. Replace tool page layout with ledger grid while keeping required IDs.
 2. Add tool-scoped ledger styles and mobile tab rules.
-3. Wire mobile tabs + viewport sizing in cooking.js.
+3. Wire mobile tabs + viewport sizing in cooking_tool.js.
 4. Update i18n strings and run `make i18n`.
 5. Validate desktop + mobile behaviors and no-scroll workbench.
 

@@ -14,31 +14,6 @@ FILLER_TAGS = {"inedible", "frozen", "dried"}
 FILLER_NAMES = {"twigs", "ice", "lightninggoathorn", "boneshard"}
 NEAR_TIER_ORDER = {"primary": 0, "secondary": 1, "filler": 2}
 
-_NAME_SUM_RE = re.compile(
-    r"\(+\s*names\.(?P<a>[A-Za-z0-9_]+)\s+and\s+names\.(?P=a)\s*(?:>=|>)\s*(?P<n1>[0-9]+)\s*\)+\s+or\s+"
-    r"\(+\s*names\.(?P<b>[A-Za-z0-9_]+)\s+and\s+names\.(?P=b)\s*(?:>=|>)\s*(?P<n2>[0-9]+)\s*\)+\s+or\s+"
-    r"\(+\s*names\.(?P<x>[A-Za-z0-9_]+)\s+and\s+names\.(?P<y>[A-Za-z0-9_]+)\s*\)+"
-)
-
-
-def _derive_names_sum_constraints(expr: str) -> List[Dict[str, Any]]:
-    if not expr:
-        return []
-    e = re.sub(r"\s+", " ", str(expr)).strip()
-    if not e:
-        return []
-    out: List[Dict[str, Any]] = []
-    for m in _NAME_SUM_RE.finditer(e):
-        a = m.group("a")
-        b = m.group("b")
-        x = m.group("x")
-        y = m.group("y")
-        if not a or not b or {x, y} != {a, b}:
-            continue
-        out.append({"keys": [a, b], "min": 2, "text": m.group(0).strip()})
-    return out
-
-
 def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
     """Normalize item->count mapping.
 
@@ -406,11 +381,6 @@ def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any
         if isinstance(rows, list):
             out[key] = [r for r in rows if isinstance(r, dict)]
 
-    if not out.get("names_sum"):
-        derived = _derive_names_sum_constraints(rule.get("expr") or "")
-        if derived:
-            out["names_sum"] = derived
-
     sum_keys: Set[str] = set()
     for g in out.get("names_sum") or []:
         keys_raw = g.get("keys") if isinstance(g, dict) else None
@@ -649,6 +619,124 @@ def _evaluate_constraints(
     return len(missing) == 0, missing, warnings
 
 
+def _build_conditions(
+    recipe: CookingRecipe,
+    *,
+    tags_total: Dict[str, float],
+    names_total: Dict[str, int],
+) -> List[Dict[str, Any]]:
+    constraints = _get_rule_constraints(recipe)
+    conditions: List[Dict[str, Any]] = []
+
+    if constraints:
+        for g in constraints.get("names_any") or []:
+            keys_raw = g.get("keys") if isinstance(g, dict) else None
+            if not isinstance(keys_raw, list):
+                continue
+            keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+            if not keys:
+                continue
+            ok = any(names_total.get(k, 0) > 0 for k in keys)
+            conditions.append(
+                {
+                    "type": "name_any",
+                    "options": keys,
+                    "op": "any",
+                    "required": 1.0,
+                    "actual": 1.0 if ok else 0.0,
+                    "ok": ok,
+                }
+            )
+
+        for g in constraints.get("names_sum") or []:
+            keys_raw = g.get("keys") if isinstance(g, dict) else None
+            if not isinstance(keys_raw, list):
+                continue
+            keys = [str(k).strip().lower() for k in keys_raw if str(k).strip()]
+            if not keys:
+                continue
+            min_val = _coerce_constraint_value(g.get("min"))
+            if min_val is None:
+                min_val = _coerce_constraint_value(g.get("required"))
+            if min_val is None:
+                continue
+            total = float(sum(names_total.get(k, 0) for k in keys))
+            ok = total + 1e-9 >= float(min_val)
+            conditions.append(
+                {
+                    "type": "name_sum",
+                    "options": keys,
+                    "op": ">=",
+                    "required": float(min_val),
+                    "actual": total,
+                    "ok": ok,
+                }
+            )
+
+        for c in constraints.get("names") or []:
+            key = str(c.get("key") or "").strip().lower()
+            op = str(c.get("op") or "").strip()
+            rhs = _coerce_constraint_value(c.get("value"))
+            if not key or rhs is None:
+                continue
+            actual = float(names_total.get(key, 0))
+            ok = _compare(actual, op, float(rhs))
+            conditions.append(
+                {
+                    "type": "name",
+                    "key": key,
+                    "op": op,
+                    "required": float(rhs),
+                    "actual": actual,
+                    "ok": ok,
+                }
+            )
+
+        for c in constraints.get("tags") or []:
+            key = str(c.get("key") or "").strip().lower()
+            op = str(c.get("op") or "").strip()
+            rhs = _coerce_constraint_value(c.get("value"))
+            if not key or rhs is None:
+                continue
+            actual = float(tags_total.get(key, 0.0))
+            ok = _compare(actual, op, float(rhs))
+            conditions.append(
+                {
+                    "type": "tag",
+                    "key": key,
+                    "op": op,
+                    "required": float(rhs),
+                    "actual": actual,
+                    "ok": ok,
+                }
+            )
+
+        return conditions
+
+    for item, need in recipe.card_ingredients or []:
+        key = str(item or "").strip().lower()
+        if not key:
+            continue
+        try:
+            required = float(need)
+        except Exception:
+            continue
+        actual = float(names_total.get(key, 0))
+        ok = actual + 1e-9 >= required
+        conditions.append(
+            {
+                "type": "name",
+                "key": key,
+                "op": ">=",
+                "required": required,
+                "actual": actual,
+                "ok": ok,
+            }
+        )
+
+    return conditions
+
+
 def _score_recipe(priority: float, weight: float, missing: List[Dict[str, Any]]) -> Tuple[float, float]:
     penalty = 0.0
     for m in missing or []:
@@ -884,6 +972,11 @@ def simulate_cookpot(
         attrs = _recipe_attrs(r)
         ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
         score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
+        conditions = _build_conditions(
+            r,
+            tags_total=ev.get("tags_total") or {},
+            names_total=ev.get("names_total") or {},
+        )
         row = {
             "name": r.name,
             "priority": float(r.priority),
@@ -897,6 +990,8 @@ def simulate_cookpot(
             "req_name_groups": req.get("req_name_groups") or [],
             "req_tags": req.get("req_tags") or [],
             "attrs": attrs,
+            "conditions": conditions,
+            "conditions_ok": bool(ev.get("ok")),
         }
         if ev.get("ok"):
             candidates.append(r)
@@ -996,6 +1091,11 @@ def explore_cookpot(
                     slots_full = _merge_slots(slots_i, combo)
                     ev = _evaluate_recipe(r, slots=slots_full, tags_by_item=tags_by_item)
                     score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
+                    conditions = _build_conditions(
+                        r,
+                        tags_total=ev.get("tags_total") or {},
+                        names_total=ev.get("names_total") or {},
+                    )
                     row = {
                         "name": r.name,
                         "priority": float(r.priority),
@@ -1009,6 +1109,8 @@ def explore_cookpot(
                         "req_name_groups": req.get("req_name_groups") or [],
                         "req_tags": req.get("req_tags") or [],
                         "attrs": attrs,
+                        "conditions": conditions,
+                        "conditions_ok": bool(ev.get("ok")),
                     }
                     if best_any is None or score > float(best_any.get("score", 0.0)):
                         best_any = row
@@ -1048,6 +1150,11 @@ def explore_cookpot(
         attrs = _recipe_attrs(r)
         ev = _evaluate_recipe(r, slots=slots_i, tags_by_item=tags_by_item)
         score, penalty = _score_recipe(float(r.priority), float(r.weight), ev.get("missing") or [])
+        conditions = _build_conditions(
+            r,
+            tags_total=ev.get("tags_total") or {},
+            names_total=ev.get("names_total") or {},
+        )
         row = {
             "name": r.name,
             "priority": float(r.priority),
@@ -1061,6 +1168,8 @@ def explore_cookpot(
             "req_name_groups": req.get("req_name_groups") or [],
             "req_tags": req.get("req_tags") or [],
             "attrs": attrs,
+            "conditions": conditions,
+            "conditions_ok": bool(ev.get("ok")),
         }
         if ev.get("rule_mode") == "rule":
             possible = _possible_with_remaining(
