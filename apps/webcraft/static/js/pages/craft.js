@@ -1,5 +1,5 @@
 const navCraft = document.getElementById('navCraft');
-if (navCraft) navCraft.href = APP_ROOT + '/';
+if (navCraft) navCraft.href = APP_ROOT + '/craft';
 
 const navCooking = document.getElementById('navCooking');
 if (navCooking) navCooking.href = APP_ROOT + '/cooking';

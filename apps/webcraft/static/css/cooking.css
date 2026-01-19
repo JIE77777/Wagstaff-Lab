@@ -47,6 +47,12 @@ body.page--cooking .subbar-left {
   align-items: center;
   gap: 12px;
 }
+body.page--cooking .atlas-link {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
 body.page--cooking .header .search {
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(31, 26, 22, 0.14);
@@ -105,6 +111,12 @@ body.page--cooking .list .item.active {
 body.page--cooking .result-grid {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
+body.page--cooking .result-grid.result-grid--selected {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.page--cooking .result-section--selected {
+  margin-bottom: 10px;
+}
 body.page--cooking .panel {
   border: 1px solid rgba(31, 26, 22, 0.14);
   box-shadow: var(--shadow);
@@ -136,6 +148,10 @@ body.page--cooking .result-card {
   border-color: rgba(31, 26, 22, 0.12);
   background: rgba(255, 255, 255, 0.82);
 }
+body.page--cooking .result-card.is-selected {
+  border-color: rgba(31, 122, 114, 0.7);
+  box-shadow: 0 0 0 2px rgba(31, 122, 114, 0.18);
+}
 body.page--cooking .result-card.is-ok,
 body.page--cooking .result-row.is-ok {
   box-shadow: inset 4px 0 0 rgba(31, 122, 114, 0.6);
@@ -146,6 +162,9 @@ body.page--cooking .result-row.is-miss {
 }
 body.page--cooking .result-card:hover {
   border-color: rgba(195, 82, 58, 0.45);
+}
+body.page--cooking .result-note {
+  margin-top: 4px;
 }
 body.page--cooking .result-meta .pill {
   border-color: rgba(195, 82, 58, 0.25);
@@ -196,6 +215,12 @@ body.page--cooking .tool-card .btn.ghost {
 }
 body.page--cooking .tool-card .btn.ghost:hover {
   opacity: 1;
+}
+body.page--cooking .slot-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 body.page--cooking .detail {
   padding: 16px;
@@ -353,31 +378,27 @@ body.page--cooking[data-view="simulate"] .detail-side {
 body.page--cooking .slot-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 2px 2px;
-  min-height: 32px;
+  gap: 10px;
+  padding: 4px;
+  min-height: 36px;
 }
 body.page--cooking .slot-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(31, 26, 22, 0.2);
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.9);
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  padding: 4px 6px;
+  background: transparent;
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 body.page--cooking .slot-chip:hover {
-  border-color: rgba(31, 122, 114, 0.5);
+  background: rgba(31, 122, 114, 0.08);
   transform: translateY(-1px);
 }
 body.page--cooking .slot-chip .itemRef {
-  gap: 6px;
-}
-body.page--cooking .slot-chip .slot-count {
-  font-size: 10px;
-  color: var(--muted);
+  gap: 8px;
 }
 body.page--cooking .slot-chip .slot-remove {
   font-size: 12px;
@@ -431,6 +452,20 @@ body.page--cooking #slots {
   body.page--cooking .slot-input summary {
     position: static;
     margin-bottom: 4px;
+  }
+}
+@media (max-width: 860px) {
+  body.page--cooking[data-app-shell="1"] .topbar,
+  body.page--cooking[data-app-shell="1"] .subbar {
+    padding: 8px 12px;
+  }
+  body.page--cooking[data-app-shell="1"] .page-title {
+    font-size: 14px;
+    letter-spacing: 0.14em;
+  }
+  body.page--cooking[data-app-shell="1"] .atlas-link {
+    font-size: 9px;
+    padding: 3px 8px;
   }
 }
 body.page--cooking .tool-ingredients {
@@ -546,4 +581,1131 @@ body.page--cooking .ingredient-meta {
 body.page--cooking .formula {
   font-family: "JetBrains Mono", "SFMono-Regular", monospace;
   font-size: 11px;
+}
+
+body.page--cooking[data-role="tool"] {
+  --ledger-gap: 16px;
+  --ledger-panel: rgba(255, 255, 255, 0.94);
+  --ledger-line: rgba(31, 26, 22, 0.16);
+  --ledger-soft: rgba(31, 26, 22, 0.08);
+  height: var(--tool-height, 100dvh);
+  min-height: var(--tool-height, 100dvh);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body.page--cooking[data-role="tool"] .layout {
+  height: calc(var(--tool-height, 100dvh) - var(--tool-header, 0px) - var(--tool-nav, 0px));
+  max-height: calc(var(--tool-height, 100dvh) - var(--tool-header, 0px) - var(--tool-nav, 0px));
+  padding: var(--ledger-gap);
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"] .ledger-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.25fr) minmax(320px, 0.75fr);
+  grid-template-rows: minmax(0, 0.46fr) minmax(0, 1.54fr);
+  grid-template-areas:
+    "ingredients console"
+    "ingredients results";
+  gap: var(--ledger-gap);
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+}
+body.page--cooking[data-role="tool"] #ingredientPicker {
+  grid-area: ingredients;
+  height: 100%;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"] #toolBox {
+  grid-area: console;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+body.page--cooking[data-role="tool"] #resultBox {
+  grid-area: results;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+body.page--cooking[data-role="tool"] .tool-card {
+  border: 1px solid var(--ledger-line);
+  background: var(--ledger-panel);
+  padding: 12px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+}
+body.page--cooking[data-role="tool"] .tool-card .btn,
+body.page--cooking[data-role="tool"] .detail .btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+body.page--cooking[data-role="tool"] .ingredient-head,
+body.page--cooking[data-role="tool"] .slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+body.page--cooking[data-role="tool"] .console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+body.page--cooking[data-role="tool"] .tool-switch-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  padding: 2px;
+  min-width: 156px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 26, 22, 0.18);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: none;
+  transition: border-color 0.2s ease;
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: rgba(31, 122, 114, 0.2);
+  transition: transform 0.2s ease;
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle[data-mode="simulate"]::before {
+  transform: translateX(100%);
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle .tool-mode-option {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle[data-mode="explore"] .tool-mode-option--explore,
+body.page--cooking[data-role="tool"] .tool-mode-toggle[data-mode="simulate"] .tool-mode-option--simulate {
+  color: var(--ink);
+}
+body.page--cooking[data-role="tool"] .tool-mode-toggle:hover {
+  transform: none;
+  border-color: rgba(31, 122, 114, 0.45);
+}
+body.page--cooking[data-role="tool"] .slot-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+body.page--cooking[data-role="tool"] .panel-head--compact {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ledger-soft);
+  background: rgba(255, 255, 255, 0.8);
+}
+body.page--cooking[data-role="tool"] .panel-head--compact::before {
+  left: 10px;
+  height: 16px;
+}
+body.page--cooking[data-role="tool"] .panel-title {
+  letter-spacing: 0.2em;
+  font-size: 11px;
+}
+body.page--cooking[data-role="tool"] .slot-head .panel-title {
+  padding-left: 0;
+}
+body.page--cooking[data-role="tool"] .ingredient-search {
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"] .ingredient-search input {
+  height: 34px;
+  font-size: 12px;
+  border-radius: 12px;
+}
+body.page--cooking[data-role="tool"] .ingredient-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-auto-rows: minmax(86px, auto);
+  align-content: start;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 4px;
+  max-height: none;
+  flex: 1 1 auto;
+}
+body.page--cooking[data-role="tool"] .ingredient-filters {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"] .ingredient-item {
+  border-radius: 16px;
+  padding: 10px 12px;
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"] .ingredient-item .itemRef {
+  min-width: 0;
+}
+body.page--cooking[data-role="tool"] .ingredient-item .itemLabel {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"] .ingredient-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 14px;
+}
+body.page--cooking[data-role="tool"] .ingredient-meta span {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.page--cooking[data-role="tool"] .ingredient-meta span:first-child {
+  flex: 0 0 auto;
+  max-width: 45%;
+}
+body.page--cooking[data-role="tool"] .ingredient-meta span:last-child {
+  flex: 1 1 auto;
+}
+body.page--cooking[data-role="tool"] .ingredient-meta span:empty {
+  display: none;
+}
+body.page--cooking[data-role="tool"] #toolBox .grid2 {
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+body.page--cooking[data-role="tool"] #toolBox .btn {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+body.page--cooking[data-role="tool"] .slot-preview {
+  min-height: 64px;
+  max-height: 96px;
+  overflow-y: auto;
+  padding-bottom: 4px;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"] .slot-preview-wrap {
+  border: 1px dashed rgba(31, 26, 22, 0.12);
+  border-radius: 14px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.7);
+}
+body.page--cooking[data-role="tool"] #slots {
+  min-height: 68px;
+  font-size: 12px;
+}
+body.page--cooking[data-role="tool"] .slot-input {
+  align-self: flex-end;
+  margin-top: 2px;
+  border-top: none;
+  padding-top: 0;
+}
+body.page--cooking[data-role="tool"] .slot-input summary {
+  position: static;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  border: 1px dashed rgba(31, 26, 22, 0.16);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+body.page--cooking[data-role="tool"] .slot-input[open] summary {
+  opacity: 0.85;
+}
+body.page--cooking[data-role="tool"] .slot-input[open] {
+  border-top: 1px dashed rgba(31, 26, 22, 0.12);
+  padding-top: 6px;
+}
+body.page--cooking[data-role="tool"] .slot-chip {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+body.page--cooking[data-role="tool"] .slot-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(31, 122, 114, 0.08);
+}
+body.page--cooking[data-role="tool"] .slot-chip .slot-remove {
+  display: none;
+}
+body.page--cooking[data-role="tool"] #resultBox {
+  gap: 8px;
+}
+body.page--cooking[data-role="tool"] .result-card .result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+body.page--cooking[data-role="tool"] .result-card .result-meta .pill {
+  padding: 2px 8px;
+}
+body.page--cooking[data-role="tool"] #out {
+  margin-bottom: 2px;
+}
+body.page--cooking[data-role="tool"] #results {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] {
+  --lab-gap: 14px;
+  --lab-border: rgba(31, 26, 22, 0.12);
+  --lab-panel: rgba(255, 255, 255, 0.96);
+  height: var(--tool-height, 100dvh);
+  min-height: var(--tool-height, 100dvh);
+  max-height: var(--tool-height, 100dvh);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .layout {
+  padding: var(--lab-gap);
+  min-height: 0;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .tool-layout {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-grid {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(340px, 1.3fr) minmax(260px, 0.7fr);
+  grid-template-rows: minmax(0, 0.5fr) minmax(0, 1.5fr);
+  grid-template-areas:
+    "ingredients console"
+    "ingredients results";
+  gap: var(--lab-gap);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-ingredients { grid-area: ingredients; }
+body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-console { grid-area: console; }
+body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-results { grid-area: results; }
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel {
+  background: var(--lab-panel);
+  border: 1px solid var(--lab-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-head {
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--lab-border);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-head::before {
+  left: 12px;
+  height: 16px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta-tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-search-field {
+  width: clamp(140px, 26vw, 220px);
+  padding: 6px 8px;
+  font-size: 11px;
+  border-radius: 10px;
+  flex: 0 1 auto;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-meta--stack {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 10px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-meta .btn {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .panel-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .list {
+  max-height: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .filter-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .filter-nav {
+  display: none;
+  border: 1px solid var(--lab-border);
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .filter-nav:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .field {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--lab-border);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] textarea.field {
+  resize: none;
+  min-height: 70px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  scrollbar-width: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .filter-row::-webkit-scrollbar {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-filter {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  overflow: auto;
+  min-height: 0;
+  padding-right: 4px;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item {
+  min-height: 80px;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--lab-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item:hover {
+  border-color: rgba(31, 122, 114, 0.5);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item .itemRef {
+  min-width: 0;
+  width: 100%;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item .itemLabel {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item .itemIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 14px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta span {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta span:first-child {
+  flex: 0 0 auto;
+  max-width: 45%;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .tool-switch-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-meter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: start;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-meter__value {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .tool-mode-toggle {
+  min-width: 170px;
+  border-color: var(--lab-border);
+  background: rgba(255, 255, 255, 0.92);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .tool-mode-toggle::before {
+  background: rgba(31, 122, 114, 0.24);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-preview {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 10px;
+  min-height: 64px;
+  max-height: 140px;
+  padding: 10px;
+  border: 1px dashed var(--lab-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  overflow: auto;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-preview .slot-empty {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px 0;
+  width: 100%;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-chip {
+  position: relative;
+  min-width: 0;
+  max-width: none;
+  background: transparent;
+  border: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemRef {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemLabel {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-hint {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-input {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .slot-input summary {
+  position: static;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  border: 1px dashed var(--lab-border);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] #results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .result-card,
+body.page--cooking[data-role="tool"][data-layout="lab"] .result-row {
+  background: #fff;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .result-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .result-summary {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"] .result-summary:empty {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 0.42fr) minmax(0, 1.2fr) minmax(0, 1.38fr);
+    grid-template-areas:
+      "console"
+      "ingredients"
+      "results";
+  }
+}
+
+@media (max-width: 860px) {
+  body.page--cooking[data-role="tool"][data-layout="lab"] #resultBox,
+  body.page--cooking[data-role="tool"][data-layout="lab"] #toolBox,
+  body.page--cooking[data-role="tool"][data-layout="lab"] #ingredientPicker {
+    display: flex;
+  }
+}
+
+@media (max-width: 700px) {
+  body.page--cooking[data-role="tool"][data-layout="lab"] .header {
+    position: relative;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .topbar {
+    display: flex;
+    position: absolute;
+    top: 4px;
+    right: 10px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .topbar-left {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .topbar-right {
+    width: auto;
+    margin-left: 0;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .label-toggle span {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .label-toggle select {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .meta {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .subbar {
+    padding: 4px 10px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .subbar-right {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .page-title {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .page-sub {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .layout {
+    padding: 12px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .app-nav {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-grid {
+    grid-template-rows: auto minmax(0, 1.4fr) minmax(0, 1.5fr);
+    grid-template-areas:
+      "console"
+      "ingredients"
+      "results";
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] #toolBox {
+    height: auto;
+    align-self: start;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .panel-head {
+    padding: 6px 10px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-console .panel-head {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-console .panel-title {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .panel-head::before {
+    height: 12px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .panel-body {
+    padding: 12px;
+    gap: 8px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ledger-console .panel-body {
+    display: flex;
+    flex-direction: column;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .panel-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .panel-meta {
+    font-size: 10px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta-tools {
+    gap: 4px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-section {
+    padding: 8px 10px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-section--selected {
+    margin-bottom: 6px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-header {
+    margin-bottom: 6px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-search-field {
+    width: clamp(110px, 42vw, 160px);
+    padding: 4px 6px;
+    font-size: 10px;
+    border-radius: 9px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-line {
+    min-width: 0;
+    gap: 6px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 6px;
+    border-radius: 14px;
+    border: 1px solid var(--lab-border);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 6px 16px rgba(31, 26, 22, 0.06);
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-meter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    align-self: center;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .tool-switch-actions {
+    gap: 4px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .tool-mode-toggle {
+    min-width: 112px;
+    min-height: 28px;
+    padding: 2px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .filter-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .filter-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-filter {
+    scroll-snap-align: start;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-filter .tag-count {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    grid-auto-rows: minmax(54px, auto);
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item {
+    padding: 5px 7px;
+    min-height: 54px;
+    justify-content: flex-start;
+    gap: 3px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item .itemLabel {
+    font-size: 11px;
+    -webkit-line-clamp: 2;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-item .itemIcon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-meta {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-preview {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 52px;
+    max-height: 52px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    scroll-snap-type: x proximity;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-chip {
+    width: 52px;
+    height: 52px;
+    min-width: 0;
+    max-width: none;
+    flex: 0 0 auto;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: none;
+    scroll-snap-align: start;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemRef {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    width: 100%;
+    justify-content: center;
+    gap: 0;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemLabel {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] #slotPreview .itemIcon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] #results {
+    scroll-snap-type: y mandatory;
+    scroll-padding-top: 6px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-grid.result-grid--selected {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-card {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .result-card .itemLabel {
+    font-size: 12px;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-hint,
+  body.page--cooking[data-role="tool"][data-layout="lab"] .ingredient-hint {
+    display: none;
+  }
+  body.page--cooking[data-role="tool"][data-layout="lab"] .slot-input {
+    display: none;
+  }
+}
+
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .layout {
+  padding: 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .app-nav {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ledger-grid {
+  gap: 10px;
+  grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1.5fr);
+  grid-template-areas:
+    "console"
+    "ingredients"
+    "results";
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] #toolBox {
+  height: auto;
+  align-self: start;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .panel-head {
+  padding: 6px 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ledger-console .panel-head {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ledger-console .panel-title {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .panel-head::before {
+  height: 10px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .panel-body {
+  padding: 10px;
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ledger-console .panel-body {
+  display: flex;
+  flex-direction: column;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .panel-title {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-meta-tools {
+  gap: 4px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-section {
+  padding: 6px 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-section--selected {
+  margin-bottom: 5px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-header {
+  margin-bottom: 4px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-search-field {
+  width: clamp(100px, 44vw, 140px);
+  padding: 4px 6px;
+  font-size: 9px;
+  border-radius: 9px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .slot-line {
+  min-width: 0;
+  gap: 5px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--lab-border);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 5px 12px rgba(31, 26, 22, 0.06);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .slot-meter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: center;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .tool-switch-actions {
+  gap: 4px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .tool-mode-toggle {
+  min-width: 104px;
+  min-height: 26px;
+  padding: 2px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .filter-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .filter-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scroll-snap-type: x mandatory;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-filter {
+  scroll-snap-align: start;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-filter .tag-count {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .field {
+  font-size: 11px;
+  padding: 7px 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  grid-auto-rows: minmax(50px, auto);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-item {
+  padding: 4px 6px;
+  min-height: 50px;
+  justify-content: flex-start;
+  gap: 3px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-item .itemLabel {
+  -webkit-line-clamp: 2;
+  font-size: 11px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-item .itemIcon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .ingredient-meta {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .slot-preview {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 46px;
+  max-height: 46px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  scroll-snap-type: x proximity;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .slot-chip {
+  width: 46px;
+  height: 46px;
+  min-width: 0;
+  max-width: none;
+  flex: 0 0 auto;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: none;
+  scroll-snap-align: start;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] #slotPreview .itemRef {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  justify-content: center;
+  gap: 0;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] #slotPreview .itemLabel {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] #slotPreview .itemIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .slot-input {
+  display: none;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] #results {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-grid.result-grid--selected {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.page--cooking[data-role="tool"][data-layout="lab"][data-viewport="tight"] .result-card {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }

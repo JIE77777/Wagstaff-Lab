@@ -66,7 +66,7 @@ dev_guide:
 ## 5. WebCraft 约定
 
 - API 统一在 `/api/v1` 下，UI 与 API 使用同一 `root_path`。
-- UI 路由固定：`/`(Craft 图鉴)、`/cooking`(Cooking 图鉴)、`/cooking/explore`、`/cooking/simulate`、`/catalog`。
+- UI 路由固定：`/`(Cooking 模拟主页)、`/craft`(Craft 图鉴)、`/cooking`(Cooking 图鉴)、`/cooking/explore`、`/cooking/simulate`、`/catalog`。
 - UI 仅通过 API 访问数据；静态资源来自 `data/static/`。
 - 新增字段须保证向后兼容或同步更新 `schema_version`。
 - WebCraft 运行时优先使用 `data/index/wagstaff_catalog_v2.sqlite`，缺失时回退 JSON。
@@ -101,6 +101,12 @@ dev_guide:
 - 模板目录统一为 `apps/webcraft/templates/`（index/catalog/cooking）。
 - 共享 UI 片段必须收敛到 `core/`，避免跨页函数缺失与重复定义。
 - 大型 UI 重构必须先产出计划文档（`docs/management/*.md`），并在 `PROJECT_STATUS.json` 记录。
+
+## 5.4 Mobile App Shell 规范
+
+- 移动端 App Shell 通过 `body[data-app-shell="1"]` 启用，桌面端不受影响。
+- 模板加入 `<nav class="app-nav">` 底部导航（`appNavCraft/appNavCooking/appNavCatalog`），页面 JS 负责 href 与 active。
+- 通用样式位于 `apps/webcraft/static/css/base.css`，页面差异样式放在各自 page CSS。
 
 ## 6. 变更与文档
 

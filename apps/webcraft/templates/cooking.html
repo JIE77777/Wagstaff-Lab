@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/cooking.css" />
   <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
 </head>
-<body class="page--cooking" data-page="cooking" data-role="encyclopedia" data-view="encyclopedia">
+<body class="page--cooking" data-page="cooking" data-role="encyclopedia" data-view="encyclopedia" data-app-shell="1">
   <header class="header">
     <div class="topbar">
       <div class="topbar-left">
@@ -75,6 +75,12 @@
       </div>
     </div>
   </div>
+
+  <nav class="app-nav" aria-label="Primary">
+    <a id="appNavCraft" class="app-nav__item" href="#"><span class="app-nav__label">Craft</span></a>
+    <a id="appNavCooking" class="app-nav__item active" href="#"><span class="app-nav__label">Cooking</span></a>
+    <a id="appNavCatalog" class="app-nav__item" href="#"><span class="app-nav__label">Catalog</span></a>
+  </nav>
 
   <div class="err fixed" id="err"></div>
 </body>

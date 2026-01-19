@@ -798,7 +798,7 @@ async function loadMeta() {
   const te = meta.tuning_enabled ? 'tuning:on' : 'tuning:off';
   el('meta').textContent = [ver, sha, ae, te].filter(Boolean).join(' · ');
 
-  el('navCraft').href = APP_ROOT + '/';
+  el('navCraft').href = APP_ROOT + '/craft';
   el('navCooking').href = APP_ROOT + '/cooking';
   el('navCatalog').href = APP_ROOT + '/catalog';
 }

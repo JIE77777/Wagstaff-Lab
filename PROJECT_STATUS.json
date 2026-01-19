@@ -136,7 +136,15 @@
     "[2026-01-17 20:10] WebCraft: Cooking 规则解析补齐 names OR 组合计数约束，修复 mashedpotatoes 误判双材料问题。",
     "[2026-01-17 20:38] Docs/WebCraft: DEV_GUIDE 增加 UI 模块化规范，新增模块化计划文档并完成静态资源脚手架。",
     "[2026-01-17 21:10] WebCraft UI: 完成模板/静态资源拆分，ui.py 仅保留模板渲染并接入静态资源分层。",
-    "[2026-01-17 21:24] WebCraft: Cooking 图鉴与工具页拆分，统一搜索入口并弱化工具切换按钮。"
+    "[2026-01-17 21:24] WebCraft: Cooking 图鉴与工具页拆分，统一搜索入口并弱化工具切换按钮。",
+    "[2026-01-17 23:09] WebCraft: 主页切换到 Cooking 模拟并新增图鉴跳转入口，补齐 /craft 路由。",
+    "[2026-01-17 23:18] WebCraft: Cooking 模拟工具页移动端布局重构，加入结果自动聚焦与粘性锅位条。",
+    "[2026-01-17 23:36] Docs/WebCraft: 制定移动端 App Shell 规划并为 Cooking 落地底部导航与移动端布局基线。",
+    "[2026-01-18 01:28] WebCraft: Cooking 工具页移动端重设计，新增底部结果抽屉与锅位计数，强化实用工具体验。",
+    "[2026-01-18 20:17] WebCraft: 立项 Cooking Tools Atlas Ledger 桌面/移动端重构 (docs/management/WEBCRAFT_ATLAS_LEDGER_UI_REFACTOR.md)。",
+    "[2026-01-19 01:14] WebCraft UI: Cooking Atlas Ledger 工具页区分桌面/移动端视觉策略，移动端工具化、桌面保留丰富信息，slot/食材卡片布局同步优化。",
+    "[2026-01-19 01:29] WebCraft UI: 清理 Cooking 工具页 lab 测试资产与旧工具栏/抽屉逻辑，收敛 CSS/JS 并移除相关 i18n 项。",
+    "[2026-01-19 12:32] WebCraft: Cooking 模拟优化版本归档。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

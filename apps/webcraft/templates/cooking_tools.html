@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/cooking.css" />
   <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
 </head>
-<body class="page--cooking" data-page="cooking" data-role="tool" data-view="explore">
+<body class="page--cooking" data-page="cooking" data-role="tool" data-view="simulate" data-app-shell="1" data-layout="lab">
   <header class="header">
     <div class="topbar">
       <div class="topbar-left">
@@ -37,76 +37,75 @@
         <div class="page-title" id="pageTitle">Cooking Tools</div>
         <div class="page-sub" id="pageSub">Explore and simulate with focused inputs</div>
       </div>
-      <div class="subbar-right"></div>
+      <div class="subbar-right">
+        <a id="btnAtlas" class="btn ghost atlas-link" href="#">Cooking Atlas</a>
+      </div>
     </div>
   </header>
 
-  <div class="layout">
-    <div class="panel panel--primary" id="detailPanel">
-      <div class="panel-head">
-        <div class="panel-title" id="detailTitle">Details / Tools</div>
-      </div>
-      <div class="detail">
-        <div class="detail-grid">
-          <div class="detail-main">
-            <div id="detail">
-              <div class="muted">Add ingredients to explore or simulate.</div>
-            </div>
-            <div class="tool-card" id="resultBox">
-              <div class="slot-head">
-                <div class="small muted" id="resultTitle">Results</div>
-                <div class="slot-actions">
-                  <button class="btn" id="btnViewCards">Cards</button>
-                  <button class="btn" id="btnViewDense">Dense</button>
-                </div>
-              </div>
-              <div id="out" class="small muted"></div>
-              <div class="list" id="results"></div>
+  <div class="layout tool-stage" id="detailPanel">
+    <div class="tool-layout">
+      <div class="ledger-grid">
+        <section class="panel ledger-ingredients" id="ingredientPicker">
+          <div class="panel-head">
+            <div class="panel-title" id="ingredientTitle">Ingredient Atlas</div>
+            <div class="panel-meta ingredient-meta-tools">
+              <input id="ingredientSearch" class="field ingredient-search-field" type="text" placeholder="Filter ingredients..." />
+              <button id="ingredientClear" class="btn ghost">Clear</button>
             </div>
           </div>
+          <div class="panel-body">
+            <div class="small muted ingredient-hint" id="ingredientHint">Click to add, Shift/Alt to remove</div>
+            <div class="filter-pager">
+              <button class="filter-nav" id="ingredientFilterPrev" type="button">&lt;</button>
+              <div class="filter-row" id="ingredientFilters"></div>
+              <button class="filter-nav" id="ingredientFilterNext" type="button">&gt;</button>
+            </div>
+            <div class="ingredient-grid" id="ingredientGrid"></div>
+          </div>
+        </section>
 
-          <div class="detail-side">
-            <div class="tool-card" id="toolBox">
-              <div class="tool-switch">
-                <div class="small muted" id="toolModeLabel">Mode</div>
-                <div class="tool-switch-actions">
-                  <button class="btn ghost tool-toggle" id="toolExplore">Explore</button>
-                  <button class="btn ghost tool-toggle" id="toolSim">Simulate</button>
-                </div>
+        <section class="panel ledger-console" id="toolBox">
+          <div class="panel-head">
+            <div class="panel-title" id="consoleTitle">Slot Console</div>
+          </div>
+          <div class="panel-body">
+            <div class="slot-line">
+              <div class="slot-preview" id="slotPreview"></div>
+              <div class="slot-meter">
+                <button class="tool-mode-toggle" id="toolModeToggle" type="button">Explore / Simulate</button>
               </div>
-              <div class="small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
-              <div class="slot-preview-wrap">
-                <div class="slot-preview" id="slotPreview"></div>
-                <details class="slot-input" id="slotInput">
-                  <summary><span id="slotInputLabel">Manual input</span></summary>
-                  <textarea id="slots" placeholder="carrot=2
+            </div>
+            <div class="slot-hint small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+            <details class="slot-input" id="slotInput">
+              <summary><span id="slotInputLabel">Manual input</span></summary>
+              <textarea id="slots" class="field mono" placeholder="carrot=2
 berries=1
 butterflywings=1"></textarea>
-                </details>
-              </div>
-              <div class="grid2" style="margin-top:8px;">
-                <button class="primary" id="btnExplore">Explore</button>
-                <button id="btnSim">Simulate</button>
-              </div>
-            </div>
+            </details>
+          </div>
+        </section>
 
-            <div class="tool-card tool-ingredients" id="ingredientPicker">
-              <div class="ingredient-head">
-                <div class="small muted" id="ingredientTitle">Ingredient picker</div>
-                <button id="ingredientClear" class="btn ghost">Clear slots</button>
-              </div>
-              <div class="ingredient-search">
-                <input id="ingredientSearch" type="text" placeholder="Filter ingredients..." />
-                <div class="small muted" id="ingredientHint">Click to add, Shift/Alt to remove</div>
-              </div>
-              <div class="ingredient-filters" id="ingredientFilters"></div>
-              <div class="ingredient-grid" id="ingredientGrid"></div>
+        <section class="panel ledger-results" id="resultBox">
+          <div class="panel-head">
+            <div class="panel-title" id="resultTitle">Results</div>
+            <div class="panel-meta">
+              <div id="out" class="result-summary small muted"></div>
             </div>
           </div>
-        </div>
+          <div class="panel-body">
+            <div class="list" id="results"></div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
+
+  <nav class="app-nav" aria-label="Primary">
+    <a id="appNavCraft" class="app-nav__item" href="#"><span class="app-nav__label">Craft</span></a>
+    <a id="appNavCooking" class="app-nav__item active" href="#"><span class="app-nav__label">Cooking</span></a>
+    <a id="appNavCatalog" class="app-nav__item" href="#"><span class="app-nav__label">Catalog</span></a>
+  </nav>
 
   <div class="err fixed" id="err"></div>
 </body>

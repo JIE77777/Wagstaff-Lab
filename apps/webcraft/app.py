@@ -180,6 +180,11 @@ def create_app(
     def index(request: Request):
         # root_path is already applied by FastAPI; still need it for frontend URL prefixing
         root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_cooking_tools_html(app_root=str(root)))
+
+    @app.get("/craft", response_class=HTMLResponse)
+    def craft(request: Request):
+        root = request.scope.get("root_path") or ""
         return HTMLResponse(render_index_html(app_root=str(root)))
 
     @app.get("/cooking", response_class=HTMLResponse)

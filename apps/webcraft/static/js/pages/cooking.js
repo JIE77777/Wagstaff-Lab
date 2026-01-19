@@ -1,4 +1,4 @@
-const isNarrow = () => window.matchMedia('(max-width: 860px)').matches;
+const isNarrow = () => window.matchMedia && window.matchMedia('(max-width: 860px)').matches;
 const focusPanel = (id) => {
   if (!isNarrow()) return;
   const node = el(id);
@@ -186,6 +186,23 @@ function applyUiStrings() {
   if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
   const navCatalog = el('navCatalog');
   if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
+  const btnAtlas = el('btnAtlas');
+  if (btnAtlas) btnAtlas.textContent = t('cooking.title.encyclopedia', 'Cooking Atlas');
+  const appNavCraft = el('appNavCraft');
+  if (appNavCraft) {
+    const label = appNavCraft.querySelector('.app-nav__label');
+    if (label) label.textContent = t('nav.craft', 'Craft');
+  }
+  const appNavCooking = el('appNavCooking');
+  if (appNavCooking) {
+    const label = appNavCooking.querySelector('.app-nav__label');
+    if (label) label.textContent = t('nav.cooking', 'Cooking');
+  }
+  const appNavCatalog = el('appNavCatalog');
+  if (appNavCatalog) {
+    const label = appNavCatalog.querySelector('.app-nav__label');
+    if (label) label.textContent = t('nav.catalog', 'Catalog');
+  }
   const label = el('labelModeLabel');
   if (label) label.textContent = t('label.mode', 'Label');
   const modeEncy = el('modeEncy');
@@ -221,12 +238,6 @@ function applyUiStrings() {
   if (btnExplore) btnExplore.textContent = t('btn.explore', 'Explore');
   const btnSim = el('btnSim');
   if (btnSim) btnSim.textContent = t('btn.simulate', 'Simulate');
-  const toolModeLabel = el('toolModeLabel');
-  if (toolModeLabel) toolModeLabel.textContent = t('cooking.tools.mode', 'Mode');
-  const toolExplore = el('toolExplore');
-  if (toolExplore) toolExplore.textContent = t('cooking.mode.explore', 'Explore');
-  const toolSim = el('toolSim');
-  if (toolSim) toolSim.textContent = t('cooking.mode.simulate', 'Simulate');
   const btnViewCards = el('btnViewCards');
   if (btnViewCards) btnViewCards.textContent = t('btn.view_cards', 'Cards');
   const btnViewDense = el('btnViewDense');
@@ -235,11 +246,59 @@ function applyUiStrings() {
   if (resultTitle) resultTitle.textContent = t('cooking.results.title', 'Results');
   const ingredientTitle = el('ingredientTitle');
   if (ingredientTitle) ingredientTitle.textContent = t('cooking.ingredients.title', 'Ingredient picker');
+  const consoleTitle = el('consoleTitle');
+  if (consoleTitle) consoleTitle.textContent = t('cooking.tools.console', 'Slot Console');
   const slotInputLabel = el('slotInputLabel');
   if (slotInputLabel) slotInputLabel.textContent = t('cooking.slots.manual', 'Manual input');
   const ingredientSearch = el('ingredientSearch');
   if (ingredientSearch) ingredientSearch.placeholder = t('cooking.ingredients.search', ingredientSearch.placeholder || 'Filter ingredients...');
+  const filterPrev = el('ingredientFilterPrev');
+  const filterNext = el('ingredientFilterNext');
+  if (filterPrev) {
+    const label = t('cooking.ingredients.filter_prev', 'Prev tags');
+    filterPrev.setAttribute('aria-label', label);
+    filterPrev.title = label;
+  }
+  if (filterNext) {
+    const label = t('cooking.ingredients.filter_next', 'Next tags');
+    filterNext.setAttribute('aria-label', label);
+    filterNext.title = label;
+  }
   updateSlotUi();
+}
+
+function setToolViewportVars() {
+  if (PAGE_ROLE !== 'tool') return;
+  const viewport = window.visualViewport;
+  const h = (viewport && viewport.height) || window.innerHeight || document.documentElement.clientHeight || 0;
+  const w = (viewport && viewport.width) || window.innerWidth || document.documentElement.clientWidth || 0;
+  if (h && document.body) {
+    document.body.style.setProperty('--tool-height', `${Math.round(h)}px`);
+  }
+  if (w && document.body) {
+    document.body.style.setProperty('--tool-width', `${Math.round(w)}px`);
+  }
+  if (document.body) {
+    if ((h && h <= 740) || (w && w <= 420)) {
+      document.body.dataset.viewport = 'tight';
+    } else {
+      document.body.removeAttribute('data-viewport');
+    }
+  }
+  const header = document.querySelector('.header');
+  if (header && document.body) {
+    document.body.style.setProperty('--tool-header', `${header.offsetHeight}px`);
+  }
+  const nav = document.querySelector('.app-nav');
+  if (nav && document.body) {
+    document.body.style.setProperty('--tool-nav', `${nav.offsetHeight}px`);
+  }
+}
+
+function syncToolLayout() {
+  if (PAGE_ROLE !== 'tool') return;
+  setToolViewportVars();
+  updateFilterPager();
 }
 
 function updateSlotUi() {
@@ -247,6 +306,7 @@ function updateSlotUi() {
   const slots = el('slots');
   const ingredientHint = el('ingredientHint');
   const ingredientClear = el('ingredientClear');
+  const toolModeToggles = document.querySelectorAll('.tool-mode-toggle');
   if (state.view === 'explore') {
     if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_explore', 'Available ingredients (types only)');
     if (slots) slots.placeholder = t('cooking.slots.placeholder.explore', 'berries\ncarrot\nmonstermeat');
@@ -262,6 +322,20 @@ function updateSlotUi() {
     if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
     if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
     if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
+  }
+  if (toolModeToggles.length) {
+    const isSim = state.view === 'simulate';
+    const exploreLabel = t('cooking.mode.explore', 'Explore');
+    const simulateLabel = t('cooking.mode.simulate', 'Simulate');
+    toolModeToggles.forEach((btn) => {
+      btn.innerHTML = `
+        <span class="tool-mode-option tool-mode-option--explore">${escHtml(exploreLabel)}</span>
+        <span class="tool-mode-option tool-mode-option--simulate">${escHtml(simulateLabel)}</span>
+      `;
+      btn.dataset.mode = isSim ? 'simulate' : 'explore';
+      btn.setAttribute('aria-pressed', isSim ? 'true' : 'false');
+      btn.setAttribute('aria-label', `${exploreLabel} / ${simulateLabel}`);
+    });
   }
   updateIngredientSourceHint();
   renderSlotPreview();
@@ -409,6 +483,9 @@ function renderTagLabel(tag) {
 }
 
 
+const PAGE = (document.body && document.body.dataset && document.body.dataset.page)
+  ? document.body.dataset.page
+  : '';
 const PAGE_ROLE = (document.body && document.body.dataset && document.body.dataset.role)
   ? document.body.dataset.role
   : 'encyclopedia';
@@ -420,7 +497,7 @@ const PATH_VIEW = PATHNAME.endsWith('/cooking/simulate')
 const state = {
   mode: 'foodtypes', // foodtypes | tags | all
   view: 'encyclopedia', // encyclopedia | explore | simulate
-  listView: localStorage.getItem('ws_cooking_list') || 'card',
+  listView: 'card',
   results: null,
   groups: [],
   activeGroup: null,
@@ -507,10 +584,6 @@ function setView(view) {
   if (btnSim) btnSim.style.display = (state.view === 'explore') ? 'none' : '';
   const picker = el('ingredientPicker');
   if (picker) picker.style.display = (state.view === 'encyclopedia') ? 'none' : '';
-  const toolExplore = el('toolExplore');
-  if (toolExplore) toolExplore.classList.toggle('active', state.view === 'explore');
-  const toolSim = el('toolSim');
-  if (toolSim) toolSim.classList.toggle('active', state.view === 'simulate');
 
   const title = el('pageTitle');
   const sub = el('pageSub');
@@ -539,7 +612,7 @@ function setView(view) {
 }
 
 function setListView(view) {
-  state.listView = String(view || 'card');
+  state.listView = 'card';
   try { localStorage.setItem('ws_cooking_list', state.listView); } catch (e) {}
   const btnViewCards = el('btnViewCards');
   if (btnViewCards) btnViewCards.classList.toggle('active', state.listView === 'card');
@@ -681,12 +754,67 @@ function renderResultList() {
     return;
   }
 
+  const selectedName = (mode === 'simulate' && res && res.selected && res.selected !== '(none)')
+    ? String(res.selected)
+    : '';
+  const selectedReason = selectedName ? String(res.selected_reason || '') : '';
   const cookable = Array.isArray(res.cookable) ? res.cookable : [];
   const near = Array.isArray(res.near_miss) ? res.near_miss : [];
   const nearTiers = Array.isArray(res.near_miss_tiers) ? res.near_miss_tiers : [];
+  const cookableFiltered = selectedName
+    ? cookable.filter((row) => String(row.name || '') !== selectedName)
+    : cookable;
+
+  if (selectedName) {
+    const selectedWrap = document.createElement('div');
+    selectedWrap.className = 'result-section result-section--selected';
+    const selectedGrid = document.createElement('div');
+    selectedGrid.className = 'result-grid result-grid--selected';
+    const findRow = (items) => items.find((row) => String(row.name || '') === selectedName);
+    let selectedRow = findRow(cookable) || findRow(near);
+    if (!selectedRow && nearTiers.length) {
+      for (const tier of nearTiers) {
+        const items = Array.isArray(tier.items) ? tier.items : [];
+        selectedRow = findRow(items);
+        if (selectedRow) break;
+      }
+    }
+    const card = document.createElement('div');
+    const note = selectedReason ? `<div class="small muted result-note">${escHtml(selectedReason)}</div>` : '';
+    if (selectedRow) {
+      const missing = formatMissing(selectedRow.missing || []);
+      const rule = selectedRow.rule_mode ? String(selectedRow.rule_mode).toUpperCase() : '';
+      const weightVal = Number(selectedRow.weight);
+      const showWeight = Number.isFinite(weightVal) && weightVal !== 1;
+      const attrs = renderAttrPills(selectedRow);
+      const isMiss = Array.isArray(selectedRow.missing) && selectedRow.missing.length > 0;
+      card.className = `result-card ${isMiss ? 'is-miss' : 'is-ok'} is-selected`;
+      card.innerHTML = `
+        <div>${renderItem(selectedName)}</div>
+        ${missing ? `<div class="result-missing">${escHtml(missing)}</div>` : `<div class="result-ok">${escHtml(t('label.ok', 'OK'))}</div>`}
+        ${attrs ? `<div class="result-attrs">${attrs}</div>` : ''}
+        ${note}
+        <div class="result-meta">
+          <span class="pill">p=${escHtml(Number(selectedRow.priority || 0))}</span>
+          ${showWeight ? `<span class="pill pill-weight">w=${escHtml(weightVal)}</span>` : ''}
+          ${rule ? `<span class="pill pill-rule">${escHtml(rule)}</span>` : ''}
+        </div>
+      `;
+    } else {
+      card.className = 'result-card is-selected';
+      card.innerHTML = `
+        <div>${renderItem(selectedName)}</div>
+        ${note}
+      `;
+    }
+    card.onclick = () => selectRecipe(selectedName);
+    selectedGrid.appendChild(card);
+    selectedWrap.appendChild(selectedGrid);
+    box.appendChild(selectedWrap);
+  }
 
   const sections = [
-    { title: t('cooking.results.cookable', 'Cookable'), items: cookable },
+    { title: t('cooking.results.cookable', 'Cookable'), items: cookableFiltered },
   ];
   if (nearTiers.length) {
     const label = (key) => {
@@ -725,13 +853,15 @@ function renderResultList() {
         const name = String(row.name || '').trim();
         if (!name) continue;
         const missing = formatMissing(row.missing || []) || t('label.ok', 'OK');
-        const score = Number(row.score || 0);
         const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
-        const meta = `
-          <span class="meta-pw">p=${escHtml(Number(row.priority || 0))} · w=${escHtml(Number(row.weight || 0))}</span>
-          <span class="meta-s">· s=${escHtml(score.toFixed(1))}</span>
-          ${rule ? `<span class="meta-rule">· ${escHtml(rule)}</span>` : ''}
-        `;
+        const weightVal = Number(row.weight);
+        const showWeight = Number.isFinite(weightVal) && weightVal !== 1;
+        const metaParts = [
+          `<span class="meta-pw">p=${escHtml(Number(row.priority || 0))}</span>`,
+        ];
+        if (showWeight) metaParts.push(`<span class="meta-w">w=${escHtml(weightVal)}</span>`);
+        if (rule) metaParts.push(`<span class="meta-rule">${escHtml(rule)}</span>`);
+        const meta = metaParts.join(' · ');
         const div = document.createElement('div');
         const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
         div.className = `result-row ${isMiss ? 'is-miss' : 'is-ok'}`;
@@ -752,8 +882,9 @@ function renderResultList() {
       const name = String(row.name || '').trim();
       if (!name) continue;
       const missing = formatMissing(row.missing || []);
-      const score = Number(row.score || 0);
       const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
+      const weightVal = Number(row.weight);
+      const showWeight = Number.isFinite(weightVal) && weightVal !== 1;
       const attrs = renderAttrPills(row);
       const card = document.createElement('div');
       const isMiss = Array.isArray(row.missing) && row.missing.length > 0;
@@ -765,9 +896,8 @@ function renderResultList() {
         ${missing ? `<div class="result-missing">${escHtml(missing)}</div>` : `<div class="result-ok">${escHtml(t('label.ok', 'OK'))}</div>`}
         ${attrs ? `<div class="result-attrs">${attrs}</div>` : ''}
         <div class="result-meta">
-          <span class="pill pill-pw">p=${escHtml(Number(row.priority || 0))}</span>
-          <span class="pill pill-pw">w=${escHtml(Number(row.weight || 0))}</span>
-          <span class="pill pill-s">s=${escHtml(score.toFixed(1))}</span>
+          <span class="pill">p=${escHtml(Number(row.priority || 0))}</span>
+          ${showWeight ? `<span class="pill pill-weight">w=${escHtml(weightVal)}</span>` : ''}
           ${rule ? `<span class="pill pill-rule">${escHtml(rule)}</span>` : ''}
         </div>
       `;
@@ -848,13 +978,16 @@ function renderIngredientFilters() {
   const box = el('ingredientFilters');
   if (!box) return;
   box.innerHTML = '';
+  box.scrollLeft = 0;
   const items = state.ingredients || [];
   for (const cat of ING_CATEGORIES) {
     const count = items.filter(it => _ingredientMatchesCategory(it, cat.key)).length;
     if (cat.key === 'other' && !count) continue;
     const btn = document.createElement('button');
     btn.className = 'ingredient-filter' + (state.ingredientFilter === cat.key ? ' active' : '');
-    btn.textContent = `${cat.label()}${count ? ' (' + count + ')' : ''}`;
+    const label = cat.label();
+    const countHtml = count ? ` <span class="tag-count">(${count})</span>` : '';
+    btn.innerHTML = `<span class="tag-label">${escHtml(label)}</span>${countHtml}`;
     btn.onclick = () => {
       state.ingredientFilter = cat.key;
       renderIngredientFilters();
@@ -862,6 +995,7 @@ function renderIngredientFilters() {
     };
     box.appendChild(btn);
   }
+  updateFilterPager();
 }
 
 function renderIngredientGrid() {
@@ -911,6 +1045,18 @@ function renderIngredientGrid() {
   updateIngredientSelection();
 }
 
+function updateFilterPager() {
+  const row = el('ingredientFilters');
+  const prev = el('ingredientFilterPrev');
+  const next = el('ingredientFilterNext');
+  if (!row || !prev || !next) return;
+  const maxScroll = Math.max(0, row.scrollWidth - row.clientWidth);
+  const atStart = row.scrollLeft <= 2;
+  const atEnd = row.scrollLeft >= maxScroll - 2;
+  prev.disabled = atStart;
+  next.disabled = atEnd;
+}
+
 function formatSlots(inv) {
   const keys = Object.keys(inv || {}).filter(Boolean).sort();
   return keys.map(k => `${k}=${inv[k]}`).join('\n');
@@ -942,27 +1088,29 @@ function renderSlotPreview() {
   const inv = parseSlots(el('slots')?.value || '');
   const ids = Object.keys(inv || {}).filter(Boolean);
   if (!ids.length) {
-    box.innerHTML = `<span class="muted small">${escHtml(t('cooking.slots.empty', 'No ingredients selected.'))}</span>`;
+    box.innerHTML = `<div class="slot-empty muted small">${escHtml(t('cooking.slots.empty', 'No ingredients selected.'))}</div>`;
     return;
   }
+  const list = [];
+  const isSim = state.view === 'simulate';
   ids.sort();
   for (const iid of ids) {
-    const count = Number(inv[iid] || 0);
-    const btn = document.createElement('button');
-    btn.className = 'slot-chip';
-    btn.innerHTML = `
-      ${renderItem(iid)}
-      ${count > 1 ? `<span class="slot-count">x${escHtml(count)}</span>` : ''}
-      <span class="slot-remove">x</span>
-    `;
-    btn.onclick = () => {
+    const count = Math.max(1, Number(inv[iid] || 0));
+    const times = isSim ? count : 1;
+    for (let i = 0; i < times; i += 1) list.push(iid);
+  }
+  for (const iid of list) {
+    const chip = document.createElement('div');
+    chip.className = 'slot-chip';
+    chip.innerHTML = `${renderItem(iid)}`;
+    chip.onclick = () => {
       if (state.view === 'explore') {
         toggleAvailable(iid, true);
-      } else {
-        updateSlots(iid, -count);
+        return;
       }
+      updateSlots(iid, -1);
     };
-    box.appendChild(btn);
+    box.appendChild(chip);
   }
 }
 
@@ -1050,8 +1198,10 @@ function renderRecipeList() {
 }
 
 function renderRecipeDetail(rec) {
+  const detail = el('detail');
+  if (!detail) return;
   if (!rec) {
-    el('detail').innerHTML = `<div class="muted">${escHtml(t('cooking.detail.empty', 'Select a recipe.'))}</div>`;
+    detail.innerHTML = `<div class="muted">${escHtml(t('cooking.detail.empty', 'Select a recipe.'))}</div>`;
     return;
   }
 
@@ -1145,7 +1295,7 @@ function renderRecipeDetail(rec) {
     </div>
   `).join('');
 
-  el('detail').innerHTML = `
+  detail.innerHTML = `
     <div class="detail-hero">
       <div>
         <div class="hero-title">${renderItem(rec.name || '')}</div>
@@ -1167,7 +1317,7 @@ function renderRecipeDetail(rec) {
     </div>
   `;
 
-  for (const btn of el('detail').querySelectorAll('button[data-cook-trace]')) {
+  for (const btn of detail.querySelectorAll('button[data-cook-trace]')) {
     const field = btn.getAttribute('data-cook-trace');
     if (!field || !rec.name) continue;
     btn.onclick = async () => {
@@ -1338,15 +1488,13 @@ async function doSimulate() {
     formula: res.formula || '',
     cookable: res.cookable || [],
     near_miss: res.near_miss || [],
+    selected: res.result || '',
+    selected_reason: res.reason || '',
   };
   renderRecipeList();
 
   const result = res.result || '(none)';
-  const reason = res.reason || '';
-  el('out').innerHTML = `
-    <div class="ok">Result: ${renderItem(result)} <span class="muted">${reason ? '('+reason+')' : ''}</span></div>
-    <div class="small muted" style="margin-top:6px;">${escHtml(t('cooking.results.sim_summary', 'Candidates listed in results.'))}</div>
-  `;
+  if (el('out')) el('out').textContent = '';
 
   // auto-select result if exists
   if (res.recipe) {
@@ -1367,13 +1515,26 @@ function toggleMode() {
 
 // wire
 const navCraft = document.getElementById('navCraft');
-if (navCraft) navCraft.href = APP_ROOT + '/';
+if (navCraft) navCraft.href = APP_ROOT + '/craft';
 
 const navCooking = document.getElementById('navCooking');
 if (navCooking) navCooking.href = APP_ROOT + '/cooking';
 
 const navCatalog = document.getElementById('navCatalog');
 if (navCatalog) navCatalog.href = APP_ROOT + '/catalog';
+
+const appNavCraft = el('appNavCraft');
+if (appNavCraft) appNavCraft.href = APP_ROOT + '/craft';
+const appNavCooking = el('appNavCooking');
+if (appNavCooking) appNavCooking.href = APP_ROOT + '/';
+const appNavCatalog = el('appNavCatalog');
+if (appNavCatalog) appNavCatalog.href = APP_ROOT + '/catalog';
+if (appNavCraft) appNavCraft.classList.toggle('active', PAGE === 'craft');
+if (appNavCooking) appNavCooking.classList.toggle('active', PAGE === 'cooking');
+if (appNavCatalog) appNavCatalog.classList.toggle('active', PAGE === 'catalog');
+
+const btnAtlas = el('btnAtlas');
+if (btnAtlas) btnAtlas.href = APP_ROOT + '/cooking';
 
 
 const labelSel = el('labelMode');
@@ -1413,10 +1574,22 @@ if (btnViewCards) btnViewCards.onclick = () => setListView('card');
 const btnViewDense = el('btnViewDense');
 if (btnViewDense) btnViewDense.onclick = () => setListView('dense');
 
-const toolExplore = el('toolExplore');
-if (toolExplore) toolExplore.onclick = () => { window.location.href = APP_ROOT + '/cooking/explore'; };
-const toolSim = el('toolSim');
-if (toolSim) toolSim.onclick = () => { window.location.href = APP_ROOT + '/cooking/simulate'; };
+document.querySelectorAll('.tool-mode-toggle').forEach((btn) => {
+  btn.onclick = () => {
+    const next = (state.view === 'simulate') ? 'explore' : 'simulate';
+    setView(next);
+    const query = window.location.search || '';
+    const nextUrl = `${APP_ROOT}/cooking/${next}${query}`;
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, document.title, nextUrl);
+    }
+    if (next === 'simulate') {
+      doSimulate().catch(e => setError(String(e)));
+    } else {
+      doExplore().catch(e => setError(String(e)));
+    }
+  };
+});
 
 const modeEncy = el('modeEncy');
 if (modeEncy) modeEncy.onclick = () => { setView('encyclopedia'); showAll().catch(e => setError(String(e))); };
@@ -1442,6 +1615,20 @@ if (ingClear) {
   };
 }
 
+const filterRow = el('ingredientFilters');
+const filterPrev = el('ingredientFilterPrev');
+const filterNext = el('ingredientFilterNext');
+const scrollFilterRow = (dir) => {
+  if (!filterRow) return;
+  const offset = Math.max(Math.round(filterRow.clientWidth * 0.9), 120);
+  filterRow.scrollBy({ left: dir * offset, behavior: 'smooth' });
+};
+if (filterPrev) filterPrev.onclick = () => scrollFilterRow(-1);
+if (filterNext) filterNext.onclick = () => scrollFilterRow(1);
+if (filterRow) {
+  filterRow.addEventListener('scroll', () => updateFilterPager());
+}
+
 let exploreTimer = null;
 const slotsInput = el('slots');
 if (slotsInput) {
@@ -1457,6 +1644,15 @@ if (slotsInput) {
       else doExplore().catch(e => setError(String(e)));
     }, 400);
   });
+}
+
+if (PAGE_ROLE === 'tool') {
+  syncToolLayout();
+  window.addEventListener('resize', syncToolLayout);
+  window.addEventListener('orientationchange', syncToolLayout);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncToolLayout);
+  }
 }
 
 function initFromUrl() {
