@@ -64,6 +64,7 @@ dev_guide:
   - `data/index/wagstaff_mechanism_index_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.sqlite`
   - `data/reports/mechanism_index_summary.md`
+  - `data/reports/mechanism_crosscheck_report.md`
 - 产物默认不入库：`data/index/` 与 `data/static/icons/` 由工具生成，需要时用 `make catalog` / `make icons` 重建。
 - 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
@@ -175,6 +176,7 @@ dev_guide:
 
 - `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
 - `build_mechanism_index.py` 依赖 `scripts` 与 `resource_index` 签名，JSON 与 SQLite 输出统一比对。
+- `validate_mechanism_index.py` 用于校验机制索引 JSON 结构与关键字段。
 - 需强制全量重建时，追加 `--force`。
 
 ## 10. 最低自检清单

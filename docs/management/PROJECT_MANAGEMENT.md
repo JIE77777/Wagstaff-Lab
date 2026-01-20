@@ -81,6 +81,8 @@
 - **T-106**：Mechanism index v1（组件解析 + prefab 链路）
 - **T-107**：Mechanism SQLite schema v1（links 表 + 统一映射策略）
 - **T-108**：Mechanism summary + consistency 校验（JSON/SQLite 对齐）
+- **T-109**：Mechanism crosscheck 报告（resource_index 对齐 + 缺口清单）
+- **T-110**：Mechanism JSON schema 校验工具（validate_mechanism_index.py）
 
 ## 5. 最近完成（摘要）
 

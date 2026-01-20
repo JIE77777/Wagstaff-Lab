@@ -119,6 +119,92 @@ def render_mechanism_index_summary(index: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_mechanism_crosscheck_report(
+    resource_index: Optional[Dict[str, Any]],
+    mechanism_index: Dict[str, Any],
+) -> str:
+    lines: List[str] = []
+    lines.append("# Wagstaff Mechanism Crosscheck Report")
+    lines.append("")
+
+    if not resource_index or not isinstance(resource_index, dict):
+        lines.append("Resource index not available; crosscheck skipped.")
+        return "\n".join(lines) + "\n"
+
+    res_prefabs = (resource_index.get("prefabs") or {}).get("items") or {}
+    mech_prefabs = (mechanism_index.get("prefabs") or {}).get("items") or {}
+
+    if not isinstance(res_prefabs, dict):
+        res_prefabs = {}
+    if not isinstance(mech_prefabs, dict):
+        mech_prefabs = {}
+
+    res_prefab_ids = {str(k) for k in res_prefabs.keys() if k}
+    mech_prefab_ids = {str(k) for k in mech_prefabs.keys() if k}
+
+    missing_prefabs = sorted(res_prefab_ids - mech_prefab_ids)
+    extra_prefabs = sorted(mech_prefab_ids - res_prefab_ids)
+
+    res_components_used: Set[str] = set()
+    prefabs_without_components: List[str] = []
+    for pid, row in res_prefabs.items():
+        comps = row.get("components") if isinstance(row, dict) else None
+        if not isinstance(comps, list) or not comps:
+            prefabs_without_components.append(str(pid))
+            continue
+        for c in comps:
+            if c:
+                res_components_used.add(str(c))
+
+    mech_components = (mechanism_index.get("components") or {}).get("items") or {}
+    if not isinstance(mech_components, dict):
+        mech_components = {}
+    mech_component_ids = {str(k) for k in mech_components.keys() if k}
+    mech_component_usage = mechanism_index.get("component_usage") or {}
+    mech_component_used = {str(k) for k in mech_component_usage.keys() if k}
+
+    missing_component_defs = sorted(res_components_used - mech_component_ids)
+    unused_component_defs = sorted(mech_component_ids - mech_component_used)
+
+    lines.append("## Counts")
+    lines.append("```yaml")
+    lines.append(f"resource_prefabs: {len(res_prefab_ids)}")
+    lines.append(f"mechanism_prefabs: {len(mech_prefab_ids)}")
+    lines.append(f"missing_prefabs: {len(missing_prefabs)}")
+    lines.append(f"extra_prefabs: {len(extra_prefabs)}")
+    lines.append(f"resource_components_used: {len(res_components_used)}")
+    lines.append(f"mechanism_components_defined: {len(mech_component_ids)}")
+    lines.append(f"missing_component_defs: {len(missing_component_defs)}")
+    lines.append(f"unused_component_defs: {len(unused_component_defs)}")
+    lines.append(f"prefabs_without_components: {len(prefabs_without_components)}")
+    lines.append("```")
+    lines.append("")
+
+    def _section(title: str, items: List[str], limit: int = 40) -> None:
+        lines.append(f"## {title}")
+        if not items:
+            lines.append("")
+            lines.append("(none)")
+            lines.append("")
+            return
+        lines.append("")
+        lines.append("```text")
+        for x in items[:limit]:
+            lines.append(str(x))
+        if len(items) > limit:
+            lines.append(f"... ({len(items) - limit} more)")
+        lines.append("```")
+        lines.append("")
+
+    _section("Missing Prefabs in Mechanism Index", missing_prefabs)
+    _section("Extra Prefabs in Mechanism Index", extra_prefabs)
+    _section("Missing Component Definitions", missing_component_defs)
+    _section("Unused Component Definitions", unused_component_defs)
+    _section("Prefabs Without Components (Resource Index)", prefabs_without_components)
+
+    return "\n".join(lines) + "\n"
+
+
 def build_mechanism_index(
     *,
     engine: Any,

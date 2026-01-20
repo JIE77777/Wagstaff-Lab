@@ -35,6 +35,7 @@
 - **analysis reports**：覆盖率、机制差异、脚本演进对比等。
 - **storage**：JSON 与 SQLite 同步落盘，机制索引与 catalog 同步支持查询。
   - JSON 主键统一以 prefab id 为核心，附 `links` 映射表兜底。
+  - Mechanism index 规范：`docs/specs/MECHANISM_INDEX_SPEC.md`
 
 ## 3. 目标架构蓝图
 

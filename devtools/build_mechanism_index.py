@@ -14,7 +14,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.engine import WagstaffEngine  # noqa: E402
-from core.indexers.mechanism_index import build_mechanism_index, render_mechanism_index_summary  # noqa: E402
+from core.indexers.mechanism_index import (
+    build_mechanism_index,
+    render_mechanism_crosscheck_report,
+    render_mechanism_index_summary,
+)  # noqa: E402
 from devtools.build_cache import file_sig, files_sig, load_cache, save_cache  # noqa: E402
 
 try:
@@ -263,6 +267,11 @@ def main() -> int:
     p.add_argument("--out", default="data/index/wagstaff_mechanism_index_v1.json", help="Output JSON path")
     p.add_argument("--sqlite", default="data/index/wagstaff_mechanism_index_v1.sqlite", help="Output SQLite path")
     p.add_argument("--summary", default="data/reports/mechanism_index_summary.md", help="Output summary Markdown")
+    p.add_argument(
+        "--crosscheck",
+        default="data/reports/mechanism_crosscheck_report.md",
+        help="Output crosscheck Markdown",
+    )
     p.add_argument("--resource-index", default="data/index/wagstaff_resource_index_v1.json", help="Input resource index")
     p.add_argument("--scripts-zip", default=None, help="Override scripts zip path")
     p.add_argument("--scripts-dir", default=None, help="Override scripts folder path")
@@ -288,6 +297,7 @@ def main() -> int:
     out_path = (PROJECT_ROOT / args.out).resolve()
     sqlite_path = (PROJECT_ROOT / args.sqlite).resolve()
     summary_path = (PROJECT_ROOT / args.summary).resolve()
+    crosscheck_path = (PROJECT_ROOT / args.crosscheck).resolve()
     resource_path = (PROJECT_ROOT / args.resource_index).resolve()
 
     scripts_sig = {}
@@ -308,6 +318,7 @@ def main() -> int:
         "out": file_sig(out_path),
         "sqlite": file_sig(sqlite_path) if not args.no_sqlite else {"path": str(sqlite_path), "exists": False},
         "summary": file_sig(summary_path),
+        "crosscheck": file_sig(crosscheck_path),
     }
 
     cache = load_cache()
@@ -336,6 +347,9 @@ def main() -> int:
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(render_mechanism_index_summary(index), encoding="utf-8")
 
+    crosscheck_path.parent.mkdir(parents=True, exist_ok=True)
+    crosscheck_path.write_text(render_mechanism_crosscheck_report(resource_index, index), encoding="utf-8")
+
     warnings = _validate_index(index)
     for msg in warnings:
         print(f"⚠️  {msg}", file=sys.stderr)
@@ -344,6 +358,7 @@ def main() -> int:
         "out": file_sig(out_path),
         "sqlite": file_sig(sqlite_path) if not args.no_sqlite else {"path": str(sqlite_path), "exists": False},
         "summary": file_sig(summary_path),
+        "crosscheck": file_sig(crosscheck_path),
     }
     cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
     save_cache(cache)
@@ -352,6 +367,7 @@ def main() -> int:
     if not args.no_sqlite:
         print(f"✅ Mechanism sqlite written: {sqlite_path}")
     print(f"✅ Summary written: {summary_path}")
+    print(f"✅ Crosscheck written: {crosscheck_path}")
     if warnings:
         print(f"⚠️  Warnings: {len(warnings)}", file=sys.stderr)
     return 0

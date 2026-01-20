@@ -128,6 +128,7 @@ data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json
 data/reports/mechanism_index_summary.md
+data/reports/mechanism_crosscheck_report.md
 data/reports/catalog_quality_report.md
 ```
 
