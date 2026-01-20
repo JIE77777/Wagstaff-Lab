@@ -200,6 +200,8 @@ function applyUiStrings() {
   if (slotInputLabel) slotInputLabel.textContent = t('cooking.slots.manual', 'Manual input');
   const ingredientSearch = el('ingredientSearch');
   if (ingredientSearch) ingredientSearch.placeholder = t('cooking.ingredients.search', ingredientSearch.placeholder || 'Filter ingredients...');
+  const resultSearch = el('resultSearch');
+  if (resultSearch) resultSearch.placeholder = t('cooking.results.search', resultSearch.placeholder || 'Filter results...');
   const filterPrev = el('ingredientFilterPrev');
   const filterNext = el('ingredientFilterNext');
   if (filterPrev) {
@@ -351,7 +353,7 @@ const PAGE_ROLE = (document.body && document.body.dataset && document.body.datas
 const PATHNAME = window.location && window.location.pathname ? window.location.pathname : '';
 const PATH_VIEW = PATHNAME.endsWith('/cooking/simulate')
   ? 'simulate'
-  : (PATHNAME.endsWith('/cooking/explore') ? 'explore' : '');
+  : '';
 
 const state = {
   mode: 'foodtypes',
@@ -365,11 +367,13 @@ const state = {
   assets: {},
   icon: null,
   ingredients: [],
+  ingredientIndex: {},
   ingredientFilter: 'all',
   ingredientQuery: '',
   ingredientSource: '',
   virtualIngredientIds: new Set(),
   showVirtualIngredients: false,
+  resultQuery: '',
 
   labelMode: localStorage.getItem('ws_label_mode') || 'en',
   i18n: null,
@@ -385,7 +389,8 @@ const state = {
 };
 
 if (PAGE_ROLE === 'tool') {
-  state.view = PATH_VIEW || (document.body && document.body.dataset ? (document.body.dataset.view || 'explore') : 'explore');
+  state.view = PATH_VIEW || (document.body && document.body.dataset ? (document.body.dataset.view || 'simulate') : 'simulate');
+  if (state.view !== 'simulate') state.view = 'simulate';
 } else {
   state.view = 'encyclopedia';
 }
@@ -405,26 +410,24 @@ function setView(view) {
   if (title) {
     title.textContent = (state.view === 'simulate')
       ? t('cooking.title.simulate', 'Cooking Simulate')
-      : (state.view === 'explore' ? t('cooking.title.explore', 'Cooking Explore') : t('cooking.title.encyclopedia', 'Cooking Lab'));
+      : t('cooking.title.encyclopedia', 'Cooking Lab');
   }
   if (sub) {
     sub.textContent = (state.view === 'simulate')
       ? t('cooking.sub.simulate', 'Simulate results with full slots')
-      : (state.view === 'explore' ? t('cooking.sub.explore', 'Explore recipes with partial slots') : t('cooking.sub.encyclopedia', 'Recipe rules and cookpot tools'));
+      : t('cooking.sub.encyclopedia', 'Recipe rules and cookpot tools');
   }
 
   if (state.view !== 'encyclopedia') {
     const listTitle = el('listTitle');
-    if (listTitle) listTitle.textContent = (state.view === 'simulate')
-      ? t('cooking.list.simulate', 'Simulate')
-      : t('cooking.list.explore', 'Explore');
+    if (listTitle) listTitle.textContent = t('cooking.list.simulate', 'Simulate');
     const listCount = el('listCount');
     if (listCount) listCount.textContent = '';
   }
 
   if (typeof updateSlotUi === 'function') updateSlotUi();
   if (PAGE_ROLE === 'tool') {
-    if (typeof renderResultList === 'function') renderResultList();
+    if (state.results && typeof renderResultList === 'function') renderResultList();
   } else if (typeof renderRecipeList === 'function') {
     renderRecipeList();
   }

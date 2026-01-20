@@ -110,7 +110,7 @@ COOKING_TAG_HINTS = {
     "fruit": ["berries", "berry", "banana", "pomegranate", "watermelon", "dragonfruit", "durian", "fig", "cave_banana"],
     "veggie": ["carrot", "corn", "pumpkin", "eggplant", "pepper", "potato", "tomato", "onion", "garlic", "asparagus", "cactus", "kelp"],
     "fungus": ["mushroom", "cap"],
-    "inedible": ["twigs", "ice"],
+    "inedible": ["twigs"],
     "frozen": ["ice"],
     "seed": ["seed"],
     "fat": ["butter", "goatmilk", "milk", "cheese"],

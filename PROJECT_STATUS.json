@@ -152,7 +152,17 @@
     "[2026-01-20 00:12] WebCraft: 修复 cooking 规则中 names.* 求和表达式解析，避免藤壶中细面等误判需要生熟共存。",
     "[2026-01-20 00:28] Core: cooking rule 解析补齐 names 求和约束，Cooking 模拟移除运行时 names_sum 兜底逻辑以收敛流程。",
     "[2026-01-20 00:41] WebCraft UI: Cooking 结果卡缺失提示改为分色 chip，区分缺物品/缺标签，增强可读性。",
-    "[2026-01-20 01:02] WebCraft UI: Cooking 结果卡改为条件清单展示，满足条件高亮绿色。"
+    "[2026-01-20 01:02] WebCraft UI: Cooking 结果卡改为条件清单展示，满足条件高亮绿色。",
+    "[2026-01-20 01:43] WebCraft UI: Cooking 工具页移除探索切换与专用交互，保留模拟并自动走探索逻辑，收敛展示与文案。",
+    "[2026-01-20 01:52] WebCraft UI: Cooking 工具页默认加载自动展示未筛选结果，移除探索提示文案。",
+    "[2026-01-20 02:03] WebCraft: Cooking 标签推断移除 ice 的 inedible 提示，匹配游戏 cooking.lua 标签。",
+    "[2026-01-20 02:08] WebCraft: Cooking 模拟仅在无官方 tags 时启用猜测标签，避免覆盖游戏食材数据。",
+    "[2026-01-20 02:24] WebCraft UI: Cooking 模拟条件 chip 增加半满足状态，优化结果卡条件展示节奏。",
+    "[2026-01-20 02:36] WebCraft UI: Cooking 条件 chip 统一未满足颜色并用槽位计数修正半满足判定。",
+    "[2026-01-20 02:49] WebCraft UI: Cooking 条件 chip 仅基于当前槽位估算 name/tag，增强半满足对比度。",
+    "[2026-01-20 03:02] WebCraft UI: Cooking 半满足视觉弱化并整理槽位条件计算链路。",
+    "[2026-01-20 03:18] WebCraft UI: Cooking 结果区增加检索栏并优化卡片层级顺序。",
+    "[2026-01-20 03:34] WebCraft UI: Cooking 食材卡展示 tag 数值并调整移动端信息层级。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

@@ -43,15 +43,6 @@ function formatSlots(inv) {
   return keys.map(k => `${k}=${inv[k]}`).join('\n');
 }
 
-function parseAvailable(text) {
-  const inv = parseSlots(text);
-  return Object.keys(inv || {}).filter(Boolean);
-}
-
-function formatAvailable(items) {
-  return (items || []).filter(Boolean).join('\n');
-}
-
 function setToolViewportVars() {
   if (PAGE_ROLE !== 'tool') return;
   const viewport = window.visualViewport;
@@ -122,37 +113,10 @@ function updateSlotUi() {
   const slots = el('slots');
   const ingredientHint = el('ingredientHint');
   const ingredientClear = el('ingredientClear');
-  const toolModeToggles = document.querySelectorAll('.tool-mode-toggle');
-  if (state.view === 'explore') {
-    if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_explore', 'Available ingredients (types only)');
-    if (slots) slots.placeholder = t('cooking.slots.placeholder.explore', 'berries\ncarrot\nmonstermeat');
-    if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint_explore', 'Click to toggle availability');
-    if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear_explore', 'Clear selection');
-  } else if (state.view === 'simulate') {
-    if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_simulate', 'Cookpot slots (=4 items)');
-    if (slots) slots.placeholder = t('cooking.slots.placeholder.simulate', 'carrot=2\nberries=1\nbutterflywings=1');
-    if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
-    if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
-  } else {
-    if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help', 'Cookpot slots (<=4 for explore, =4 for simulate)');
-    if (slots) slots.placeholder = t('cooking.slots.placeholder', slots.placeholder || '');
-    if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
-    if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
-  }
-  if (toolModeToggles.length) {
-    const isSim = state.view === 'simulate';
-    const exploreLabel = t('cooking.mode.explore', 'Explore');
-    const simulateLabel = t('cooking.mode.simulate', 'Simulate');
-    toolModeToggles.forEach((btn) => {
-      btn.innerHTML = `
-        <span class="tool-mode-option tool-mode-option--explore">${escHtml(exploreLabel)}</span>
-        <span class="tool-mode-option tool-mode-option--simulate">${escHtml(simulateLabel)}</span>
-      `;
-      btn.dataset.mode = isSim ? 'simulate' : 'explore';
-      btn.setAttribute('aria-pressed', isSim ? 'true' : 'false');
-      btn.setAttribute('aria-label', `${exploreLabel} / ${simulateLabel}`);
-    });
-  }
+  if (slotsHelp) slotsHelp.textContent = t('cooking.slots.help_simulate', 'Cookpot slots (=4 items)');
+  if (slots) slots.placeholder = t('cooking.slots.placeholder.simulate', 'carrot=2\nberries=1\nbutterflywings=1');
+  if (ingredientHint) ingredientHint.textContent = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+  if (ingredientClear) ingredientClear.textContent = t('cooking.ingredients.clear', 'Clear slots');
   updateIngredientSourceHint();
   renderSlotPreview();
   updateIngredientSelection();
@@ -161,9 +125,7 @@ function updateSlotUi() {
 function updateIngredientSourceHint() {
   const hint = el('ingredientHint');
   if (!hint || !state.ingredientSource) return;
-  const base = (state.view === 'explore')
-    ? t('cooking.ingredients.hint_explore', 'Click to toggle availability')
-    : t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
+  const base = t('cooking.ingredients.hint', 'Click to add, Shift/Alt to remove');
   const srcLabel = (state.ingredientSource === 'cooking_ingredients')
     ? t('cooking.ingredients.source.tags', 'ingredient tags')
     : (state.ingredientSource === 'items_fallback'
@@ -172,8 +134,30 @@ function updateIngredientSourceHint() {
   hint.textContent = `${base} · ${srcLabel}`;
 }
 
-function formatConditions(row) {
+function getSlotTotals() {
+  const slots = parseSlots(el('slots')?.value || '');
+  const names = {};
+  const tags = {};
+  for (const key in slots) {
+    const count = Number(slots[key] || 0);
+    if (!Number.isFinite(count) || count <= 0) continue;
+    names[key] = count;
+    const item = (state.ingredientIndex && state.ingredientIndex[key]) || null;
+    const tagValues = item && item.tagValues ? item.tagValues : null;
+    if (!tagValues) continue;
+    for (const tag in tagValues) {
+      const value = Number(tagValues[tag] || 0);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      tags[tag] = (tags[tag] || 0) + value * count;
+    }
+  }
+  return { names_total: names, tags_total: tags };
+}
+
+function formatConditions(row, context) {
   const rows = row && Array.isArray(row.conditions) ? row.conditions : [];
+  const namesTotal = context && context.names_total ? context.names_total : null;
+  const tagsTotal = context && context.tags_total ? context.tags_total : null;
   const fmtNum = (num) => {
     const v = Number(num);
     if (!Number.isFinite(v)) return '';
@@ -185,6 +169,32 @@ function formatConditions(row) {
     if (required === null || required === undefined || required === '') return String(op);
     return `${op} ${fmtNum(required)}`;
   };
+  const compareOp = (lhs, op, rhs) => {
+    if (op === '==') return Math.abs(lhs - rhs) <= 1e-9;
+    if (op === '~=') return Math.abs(lhs - rhs) > 1e-9;
+    if (op === '>') return lhs > rhs + 1e-9;
+    if (op === '>=') return lhs + 1e-9 >= rhs;
+    if (op === '<') return lhs + 1e-9 < rhs;
+    if (op === '<=') return lhs <= rhs + 1e-9;
+    return false;
+  };
+  const resolveStatus = (cond, allowPartial, actualOverride, okOverride) => {
+    if (!cond) return 'miss';
+    const actual = Number.isFinite(actualOverride) ? actualOverride : Number(cond.actual);
+    const required = Number(cond.required);
+    const op = String(cond.op || '').trim();
+    const ok = (typeof okOverride === 'boolean')
+      ? okOverride
+      : (Number.isFinite(actual) && Number.isFinite(required) ? compareOp(actual, op, required) : !!cond.ok);
+    if (ok) return 'ok';
+    if (!allowPartial) return 'miss';
+    if (!Number.isFinite(actual) || !Number.isFinite(required)) return 'miss';
+    if (required <= 0 || actual <= 0) return 'miss';
+    const under = (op === '>=' && actual + 1e-9 < required)
+      || (op === '>' && actual <= required + 1e-9)
+      || (op === '==' && actual + 1e-9 < required);
+    return under ? 'partial' : 'miss';
+  };
   const formatRow = (cond) => {
     const tpe = String(cond.type || '').trim();
     if (tpe === 'name_any') {
@@ -192,11 +202,14 @@ function formatConditions(row) {
       const label = opts.map((v) => itemLabel(v)).filter(Boolean).join(' / ');
       const fallback = opts.filter(Boolean).join(' / ');
       const text = label || fallback || '';
+      const hasAny = namesTotal
+        ? opts.some((key) => Number(namesTotal[key] || 0) > 0)
+        : !!cond.ok;
       return {
         type: 'item',
         text: text || t('cooking.conditions.empty', 'No conditions'),
         suffix: opLabel('>=', 1),
-        ok: !!cond.ok,
+        status: hasAny ? 'ok' : 'miss',
       };
     }
     if (tpe === 'name_sum') {
@@ -204,11 +217,18 @@ function formatConditions(row) {
       const label = opts.map((v) => itemLabel(v)).filter(Boolean).join(' + ');
       const fallback = opts.filter(Boolean).join(' + ');
       const text = label || fallback || '';
+      const actual = namesTotal
+        ? opts.reduce((acc, key) => acc + Number(namesTotal[key] || 0), 0)
+        : Number(cond.actual);
+      const required = Number(cond.required);
+      const ok = Number.isFinite(actual) && Number.isFinite(required)
+        ? compareOp(actual, '>=', required)
+        : !!cond.ok;
       return {
         type: 'item',
         text: text || t('cooking.conditions.empty', 'No conditions'),
         suffix: opLabel('>=', cond.required),
-        ok: !!cond.ok,
+        status: resolveStatus(cond, true, actual, ok),
       };
     }
     const key = String(cond.key || '').trim();
@@ -216,11 +236,19 @@ function formatConditions(row) {
     const isName = tpe === 'name';
     const label = isName ? itemLabel(key) : tagLabelPlain(key);
     const base = `${label || key}`;
+    const actual = isName && namesTotal
+      ? Number(namesTotal[key] || 0)
+      : (tagsTotal ? Number(tagsTotal[key] || 0) : Number(cond.actual));
+    const required = Number(cond.required);
+    const op = String(cond.op || '').trim();
+    const ok = Number.isFinite(actual) && Number.isFinite(required)
+      ? compareOp(actual, op, required)
+      : !!cond.ok;
     return {
       type: isName ? 'item' : 'tag',
       text: base,
-      suffix: opLabel(String(cond.op || '').trim(), cond.required),
-      ok: !!cond.ok,
+      suffix: opLabel(op, cond.required),
+      status: resolveStatus(cond, true, actual, ok),
     };
   };
 
@@ -235,7 +263,7 @@ function formatConditions(row) {
     const cls = [
       'condition-chip',
       part.type ? `condition-chip--${part.type}` : '',
-      part.ok ? 'is-ok' : 'is-miss',
+      part.status ? `is-${part.status}` : 'is-miss',
     ].filter(Boolean).join(' ');
     const text = escHtml(String(part.text || '').trim());
     const suffix = part.suffix ? `<span class="condition-op">${escHtml(part.suffix)}</span>` : '';
@@ -287,6 +315,16 @@ function renderAttrPills(row) {
   return pills.join('');
 }
 
+function matchResultQuery(name) {
+  const query = String(state.resultQuery || '').trim().toLowerCase();
+  if (!query) return true;
+  const id = String(name || '').trim().toLowerCase();
+  if (!id) return false;
+  if (id.includes(query)) return true;
+  const label = String(itemLabel(id) || '').toLowerCase();
+  return label.includes(query);
+}
+
 function renderResultList() {
   const box = el('results');
   if (!box) return;
@@ -301,22 +339,22 @@ function renderResultList() {
   if (formulaEl) {
     formulaEl.textContent = formula ? `${t('label.formula', 'Formula')}: ${formula}` : '';
   }
-  const mode = res && res._mode ? res._mode : state.view;
+  const mode = (res && res._mode === 'simulate') ? 'simulate' : '';
   const resultTitle = el('resultTitle');
   if (resultTitle) {
     const base = t('cooking.results.title', 'Results');
     if (mode === 'simulate') {
       resultTitle.textContent = `${base} - ${t('cooking.list.simulate', 'Simulate')}`;
-    } else if (mode === 'explore') {
-      resultTitle.textContent = `${base} - ${t('cooking.list.explore', 'Explore')}`;
     } else {
       resultTitle.textContent = base;
     }
   }
   if (!res) {
-    box.innerHTML = `<div class="muted">${escHtml(t('cooking.results.empty', 'Run explore or simulate to see results.'))}</div>`;
+    box.innerHTML = `<div class="muted">${escHtml(t('label.loading', 'Loading...'))}</div>`;
     return;
   }
+
+  const conditionContext = getSlotTotals();
 
   const selectedName = (mode === 'simulate' && res && res.selected && res.selected !== '(none)')
     ? String(res.selected)
@@ -325,11 +363,25 @@ function renderResultList() {
   const cookable = Array.isArray(res.cookable) ? res.cookable : [];
   const near = Array.isArray(res.near_miss) ? res.near_miss : [];
   const nearTiers = Array.isArray(res.near_miss_tiers) ? res.near_miss_tiers : [];
-  const cookableFiltered = selectedName
+  const hasQuery = Boolean(String(state.resultQuery || '').trim());
+  const cookableBase = selectedName
     ? cookable.filter((row) => String(row.name || '') !== selectedName)
     : cookable;
+  const cookableFiltered = hasQuery
+    ? cookableBase.filter((row) => matchResultQuery(row.name || ''))
+    : cookableBase;
+  const nearFiltered = hasQuery
+    ? near.filter((row) => matchResultQuery(row.name || ''))
+    : near;
+  const nearTiersFiltered = nearTiers.map((tier) => {
+    const items = Array.isArray(tier.items) ? tier.items : [];
+    const filtered = hasQuery
+      ? items.filter((row) => matchResultQuery(row.name || ''))
+      : items;
+    return Object.assign({}, tier, { items: filtered });
+  });
 
-  if (selectedName) {
+  if (selectedName && matchResultQuery(selectedName)) {
     const selectedWrap = document.createElement('div');
     selectedWrap.className = 'result-section result-section--selected';
     const selectedGrid = document.createElement('div');
@@ -346,7 +398,7 @@ function renderResultList() {
     const card = document.createElement('div');
     const note = selectedReason ? `<div class="small muted result-note">${escHtml(selectedReason)}</div>` : '';
     if (selectedRow) {
-      const conditions = formatConditions(selectedRow);
+      const conditions = formatConditions(selectedRow, conditionContext);
       const rule = selectedRow.rule_mode ? String(selectedRow.rule_mode).toUpperCase() : '';
       const weightVal = Number(selectedRow.weight);
       const showWeight = Number.isFinite(weightVal) && weightVal !== 1;
@@ -354,9 +406,9 @@ function renderResultList() {
       const isOk = isConditionsOk(selectedRow);
       card.className = `result-card ${isOk ? 'is-ok' : 'is-miss'} is-selected`;
       card.innerHTML = `
-        <div>${renderItem(selectedName)}</div>
-        <div class="result-conditions">${conditions}</div>
+        <div class="result-title">${renderItem(selectedName)}</div>
         ${attrs ? `<div class="result-attrs">${attrs}</div>` : ''}
+        <div class="result-conditions">${conditions}</div>
         ${note}
         <div class="result-meta">
           <span class="pill">p=${escHtml(Number(selectedRow.priority || 0))}</span>
@@ -367,7 +419,7 @@ function renderResultList() {
     } else {
       card.className = 'result-card is-selected';
       card.innerHTML = `
-        <div>${renderItem(selectedName)}</div>
+        <div class="result-title">${renderItem(selectedName)}</div>
         ${note}
       `;
     }
@@ -388,12 +440,12 @@ function renderResultList() {
       if (key === 'filler') return t('cooking.results.near_tier_filler', 'Near miss · filler-heavy');
       return t('cooking.results.near_tier_secondary', 'Near miss · needs extra');
     };
-    for (const tier of nearTiers) {
+    for (const tier of nearTiersFiltered) {
       const items = Array.isArray(tier.items) ? tier.items : [];
       sections.push({ title: label(String(tier.key || 'secondary')), items });
     }
   } else {
-    sections.push({ title: t('cooking.results.near', 'Near miss'), items: near });
+    sections.push({ title: t('cooking.results.near', 'Near miss'), items: nearFiltered });
   }
 
   let animIdx = 0;
@@ -419,7 +471,7 @@ function renderResultList() {
     for (const row of sec.items) {
       const name = String(row.name || '').trim();
       if (!name) continue;
-      const conditions = formatConditions(row);
+      const conditions = formatConditions(row, conditionContext);
       const rule = row.rule_mode ? String(row.rule_mode).toUpperCase() : '';
       const weightVal = Number(row.weight);
       const showWeight = Number.isFinite(weightVal) && weightVal !== 1;
@@ -430,9 +482,9 @@ function renderResultList() {
       card.style.animationDelay = `${Math.min(animIdx * 0.03, 0.4)}s`;
       animIdx += 1;
       card.innerHTML = `
-        <div>${renderItem(name)}</div>
-        <div class="result-conditions">${conditions}</div>
+        <div class="result-title">${renderItem(name)}</div>
         ${attrs ? `<div class="result-attrs">${attrs}</div>` : ''}
+        <div class="result-conditions">${conditions}</div>
         <div class="result-meta">
           <span class="pill">p=${escHtml(Number(row.priority || 0))}</span>
           ${showWeight ? `<span class="pill pill-weight">w=${escHtml(weightVal)}</span>` : ''}
@@ -496,20 +548,40 @@ function _normalizeIngredient(raw) {
   const id = String(raw.id || raw.item_id || raw.name || '').trim();
   if (!id) return null;
   const tags = new Set();
+  const tagValues = {};
   const rawTags = raw.tags;
   if (Array.isArray(rawTags)) {
-    for (const t of rawTags) tags.add(String(t).toLowerCase());
+    for (const t of rawTags) {
+      const key = String(t).toLowerCase();
+      if (!key) continue;
+      tags.add(key);
+      tagValues[key] = 1;
+    }
   } else if (rawTags && typeof rawTags === 'object') {
-    for (const t of Object.keys(rawTags)) tags.add(String(t).toLowerCase());
+    for (const entry of Object.entries(rawTags)) {
+      const key = String(entry[0]).toLowerCase();
+      if (!key) continue;
+      const num = Number(entry[1]);
+      tags.add(key);
+      if (Number.isFinite(num)) {
+        tagValues[key] = num;
+      } else if (entry[1] === true) {
+        tagValues[key] = 1;
+      }
+    }
+  }
+  if (!Object.keys(tagValues).length) {
+    for (const t of _guessTagsFromId(id)) {
+      tags.add(t);
+      tagValues[t] = 1;
+    }
   }
   const foodtype = raw.foodtype ? String(raw.foodtype).toLowerCase().replace('foodtype.', '') : '';
   if (foodtype) tags.add(foodtype);
-  if (!tags.size) {
-    for (const t of _guessTagsFromId(id)) tags.add(t);
-  }
   return {
     id: id,
     tags: Array.from(tags),
+    tagValues: tagValues,
     uses: Number(raw.uses || 0),
     virtual: Boolean(raw.virtual),
   };
@@ -567,34 +639,52 @@ function renderIngredientFilters() {
   updateFilterPager();
 }
 
+function formatTagValue(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '';
+  const out = num.toFixed(1);
+  return out.endsWith('.0') ? out.slice(0, -2) : out;
+}
+
+function resolveItemTagValue(item, tag) {
+  const values = item.tagValues || {};
+  if (Object.prototype.hasOwnProperty.call(values, tag)) {
+    const num = Number(values[tag]);
+    if (Number.isFinite(num)) return num;
+  }
+  return 1;
+}
+
 function renderIngredientGridItems(grid, items) {
   for (const item of items) {
     const btn = document.createElement('button');
     btn.className = 'ingredient-item';
     btn.setAttribute('data-id', item.id);
     const uses = item.uses ? `${item.uses} recipes` : '';
-    const tagLabels = item.tags.map(tagLabelPlain).filter(Boolean);
+    const tagLabels = item.tags.map((tag) => {
+      const label = tagLabelPlain(tag);
+      if (!label) return '';
+      const value = formatTagValue(resolveItemTagValue(item, tag));
+      return value ? `${label}=${value}` : label;
+    }).filter(Boolean);
     const tagsPlain = tagLabels.length ? tagLabels.join(', ') : '';
-    const tagsHtml = item.tags.map(tag => renderTagLabel(tag)).filter(Boolean).join(', ');
+    const tagsHtml = item.tags.map((tag) => {
+      const label = renderTagLabel(tag);
+      if (!label) return '';
+      const value = formatTagValue(resolveItemTagValue(item, tag));
+      return value ? `${label}=${escHtml(value)}` : label;
+    }).filter(Boolean).join(', ');
     btn.title = `${item.id}${tagsPlain ? ' | ' + tagsPlain : ''}`;
     btn.innerHTML = `
       <div>${renderItem(item.id)}</div>
       <div class="ingredient-meta"><span>${escHtml(uses)}</span><span>${tagsHtml || ''}</span></div>
     `;
     btn.onclick = (e) => {
-      if (state.view === 'explore') {
-        toggleAvailable(item.id);
-        return;
-      }
       const delta = (e.shiftKey || e.altKey) ? -1 : 1;
       updateSlots(item.id, delta);
     };
     btn.oncontextmenu = (e) => {
       e.preventDefault();
-      if (state.view === 'explore') {
-        toggleAvailable(item.id, true);
-        return;
-      }
       updateSlots(item.id, -1);
     };
     grid.appendChild(btn);
@@ -641,7 +731,8 @@ function updateFilterPager() {
 function updateIngredientSelection() {
   const grids = [el('ingredientGrid'), el('ingredientGridVirtual')].filter(Boolean);
   if (!grids.length) return;
-  const selected = new Set(parseAvailable(el('slots')?.value || ''));
+  const inv = parseSlots(el('slots')?.value || '');
+  const selected = new Set(Object.keys(inv || {}));
   for (const grid of grids) {
     for (const btn of grid.querySelectorAll('button.ingredient-item')) {
       const iid = btn.getAttribute('data-id') || '';
@@ -661,22 +752,16 @@ function renderSlotPreview() {
     return;
   }
   const list = [];
-  const isSim = state.view === 'simulate';
   ids.sort();
   for (const iid of ids) {
     const count = Math.max(1, Number(inv[iid] || 0));
-    const times = isSim ? count : 1;
-    for (let i = 0; i < times; i += 1) list.push(iid);
+    for (let i = 0; i < count; i += 1) list.push(iid);
   }
   for (const iid of list) {
     const chip = document.createElement('div');
     chip.className = 'slot-chip';
     chip.innerHTML = `${renderItem(iid)}`;
     chip.onclick = () => {
-      if (state.view === 'explore') {
-        toggleAvailable(iid, true);
-        return;
-      }
       updateSlots(iid, -1);
     };
     box.appendChild(chip);
@@ -695,20 +780,6 @@ function updateSlots(itemId, delta) {
   slots.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function toggleAvailable(itemId, forceRemove) {
-  const slots = el('slots');
-  if (!slots) return;
-  const items = parseAvailable(slots.value);
-  const set = new Set(items);
-  const iid = String(itemId || '').trim();
-  if (!iid) return;
-  if (forceRemove) set.delete(iid);
-  else if (set.has(iid)) set.delete(iid);
-  else set.add(iid);
-  slots.value = formatAvailable(Array.from(set).sort());
-  slots.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
 async function loadIngredients() {
   try {
     const res = await fetchJson(api('/api/v1/cooking/ingredients'));
@@ -716,11 +787,16 @@ async function loadIngredients() {
     const items = raw.map(_normalizeIngredient).filter(Boolean);
     state.ingredients = items;
     state.ingredientSource = String(res.source || '');
+    state.ingredientIndex = items.reduce((acc, item) => {
+      acc[item.id] = item;
+      return acc;
+    }, {});
     state.virtualIngredientIds = new Set(items.filter(it => it.virtual).map(it => it.id));
     if (!state.virtualIngredientIds.size) state.showVirtualIngredients = false;
   } catch (e) {
     state.ingredients = [];
     state.ingredientSource = '';
+    state.ingredientIndex = {};
     state.virtualIngredientIds = new Set();
     state.showVirtualIngredients = false;
   }
@@ -731,7 +807,8 @@ async function loadIngredients() {
 
 async function doExplore() {
   setError('');
-  const available = parseAvailable(el('slots').value);
+  const inv = parseSlots(el('slots').value);
+  const available = Object.keys(inv || {}).filter(Boolean).sort();
   const res = await fetchJson(api('/api/v1/cooking/explore'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -739,13 +816,13 @@ async function doExplore() {
   });
 
   if (!res.ok) {
-    el('out').innerHTML = `<div class="err">${res.error || 'explore_failed'} (total=${res.total ?? ''})</div>`;
+    el('out').innerHTML = `<div class="err">${res.error || 'simulation_failed'} (total=${res.total ?? ''})</div>`;
     return;
   }
 
   state.results = Object.assign({ _mode: 'explore' }, res);
   renderResultList();
-  el('out').innerHTML = `<div class="small muted">${escHtml(t('cooking.results.summary', 'Explore results updated.'))}</div>`;
+  el('out').innerHTML = `<div class="small muted">${escHtml(t('cooking.results.summary', 'Results updated.'))}</div>`;
 }
 
 async function doSimulate() {
@@ -789,28 +866,18 @@ async function doSimulate() {
 }
 
 if (PAGE_ROLE === 'tool') {
-  document.querySelectorAll('.tool-mode-toggle').forEach((btn) => {
-    btn.onclick = () => {
-      const next = (state.view === 'simulate') ? 'explore' : 'simulate';
-      setView(next);
-      const query = window.location.search || '';
-      const nextUrl = `${APP_ROOT}/cooking/${next}${query}`;
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState(null, document.title, nextUrl);
-      }
-      if (next === 'simulate') {
-        doSimulate().catch(e => setError(String(e)));
-      } else {
-        doExplore().catch(e => setError(String(e)));
-      }
-    };
-  });
-
   const ingSearch = el('ingredientSearch');
   if (ingSearch) {
     ingSearch.addEventListener('input', () => {
       state.ingredientQuery = ingSearch.value.trim();
       renderIngredientGrid();
+    });
+  }
+  const resultSearch = el('resultSearch');
+  if (resultSearch) {
+    resultSearch.addEventListener('input', () => {
+      state.resultQuery = resultSearch.value.trim();
+      renderResultList();
     });
   }
   const ingClear = el('ingredientClear');
@@ -845,19 +912,15 @@ if (PAGE_ROLE === 'tool') {
     filterRow.addEventListener('scroll', () => updateFilterPager());
   }
 
-  let exploreTimer = null;
+  let simulateTimer = null;
   const slotsInput = el('slots');
   if (slotsInput) {
     slotsInput.addEventListener('input', () => {
       renderSlotPreview();
       updateIngredientSelection();
-      if (state.view === 'encyclopedia') {
-        setView('explore');
-      }
-      if (exploreTimer) clearTimeout(exploreTimer);
-      exploreTimer = setTimeout(() => {
-        if (state.view === 'simulate') doSimulate().catch(e => setError(String(e)));
-        else doExplore().catch(e => setError(String(e)));
+      if (simulateTimer) clearTimeout(simulateTimer);
+      simulateTimer = setTimeout(() => {
+        doSimulate().catch(e => setError(String(e)));
       }, 400);
     });
   }
@@ -875,6 +938,6 @@ if (PAGE_ROLE === 'tool') {
       await loadIngredients();
     }
     setView(state.view);
-    renderResultList();
+    doSimulate().catch(e => setError(String(e)));
   }).catch(e => setError(String(e)));
 }

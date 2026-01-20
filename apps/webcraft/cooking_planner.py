@@ -289,10 +289,8 @@ def build_ingredient_index(
         if not iid:
             continue
         tags = normalize_cooking_tags(raw.get("tags"))
-        guess = guess_cooking_tags(iid)
-        if guess:
-            for k, v in guess.items():
-                tags.setdefault(k, v)
+        if not tags and not raw.get("tags_expr"):
+            tags = guess_cooking_tags(iid)
         _merge(iid, tags)
 
     for item_id in (extra_items or []):

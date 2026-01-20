@@ -372,16 +372,13 @@ select:focus-visible {
 .layout > .panel:nth-child(2) { grid-area: recipes; }
 .layout > .panel:nth-child(3) { grid-area: detail; }
 
-body[data-view="explore"] #filterPanel,
 body[data-view="simulate"] #filterPanel {
   display: none;
 }
-body[data-view="explore"] .layout,
 body[data-view="simulate"] .layout {
   grid-template-columns: minmax(320px, 440px) minmax(420px, 1fr);
   grid-template-areas: "recipes detail";
 }
-body[data-view="explore"] #searchBar,
 body[data-view="simulate"] #searchBar {
   display: none;
 }

@@ -35,7 +35,7 @@
     <div class="subbar">
       <div class="subbar-left">
         <div class="page-title" id="pageTitle">Cooking Tools</div>
-        <div class="page-sub" id="pageSub">Explore and simulate with focused inputs</div>
+        <div class="page-sub" id="pageSub">Simulate cookpot results with focused inputs</div>
       </div>
       <div class="subbar-right">
         <a id="btnAtlas" class="btn ghost atlas-link" href="#">Cooking Atlas</a>
@@ -79,11 +79,8 @@
           <div class="panel-body">
             <div class="slot-line">
               <div class="slot-preview" id="slotPreview"></div>
-              <div class="slot-meter">
-                <button class="tool-mode-toggle" type="button">Explore / Simulate</button>
-              </div>
             </div>
-            <div class="slot-hint small muted" id="slotsHelp">Cookpot slots (<=4 for explore, =4 for simulate)</div>
+            <div class="slot-hint small muted" id="slotsHelp">Cookpot slots (=4 items)</div>
             <details class="slot-input" id="slotInput">
               <summary><span id="slotInputLabel">Manual input</span></summary>
               <textarea id="slots" class="field mono" placeholder="carrot=2
@@ -96,7 +93,8 @@ butterflywings=1"></textarea>
         <section class="panel ledger-results" id="resultBox">
           <div class="panel-head">
             <div class="panel-title" id="resultTitle">Results</div>
-            <div class="panel-meta">
+            <div class="panel-meta result-meta-tools">
+              <input id="resultSearch" class="field result-search-field" type="text" placeholder="Filter results..." />
               <div id="out" class="result-summary small muted"></div>
             </div>
           </div>
