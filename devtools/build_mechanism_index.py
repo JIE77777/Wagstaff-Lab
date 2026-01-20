@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.engine import WagstaffEngine  # noqa: E402
-from core.indexers.mechanism_index import build_mechanism_index  # noqa: E402
+from core.indexers.mechanism_index import build_mechanism_index, render_mechanism_index_summary  # noqa: E402
 from devtools.build_cache import file_sig, files_sig, load_cache, save_cache  # noqa: E402
 
 try:
@@ -196,10 +196,73 @@ def _write_sqlite(doc: dict, path: Path) -> None:
         conn.close()
 
 
+def _validate_index(doc: dict) -> List[str]:
+    warnings: List[str] = []
+    components = (doc.get("components") or {}).get("items") or {}
+    prefabs = (doc.get("prefabs") or {}).get("items") or {}
+    links = (doc.get("links") or {}).get("prefab_component") or []
+    usage = doc.get("component_usage") or {}
+
+    if not isinstance(components, dict):
+        warnings.append("components.items is not a dict")
+        components = {}
+    if not isinstance(prefabs, dict):
+        warnings.append("prefabs.items is not a dict")
+        prefabs = {}
+    if not isinstance(links, list):
+        warnings.append("links.prefab_component is not a list")
+        links = []
+    if not isinstance(usage, dict):
+        warnings.append("component_usage is not a dict")
+        usage = {}
+
+    link_pairs = set()
+    for row in links:
+        if not isinstance(row, dict):
+            continue
+        src = row.get("source")
+        src_id = row.get("source_id")
+        tgt = row.get("target")
+        tgt_id = row.get("target_id")
+        if src != "prefab" or tgt != "component":
+            warnings.append(f"link kind mismatch: {src}->{tgt}")
+            continue
+        if src_id not in prefabs:
+            warnings.append(f"link missing prefab: {src_id}")
+        if tgt_id not in components:
+            warnings.append(f"link missing component: {tgt_id}")
+        link_pairs.add((str(src_id), str(tgt_id)))
+
+    for pid, row in prefabs.items():
+        comps = row.get("components") if isinstance(row, dict) else None
+        if not isinstance(comps, list):
+            continue
+        for cid in comps:
+            if cid not in components:
+                warnings.append(f"prefab references unknown component: {pid} -> {cid}")
+            if (str(pid), str(cid)) not in link_pairs:
+                warnings.append(f"missing link entry: {pid} -> {cid}")
+
+    for cid, pids in usage.items():
+        if not isinstance(pids, list):
+            continue
+        for pid in pids:
+            if (str(pid), str(cid)) not in link_pairs:
+                warnings.append(f"component_usage missing link: {cid} -> {pid}")
+
+    counts = doc.get("counts") or {}
+    if counts.get("prefab_component_edges") is not None:
+        if int(counts.get("prefab_component_edges") or 0) != len(link_pairs):
+            warnings.append("counts.prefab_component_edges does not match links size")
+
+    return warnings
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Build Wagstaff mechanism index (components + prefab links).")
     p.add_argument("--out", default="data/index/wagstaff_mechanism_index_v1.json", help="Output JSON path")
     p.add_argument("--sqlite", default="data/index/wagstaff_mechanism_index_v1.sqlite", help="Output SQLite path")
+    p.add_argument("--summary", default="data/reports/mechanism_index_summary.md", help="Output summary Markdown")
     p.add_argument("--resource-index", default="data/index/wagstaff_resource_index_v1.json", help="Input resource index")
     p.add_argument("--scripts-zip", default=None, help="Override scripts zip path")
     p.add_argument("--scripts-dir", default=None, help="Override scripts folder path")
@@ -224,6 +287,7 @@ def main() -> int:
 
     out_path = (PROJECT_ROOT / args.out).resolve()
     sqlite_path = (PROJECT_ROOT / args.sqlite).resolve()
+    summary_path = (PROJECT_ROOT / args.summary).resolve()
     resource_path = (PROJECT_ROOT / args.resource_index).resolve()
 
     scripts_sig = {}
@@ -243,6 +307,7 @@ def main() -> int:
     outputs_sig = {
         "out": file_sig(out_path),
         "sqlite": file_sig(sqlite_path) if not args.no_sqlite else {"path": str(sqlite_path), "exists": False},
+        "summary": file_sig(summary_path),
     }
 
     cache = load_cache()
@@ -268,9 +333,17 @@ def main() -> int:
     if not args.no_sqlite:
         _write_sqlite(index, sqlite_path)
 
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(render_mechanism_index_summary(index), encoding="utf-8")
+
+    warnings = _validate_index(index)
+    for msg in warnings:
+        print(f"⚠️  {msg}", file=sys.stderr)
+
     outputs_sig = {
         "out": file_sig(out_path),
         "sqlite": file_sig(sqlite_path) if not args.no_sqlite else {"path": str(sqlite_path), "exists": False},
+        "summary": file_sig(summary_path),
     }
     cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
     save_cache(cache)
@@ -278,6 +351,9 @@ def main() -> int:
     print(f"✅ Mechanism index written: {out_path}")
     if not args.no_sqlite:
         print(f"✅ Mechanism sqlite written: {sqlite_path}")
+    print(f"✅ Summary written: {summary_path}")
+    if warnings:
+        print(f"⚠️  Warnings: {len(warnings)}", file=sys.stderr)
     return 0
 
 

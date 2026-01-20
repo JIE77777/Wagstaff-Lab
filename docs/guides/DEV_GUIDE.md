@@ -63,6 +63,7 @@ dev_guide:
   - `data/index/wagstaff_farming_defs_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.sqlite`
+  - `data/reports/mechanism_index_summary.md`
 - 产物默认不入库：`data/index/` 与 `data/static/icons/` 由工具生成，需要时用 `make catalog` / `make icons` 重建。
 - 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。

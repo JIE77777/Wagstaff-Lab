@@ -80,6 +80,7 @@
 - **T-105**：Cooking 探索/模拟重做（可做/接近可做 + 解释卡片 + 高密度切换）
 - **T-106**：Mechanism index v1（组件解析 + prefab 链路）
 - **T-107**：Mechanism SQLite schema v1（links 表 + 统一映射策略）
+- **T-108**：Mechanism summary + consistency 校验（JSON/SQLite 对齐）
 
 ## 5. 最近完成（摘要）
 

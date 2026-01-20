@@ -75,6 +75,50 @@ def _build_component_usage(prefab_links: Dict[str, Any]) -> Dict[str, List[str]]
     return {k: sorted(v) for k, v in usage.items()}
 
 
+def render_mechanism_index_summary(index: Dict[str, Any]) -> str:
+    meta = index.get("meta") or {}
+    counts = index.get("counts") or {}
+    usage = index.get("component_usage") or {}
+
+    rows: List[Dict[str, Any]] = []
+    for cid, prefabs in (usage or {}).items():
+        if not cid:
+            continue
+        n = len(prefabs) if isinstance(prefabs, list) else 0
+        rows.append({"component": cid, "prefabs": n})
+
+    rows.sort(key=lambda x: (-int(x.get("prefabs") or 0), str(x.get("component") or "")))
+    top_rows = rows[:20]
+
+    lines: List[str] = []
+    lines.append("# Wagstaff Mechanism Index Summary")
+    lines.append("")
+    lines.append("## Meta")
+    lines.append("```yaml")
+    lines.append(f"schema_version: {index.get('schema_version')}")
+    lines.append(f"generated: {meta.get('generated')}")
+    lines.append(f"scripts_sha256_12: {meta.get('scripts_sha256_12')}")
+    if meta.get("scripts_zip"):
+        lines.append(f"scripts_zip: {meta.get('scripts_zip')}")
+    if meta.get("scripts_dir"):
+        lines.append(f"scripts_dir: {meta.get('scripts_dir')}")
+    lines.append("```")
+    lines.append("")
+    lines.append("## Counts")
+    lines.append("```yaml")
+    for k, v in counts.items():
+        lines.append(f"{k}: {v}")
+    lines.append("```")
+    lines.append("")
+    lines.append("## Top Components by Prefab Usage")
+    lines.append("")
+    lines.append("| Component | Prefabs |")
+    lines.append("| --- | --- |")
+    for row in top_rows:
+        lines.append(f"| {row.get('component')} | {row.get('prefabs')} |")
+    return "\n".join(lines) + "\n"
+
+
 def build_mechanism_index(
     *,
     engine: Any,

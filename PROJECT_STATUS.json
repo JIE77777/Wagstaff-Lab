@@ -170,7 +170,8 @@
     "[2026-01-20 14:52] Core: 拆分 analyzer 为 lua/parsers 模块并移除 legacy analyzer",
     "[2026-01-20 15:00] Core: 新增 component 解析与 mechanism index 构建入口",
     "[2026-01-20 15:08] Tooling: snapshot 预设移除 analyzer 路径并指向 parsers",
-    "[2026-01-20 15:10] Core: mechanism index 统一 links 映射并同步 SQLite schema"
+    "[2026-01-20 15:10] Core: mechanism index 统一 links 映射并同步 SQLite schema",
+    "[2026-01-20 15:14] Core: mechanism index summary + consistency 校验与 spec 草案"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",
