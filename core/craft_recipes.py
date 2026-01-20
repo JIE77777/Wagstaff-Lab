@@ -8,7 +8,7 @@ Why this module exists
 - UI layers (wiki/GUI/web) need a stable, query-friendly Python representation.
 
 Design goals (M0)
-- Reuse `core/analyzer.py` Lua parsing primitives (single source of truth).
+- Reuse `core/lua` parsing primitives (single source of truth).
 - Keep outputs JSON-serializable for catalog/index (M2).
 
 Public API (expected by existing CLI)
