@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 import re
 
-from core.analyzer import LuaCallExtractor, LootParser, PrefabParser, _split_top_level, strip_lua_comments, _skip_string_or_long_string
+from core.lua import LuaCallExtractor, strip_lua_comments, _skip_string_or_long_string
+from core.parsers import LootParser, PrefabParser
 from core.indexers.shared import _sha256_12_file
 from core.craft_recipes import CraftRecipeDB
 from core.tagging import TagProfile, apply_overrides, infer_tags, load_tag_overrides

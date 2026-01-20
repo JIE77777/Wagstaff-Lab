@@ -127,6 +127,8 @@ data/reports/catalog_quality_report.md
 
 ```
 core/            解析 + 索引 + schemas
+core/lua/        Lua 解析基元
+core/parsers/    Prefab/Loot/Cooking 等解析器
 core/indexers/   索引构建逻辑
 core/schemas/    数据契约 + meta 辅助
 apps/cli/        CLI dispatcher + commands

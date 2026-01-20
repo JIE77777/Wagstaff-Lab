@@ -67,7 +67,7 @@ class DSTExplorer:
 
     def analyze_content(self, filename, content):
         """核心分析逻辑：根据 analyzer 返回的类型进行多态渲染"""
-        from core.analyzer import LuaAnalyzer
+        from core.parsers import LuaAnalyzer
         
         try:
             # 1. 统一入口解析 (Facade)

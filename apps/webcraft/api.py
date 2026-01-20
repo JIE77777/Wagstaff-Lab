@@ -113,7 +113,7 @@ def _ensure_tuning(engine, store_meta: Optional[Dict[str, Any]] = None) -> Any:
         return tuning
 
     try:
-        from core.analyzer import TuningResolver  # type: ignore
+        from core.parsers import TuningResolver  # type: ignore
         content = ""
         if engine is not None:
             content = engine.read_file("scripts/tuning.lua") or engine.read_file("tuning.lua") or ""
@@ -780,6 +780,6 @@ def analyze_prefab(name: str, request: Request):
     if content is None:
         raise HTTPException(status_code=404, detail=f"cannot read: {path}")
 
-    from core.analyzer import LuaAnalyzer
+    from core.parsers import LuaAnalyzer
     rep = LuaAnalyzer(content, path=path).get_report()
     return {"query": q, "path": path, "report": rep}

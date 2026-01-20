@@ -29,6 +29,8 @@ dev_guide:
 ## 1. 分层职责
 
 - `core/`：解析、索引、算法与数据模型。不得依赖 `apps/` 或 `devtools/`。
+- `core/lua/`：Lua 解析基元（scan/split/match/expr/call）。
+- `core/parsers/`：Prefab/Loot/Cooking/String 等领域解析器。
 - `core/schemas/`：核心数据结构与元信息规范（仅类型/结构，不含流程）。
 - `core/indexers/`：索引构建逻辑（依赖 `core/` 但不触碰上层）。
 - `apps/cli/`：CLI 交互层。调用 `core/`，仅做输入/输出组织。

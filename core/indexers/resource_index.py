@@ -15,7 +15,7 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
-from core.analyzer import LuaCallExtractor, parse_lua_string, strip_lua_comments
+from core.lua import LuaCallExtractor, parse_lua_string, strip_lua_comments
 from core.schemas.meta import build_meta
 
 

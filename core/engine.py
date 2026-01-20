@@ -33,7 +33,7 @@ try:
 except Exception:  # pragma: no cover
     wagstaff_config = None  # type: ignore
 
-from core.analyzer import (
+from core.parsers import (
     CookingIngredientAnalyzer,
     CookingRecipeAnalyzer,
     LuaAnalyzer,

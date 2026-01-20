@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from core.analyzer import find_matching, parse_lua_table
+from core.lua import find_matching, parse_lua_table
 
 
 _ID_RE = re.compile(r"^[a-z0-9_]+$")

@@ -24,7 +24,7 @@ from rich.tree import Tree
 
 from apps.cli.cli_common import PROJECT_ROOT
 from core.engine import WagstaffEngine  # noqa: E402
-from core.analyzer import LuaAnalyzer, LootParser  # noqa: E402
+from core.parsers import LuaAnalyzer, LootParser  # noqa: E402
 
 console = Console()
 

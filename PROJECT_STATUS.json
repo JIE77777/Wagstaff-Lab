@@ -166,7 +166,8 @@
     "[2026-01-20 03:34] WebCraft UI: Cooking 食材卡展示 tag 数值并调整移动端信息层级。",
     "[2026-01-20 11:09] 新增耕种机制索引产物与机制报告 (farming defs)",
     "[2026-01-20 13:54] make all 加入 farming-defs",
-    "[2026-01-20 14:21] Docs: 归档完成规划文档并新增 vNext 重构规划"
+    "[2026-01-20 14:21] Docs: 归档完成规划文档并新增 vNext 重构规划",
+    "[2026-01-20 14:52] Core: 拆分 analyzer 为 lua/parsers 模块并移除 legacy analyzer"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

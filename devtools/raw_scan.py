@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.analyzer import LuaCallExtractor, parse_lua_string, strip_lua_comments  # type: ignore
+from core.lua import LuaCallExtractor, parse_lua_string, strip_lua_comments  # type: ignore
 from core.indexers.shared import _extract_strings_names  # type: ignore
 from core.engine import WagstaffEngine  # type: ignore
 

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from core.analyzer import (
+from core.lua import (
     LuaRaw,
     LuaTableValue,
     find_matching,
@@ -16,7 +16,7 @@ from core.analyzer import (
     split_top_level,
     strip_lua_comments,
 )
-from core.analyzer import TuningResolver
+from core.parsers import TuningResolver
 from core.indexers.shared import _sha256_12_file
 from core.schemas.meta import build_meta
 
