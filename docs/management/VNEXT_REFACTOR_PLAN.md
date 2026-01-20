@@ -12,7 +12,8 @@
 
 - **机制解析优先级**：组件解析优先（Components > StateGraph > Brain）。
 - **产物形态**：JSON 与 SQLite 同步落盘。
-- **旧 analyzer.py**：仅保留最小适配或直接移除，以最小历史包袱为原则。
+- **版本策略**：v4 破兼容重构。
+- **旧 analyzer.py**：彻底移除，不保留兼容层。
 - **应用层节奏**：应用层慢慢做，core 重构优先。
 
 ## 1. 重构原则（抛弃历史包袱）
@@ -82,12 +83,12 @@ core/
 ### 4.5 存储与查询（SQLite vNext）
 
 - JSON 与 SQLite 同步落盘，保证产物一致性。
-- SQLite 结构向“机制查询”优化：
-  - `components` / `component_fields` / `component_methods`
-  - `stategraphs` / `stategraph_states` / `stategraph_events` / `stategraph_edges`
-  - `brains` / `brain_nodes` / `brain_edges`
-  - `prefab_components` / `prefab_links`
-- 以 `id` 与 `kind` 为主索引，提供可 join 的关系表，避免单表巨型 JSON。
+- SQLite 结构向“机制查询”优化，采用**中等粒度**拆表：
+  - 关系表：`components` / `component_fields` / `component_methods`
+  - 状态机：`stategraphs` / `stategraph_states` / `stategraph_events` / `stategraph_edges`
+  - AI：`brains` / `brain_nodes` / `brain_edges`
+  - 映射：`prefab_components` / `prefab_links`
+- 同时保留 `raw_json` 字段或附表，保证解析原貌可追溯。
 
 ## 5. 分阶段里程碑（建议）
 
@@ -95,7 +96,7 @@ core/
 - 拆分 `core/analyzer.py` 为 `core/lua` + `core/parsers/*`。
 - `core/engine` 专注挂载/IO/缓存，不承担解析与索引。
 - 引入 `schemas/validators`，建立最小校验链路。
-- 旧 `core/analyzer.py` 仅保留最小适配层（必要时迁移到 `core/legacy/`），不再扩展。
+- 旧 `core/analyzer.py` 彻底移除，不保留兼容层。
 
 交付标准：
 - 旧模块依赖清除 80%+。
@@ -135,7 +136,7 @@ core/
 
 ## 6. 迁移与清理策略
 
-- 移除旧 `core/analyzer.py` 巨型模块，拆分为独立目录；仅保留最小适配层（或直接移除）。
+- 移除旧 `core/analyzer.py` 巨型模块，拆分为独立目录；不保留兼容层。
 - `core/indexers` 内部依赖改为 `parsers` 输出结构，不直接解析 Lua。
 - 将 `klei_atlas_tex.py` 迁移到 `core/assets/`，统一图像处理入口。
 - 旧 CLI/Devtools 入口保留最小桥接，逐步迁移到新 pipeline。
@@ -159,7 +160,5 @@ core/
 
 ## 10. 讨论点（请确认）
 
-- vNext 版本号策略（v4 或 v3.x 破兼容）。
 - 旧 WebCraft UI 保留/重建的范围与节奏。
-- SQLite 机制索引表的粒度与主键策略（component/stategraph/brain 细节拆表程度）。
 - 机制索引与 catalog 索引之间的引用方式（id 统一还是多源映射）。
