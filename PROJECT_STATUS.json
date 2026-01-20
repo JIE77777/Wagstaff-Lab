@@ -38,7 +38,17 @@
     "Tooling: 修复 build_icons 导入异常导致的 CLI 启动失败。",
     "CatalogV2: 新增 cooking_ingredients 解析与落盘（ingredients.lua/cooking.lua）。",
     "WebCraft: Cooking 探索/模拟重做，支持接近可做与排序公式说明。",
-    "Farming: 新增耕种机制索引与报告（farming defs）"
+    "Farming: 新增耕种机制索引与报告（farming defs）",
+    "新增 index manifest 生成器与 Makefile 入口（统一索引版本清单）",
+    "SQLite 产物新增 db_schema_version 标记（catalog/mechanism）",
+    "core 收口：klei_atlas_tex 迁移至 core/assets，配置加载迁移至 core/config",
+    "全量重建索引并生成 wagstaff_index_manifest.json",
+    "SQLite v4 schema 规范草案（docs/specs/SQLITE_V4_SPEC.md）",
+    "SQLite v4 架构规范完成（SQLITE_V4_SPEC）",
+    "SQLite v4 构建器：catalog/mechanism 输出 + WebCraft 优先加载 v4 表",
+    "SQLite v4: 新增 SQLite 校验工具并接入 quality_gate",
+    "Mechanism: prefab 解析扩张（events/assets/component_calls）并同步 SQLite/schema",
+    "Portal: 新增聚合视图 (管理 + 报告 + 质量) 并提供 portal_hub"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
@@ -174,7 +184,19 @@
     "[2026-01-20 15:14] Core: mechanism index summary + consistency 校验与 spec 草案",
     "[2026-01-20 15:32] Core: mechanism crosscheck 报告与 JSON 校验工具补齐",
     "[2026-01-20 15:36] Tooling: mechanism diff 工具补齐",
-    "[2026-01-20 15:37] Core: mechanism schema 文件与 strict 校验补齐"
+    "[2026-01-20 15:37] Core: mechanism schema 文件与 strict 校验补齐",
+    "[2026-01-20 16:10] Tooling: 新增 index manifest 生成器与 Makefile 入口。",
+    "[2026-01-20 16:25] Storage: catalog/mechanism SQLite meta 增加 db_schema_version=4。",
+    "[2026-01-20 16:40] Core: 资产与配置模块收口，索引重建并生成 manifest。",
+    "[2026-01-20 17:05] Spec: 新增 SQLite v4 结构设计文档（SQLITE_V4_SPEC）。",
+    "[2026-01-20 17:15] Plan: 启动 SQLite v4 构建器与 WebCraft v4 表优先加载改造。",
+    "[2026-01-20 18:05] SQLite v4: catalog/mechanism 构建器升级并更新 WebCraft v4 表优先加载。",
+    "[2026-01-20 19:10] SQLite v4: catalog_index_fts 与 tuning_trace 表落地，WebCraft 优先从 sqlite 读取 trace。",
+    "[2026-01-20 19:15] SQLite v4: 新增 validate_sqlite_v4 校验工具并接入 quality_gate。",
+    "[2026-01-20 19:15] Mechanism: prefab 解析扩张（events/assets/component_calls），同步 SQLite/规范/Schema。",
+    "[2026-01-20 19:45] Portal: 新增 portal_hub 聚合管理/报告/质量视图。",
+    "[2026-01-20 23:00] Tooling: 收口质量/机制索引工具链，校验逻辑内退并统一入口。",
+    "[2026-01-21 10:15] CLI: Dashboard 展示与命令分组更新，强化报告/产物可视化。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

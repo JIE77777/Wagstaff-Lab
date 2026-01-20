@@ -347,7 +347,7 @@
           "mode": "full"
         },
         {
-          "match": "core/utils.py",
+          "match": "core/config/loader.py",
           "mode": "full"
         },
         {
@@ -363,15 +363,11 @@
           "mode": "full"
         },
         {
-          "match": "devtools/codemap.py",
-          "mode": "full"
-        },
-        {
-          "match": "devtools/reporter.py",
+          "match": "devtools/snapshot.py",
           "mode": "interface"
         },
         {
-          "match": "devtools/snapshot.py",
+          "match": "devtools/snapshot_gui.py",
           "mode": "interface"
         },
         {
@@ -492,7 +488,7 @@
           "mode": "interface"
         },
         {
-          "match": "core/klei_atlas_tex.py",
+          "match": "core/assets/klei_atlas_tex.py",
           "mode": "interface"
         },
         {

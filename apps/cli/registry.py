@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Wagstaff-Lab 工具注册中心 (v2.3)
-"""
+"""Wagstaff-Lab 工具注册中心."""
 
 TOOLS = [
     # --- CLI 工具 (apps/cli) ---
@@ -56,10 +54,18 @@ TOOLS = [
 
     # --- 开发工具 (devtools/) ---
     {
-        "file": "reporter.py",
+        "file": "report_hub.py",
         "alias": "report",
-        "desc": "生成全服资产/配方分布报告",
-        "usage": "wagstaff report [assets|recipes|all]",
+        "desc": "报告中心：build/list/open",
+        "usage": "wagstaff report [build|list|open] [--all] [--stats-gap]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "portal_hub.py",
+        "alias": "portal",
+        "desc": "聚合视图：管理 + 报告 + 质量",
+        "usage": "wagstaff portal [build|list|open]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -67,7 +73,15 @@ TOOLS = [
         "file": "build_catalog_v2.py",
         "alias": "catalog2",
         "desc": "生成 Catalog v2 (item-centric)",
-        "usage": "wagstaff catalog2 [--tuning-mode value_only|full] [--tuning-trace-out PATH]",
+        "usage": "wagstaff catalog2 [--dst-root PATH] [--tuning-mode value_only|full] [--tuning-trace-out PATH]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_catalog_sqlite.py",
+        "alias": "catalog-sqlite",
+        "desc": "生成 Catalog SQLite v4",
+        "usage": "wagstaff catalog-sqlite [--catalog PATH] [--out PATH] [--tuning-trace PATH]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -76,6 +90,14 @@ TOOLS = [
         "alias": "i18n",
         "desc": "生成 i18n 索引 (names + UI strings)",
         "usage": "wagstaff i18n [--lang zh] [--dst-root PATH]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_farming_defs.py",
+        "alias": "farming-defs",
+        "desc": "生成耕种机制索引 (farming defs)",
+        "usage": "wagstaff farming-defs [--dst-root PATH]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -96,10 +118,18 @@ TOOLS = [
         "folder": "devtools"
     },
     {
-        "file": "catalog_quality.py",
-        "alias": "catqa",
-        "desc": "生成 Catalog 覆盖率/质量报告",
-        "usage": "wagstaff catqa [--catalog PATH] [--i18n PATH] [--trace PATH]",
+        "file": "build_mechanism_index.py",
+        "alias": "mechanism-index",
+        "desc": "生成机制索引（组件 + prefab 关系）",
+        "usage": "wagstaff mechanism-index [build|validate|diff] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_index_manifest.py",
+        "alias": "index-manifest",
+        "desc": "生成索引版本清单 (manifest)",
+        "usage": "wagstaff index-manifest [--out PATH]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -115,7 +145,7 @@ TOOLS = [
         "file": "snapshot.py",
         "alias": "snap",
         "desc": "生成 LLM 友好代码快照",
-        "usage":  "wagstaff snapshot [-h] [--mode {llm,core,archive,custom}] [--template TEMPLATE] [--config CONFIG] [--output OUTPUT] [--focus PATH|GLOB ...] [--list-templates] [--no-redact] [--zip] [--no-tree] [--no-inventory] [--no-contents] [--no-stats] [--verbose] [--plan]",
+        "usage": "wagstaff snap [-h] [--mode {llm,core,archive,custom}] [--template TEMPLATE] [--config CONFIG] [--output OUTPUT] [--focus PATH|GLOB ...] [--list-templates] [--no-redact] [--zip] [--no-tree] [--no-inventory] [--no-contents] [--no-stats] [--verbose] [--plan]",
         "type": "Dev",
         "folder": "devtools"
     },
@@ -132,14 +162,6 @@ TOOLS = [
         "alias": "resindex",
         "desc": "生成 DST 资源索引（scripts + data）",
         "usage": "wagstaff resindex [--data-full] [--bundle-full] [--dst-root PATH]",
-        "type": "Dev",
-        "folder": "devtools"
-    },
-    {
-        "file": "codemap.py",
-        "alias": "map",
-        "desc": "生成 DST scripts 宏观结构地图报告",
-        "usage": "wagstaff map",
         "type": "Dev",
         "folder": "devtools"
     },

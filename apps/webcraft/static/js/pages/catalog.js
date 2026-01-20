@@ -634,8 +634,8 @@ async function openItem(id) {
     </div>
   `;
 
-  const analyzerEnabled = Boolean(meta.analyzer_enabled);
-  const analyzerBox = analyzerEnabled ? `
+  const analysisEnabled = Boolean(meta && (meta.analysis_enabled !== undefined ? meta.analysis_enabled : meta.analyzer_enabled));
+  const analyzerBox = analysisEnabled ? `
     <div class="section">
       <div class="row" style="justify-content:space-between;">
         <div class="section-title">${escHtml(t('catalog.section.prefab_analysis', 'Prefab analysis'))}</div>
@@ -739,7 +739,7 @@ async function openItem(id) {
     ${analyzerBox}
   `;
 
-  if (analyzerEnabled) {
+  if (analysisEnabled) {
     el('btnAnalyze').onclick = async () => {
       try {
         setError('');
@@ -794,7 +794,8 @@ async function loadMeta() {
   applyUiStrings();
   const sha = meta.scripts_sha256_12 ? `sha:${meta.scripts_sha256_12}` : '';
   const ver = meta.schema_version ? `v${meta.schema_version}` : '';
-  const ae = meta.analyzer_enabled ? 'analyzer:on' : 'analyzer:off';
+  const analysisMode = meta.analysis_mode || (meta.analyzer_enabled ? 'runtime' : (meta.mechanism_enabled ? 'mechanism' : 'off'));
+  const ae = (analysisMode && analysisMode !== 'none' && analysisMode !== 'off') ? `analysis:${analysisMode}` : 'analysis:off';
   const te = meta.tuning_enabled ? 'tuning:on' : 'tuning:off';
   el('meta').textContent = [ver, sha, ae, te].filter(Boolean).join(' · ');
 

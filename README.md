@@ -1,4 +1,4 @@
-# Wagstaff-Lab (v3)
+# Wagstaff-Lab (v4.0.0-dev)
 
 Wagstaff-Lab 是 DST（Don't Starve Together）数据实验室：负责索引、分析与 WebCraft UI，所有上层展示都基于稳定的索引产物。当前架构为 `core/` 解析与索引、`apps/` 应用层、`devtools/` 构建与报告工具。
 
@@ -13,6 +13,9 @@ Wagstaff-Lab 是 DST（Don't Starve Together）数据实验室：负责索引、
 - **Tuning trace**：可选输出 TUNING 解析链路
 - **i18n index**：名称 + UI 词条（数据层与语言解耦）
 - **Icon pipeline**：静态图标 + 动态回退
+- **Mechanism index**：组件解析 + prefab 链路 + SQLite 输出
+- **Quality gate + Report hub**：质量门禁 + 报告汇总入口
+- **Index manifest**：索引清单与版本汇总
 - **WebCraft**：FastAPI UI，严格使用索引产物
 
 ## 安装（pyproject 入口）
@@ -49,33 +52,14 @@ DST_ROOT=/path/to/dontstarvetogether_dedicated_server
 ```bash
 make all
 ```
-包含 farming-defs（耕种机制索引）。
+包含 farming-defs（耕种机制索引）与质量门禁。
 
-或分步构建：
+报告构建：
 ```bash
-wagstaff resindex   # resource index
-wagstaff catalog2   # catalog v2 (+ tuning trace)
-wagstaff catindex   # compact catalog index
-wagstaff i18n       # i18n index
-wagstaff icons      # icon export + icon index
-wagstaff catqa      # coverage/quality report
-wagstaff quality    # info-only quality gate
+wagstaff report build --all
 ```
 
-可选：耕种机制索引：
-```bash
-make farming-defs
-```
-
-可选：机制索引（组件/Prefab 链路）：
-```bash
-make mechanism-index
-```
-
-可选：生成 SQLite 版本 catalog：
-```bash
-make catalog-sqlite
-```
+更多构建子命令见 `docs/guides/CLI_GUIDE.md`。
 
 ## 启动 WebCraft
 
@@ -91,15 +75,22 @@ i18n 仅使用 `data/index/wagstaff_i18n_v1.json`（运行时不解析 PO）。
 wagstaff web
 ```
 
-## CLI 总览
+## CLI 核心命令
 
 - `wagstaff` / `wagstaff dash`：项目概览面板
 - `wagstaff doctor`：环境与产物检查（信息提示）
-- `wagstaff wiki`：配方/烹饪/Prefab 查询
-- `wagstaff exp`：源码与 Lua 解析探索
-- `wagstaff mgmt`：管理状态展示与同步
+- `wagstaff resindex`：资源索引构建
+- `wagstaff catalog2`：Catalog v2 构建
+- `wagstaff catalog-sqlite`：Catalog SQLite v4 构建
+- `wagstaff catindex`：Catalog 紧凑索引构建
+- `wagstaff mechanism-index`：机制索引（build/validate/diff）
+- `wagstaff quality`：质量/校验总入口
+- `wagstaff report`：报告中心（build/list/open）
+- `wagstaff portal`：管理+报告+质量聚合视图
+- `wagstaff web`：启动 WebCraft
 - `wagstaff server`：DST 服务器管理（screen 会话）
-- `wagstaff snap`：LLM 快照导出
+
+完整命令清单见 `docs/guides/CLI_GUIDE.md`。
 
 ## 服务器管理示例
 
@@ -116,6 +107,7 @@ wagstaff server cmd "c_announce(\"hello\")"
 
 ## 关键产物
 
+索引产物（data/index）：
 ```
 data/index/wagstaff_resource_index_v1.json
 data/index/wagstaff_catalog_v2.json
@@ -127,9 +119,18 @@ data/index/wagstaff_mechanism_index_v1.sqlite
 data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json
+data/index/wagstaff_index_manifest.json
+```
+
+报告产物（data/reports，report hub 生成）：
+```
+data/reports/quality_gate_report.md
 data/reports/mechanism_index_summary.md
 data/reports/mechanism_crosscheck_report.md
 data/reports/catalog_quality_report.md
+data/reports/wagstaff_report_manifest.json
+data/reports/index.html
+data/reports/portal_index.html
 ```
 
 ## 项目结构

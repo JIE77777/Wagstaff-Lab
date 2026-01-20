@@ -9,6 +9,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -20,10 +21,12 @@ from core.indexers.mechanism_index import (
     render_mechanism_index_summary,
 )  # noqa: E402
 from devtools.build_cache import file_sig, files_sig, load_cache, save_cache  # noqa: E402
-from devtools.validate_mechanism_index import validate as validate_schema  # noqa: E402
+from devtools.validators import validate_mechanism_index as validate_schema  # noqa: E402
+
+DB_SCHEMA_VERSION = 4
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 
@@ -88,6 +91,9 @@ def _write_sqlite(doc: dict, path: Path) -> None:
                 stategraphs_json TEXT,
                 helpers_json TEXT,
                 files_json TEXT,
+                events_json TEXT,
+                assets_json TEXT,
+                component_calls_json TEXT,
                 raw_json TEXT
             );
             CREATE TABLE prefab_components (
@@ -100,7 +106,8 @@ def _write_sqlite(doc: dict, path: Path) -> None:
                 source TEXT,
                 source_id TEXT,
                 target TEXT,
-                target_id TEXT
+                target_id TEXT,
+                relation TEXT
             );
 
             CREATE TABLE stategraphs (id TEXT PRIMARY KEY, raw_json TEXT);
@@ -111,12 +118,28 @@ def _write_sqlite(doc: dict, path: Path) -> None:
             CREATE TABLE brains (id TEXT PRIMARY KEY, raw_json TEXT);
             CREATE TABLE brain_nodes (brain_id TEXT, node_id TEXT, raw_json TEXT);
             CREATE TABLE brain_edges (brain_id TEXT, src TEXT, dst TEXT, raw_json TEXT);
+
+            CREATE INDEX idx_comp_method ON component_methods(method);
+            CREATE INDEX idx_comp_field ON component_fields(field);
+            CREATE INDEX idx_prefab_comp ON prefab_components(component_id);
+            CREATE INDEX idx_links_source ON links(source, source_id);
+            CREATE INDEX idx_links_target ON links(target, target_id);
             """
         )
 
         meta = doc.get("meta") or {}
-        cur.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", ("schema_version", str(doc.get("schema_version") or "")))
-        cur.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", ("meta", json.dumps(meta, ensure_ascii=False)))
+        cur.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+            ("schema_version", str(doc.get("schema_version") or "")),
+        )
+        cur.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+            ("db_schema_version", str(DB_SCHEMA_VERSION)),
+        )
+        cur.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+            ("meta", json.dumps(meta, ensure_ascii=False)),
+        )
 
         components = (doc.get("components") or {}).get("items") or {}
         for cid, row in components.items():
@@ -163,8 +186,8 @@ def _write_sqlite(doc: dict, path: Path) -> None:
             cur.execute(
                 """
                 INSERT OR REPLACE INTO prefabs
-                (id, components_json, tags_json, brains_json, stategraphs_json, helpers_json, files_json, raw_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (id, components_json, tags_json, brains_json, stategraphs_json, helpers_json, files_json, events_json, assets_json, component_calls_json, raw_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     pid,
@@ -174,6 +197,9 @@ def _write_sqlite(doc: dict, path: Path) -> None:
                     json.dumps(row.get("stategraphs") or [], ensure_ascii=False),
                     json.dumps(row.get("helpers") or [], ensure_ascii=False),
                     json.dumps(row.get("files") or [], ensure_ascii=False),
+                    json.dumps(row.get("events") or [], ensure_ascii=False),
+                    json.dumps(row.get("assets") or [], ensure_ascii=False),
+                    json.dumps(row.get("component_calls") or [], ensure_ascii=False),
                     json.dumps(row, ensure_ascii=False),
                 ),
             )
@@ -186,13 +212,15 @@ def _write_sqlite(doc: dict, path: Path) -> None:
         for link in (doc.get("links") or {}).get("prefab_component") or []:
             if not isinstance(link, dict):
                 continue
+            relation = link.get("relation") or "prefab_component"
             cur.execute(
-                "INSERT INTO links (source, source_id, target, target_id) VALUES (?, ?, ?, ?)",
+                "INSERT INTO links (source, source_id, target, target_id, relation) VALUES (?, ?, ?, ?, ?)",
                 (
                     link.get("source"),
                     link.get("source_id"),
                     link.get("target"),
                     link.get("target_id"),
+                    relation,
                 ),
             )
 
@@ -263,27 +291,73 @@ def _validate_index(doc: dict) -> List[str]:
     return warnings
 
 
-def main() -> int:
-    p = argparse.ArgumentParser(description="Build Wagstaff mechanism index (components + prefab links).")
-    p.add_argument("--out", default="data/index/wagstaff_mechanism_index_v1.json", help="Output JSON path")
-    p.add_argument("--sqlite", default="data/index/wagstaff_mechanism_index_v1.sqlite", help="Output SQLite path")
-    p.add_argument("--summary", default="data/reports/mechanism_index_summary.md", help="Output summary Markdown")
-    p.add_argument(
-        "--crosscheck",
-        default="data/reports/mechanism_crosscheck_report.md",
-        help="Output crosscheck Markdown",
-    )
-    p.add_argument("--resource-index", default="data/index/wagstaff_resource_index_v1.json", help="Input resource index")
-    p.add_argument("--scripts-zip", default=None, help="Override scripts zip path")
-    p.add_argument("--scripts-dir", default=None, help="Override scripts folder path")
-    p.add_argument("--dst-root", default=None, help="Override DST root (default from config)")
-    p.add_argument("--no-sqlite", action="store_true", help="Skip SQLite output")
-    p.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
-    p.add_argument("--silent", action="store_true", help="Suppress engine logs")
-    p.add_argument("--strict", action="store_true", help="Fail build on any validation warning")
+def _load_json_file(path: Path) -> Dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read {path}: {exc}") from exc
 
-    args = p.parse_args()
 
+def _component_ids(doc: Dict[str, Any]) -> Set[str]:
+    items = (doc.get("components") or {}).get("items") or {}
+    if not isinstance(items, dict):
+        return set()
+    return {str(k) for k in items.keys() if k}
+
+
+def _prefab_ids(doc: Dict[str, Any]) -> Set[str]:
+    items = (doc.get("prefabs") or {}).get("items") or {}
+    if not isinstance(items, dict):
+        return set()
+    return {str(k) for k in items.keys() if k}
+
+
+def _link_pairs(doc: Dict[str, Any]) -> Set[Tuple[str, str]]:
+    links = (doc.get("links") or {}).get("prefab_component") or []
+    if not isinstance(links, list):
+        return set()
+    out: Set[Tuple[str, str]] = set()
+    for row in links:
+        if not isinstance(row, dict):
+            continue
+        if row.get("source") != "prefab" or row.get("target") != "component":
+            continue
+        src = row.get("source_id")
+        tgt = row.get("target_id")
+        if src and tgt:
+            out.add((str(src), str(tgt)))
+    return out
+
+
+def _counts(doc: Dict[str, Any]) -> Dict[str, int]:
+    counts = doc.get("counts") or {}
+    if not isinstance(counts, dict):
+        return {}
+    out: Dict[str, int] = {}
+    for k, v in counts.items():
+        try:
+            out[str(k)] = int(v)
+        except Exception:
+            continue
+    return out
+
+
+def _print_section(title: str, items: List[str], limit: int) -> None:
+    print(f"## {title}")
+    if not items:
+        print("(none)")
+        print("")
+        return
+    print("```text")
+    for x in items[:limit]:
+        print(x)
+    if len(items) > limit:
+        print(f"... ({len(items) - limit} more)")
+    print("```")
+    print("")
+
+
+def _run_build(args: argparse.Namespace) -> int:
     dst_root = _resolve_dst_root(args.dst_root)
     if not dst_root:
         raise SystemExit("DST_ROOT missing. Set conf/settings.ini or pass --dst-root.")
@@ -391,6 +465,138 @@ def main() -> int:
 
     cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
     save_cache(cache)
+    return 0
+
+
+def _run_validate(args: argparse.Namespace) -> int:
+    path = Path(args.input_path).expanduser().resolve()
+    if not path.exists():
+        print(f"❌ Missing file: {path}", file=sys.stderr)
+        return 1
+
+    try:
+        doc = _load_json_file(path)
+    except Exception as exc:
+        print(f"❌ Failed to read JSON: {exc}", file=sys.stderr)
+        return 1
+
+    schema_result = validate_schema(doc)
+    schema_errors = schema_result.get("errors") or []
+    schema_warnings = schema_result.get("warnings") or []
+    consistency_warnings = _validate_index(doc)
+
+    for msg in schema_errors:
+        print(f"❌ {msg}", file=sys.stderr)
+    for msg in schema_warnings:
+        print(f"⚠️  {msg}", file=sys.stderr)
+    for msg in consistency_warnings:
+        print(f"⚠️  {msg}", file=sys.stderr)
+
+    has_errors = bool(schema_errors)
+    has_warnings = bool(schema_warnings or consistency_warnings)
+    if has_errors or (args.strict and has_warnings):
+        print(
+            f"❌ Validation failed. errors={len(schema_errors)} warnings={len(schema_warnings) + len(consistency_warnings)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"✅ Validation passed. warnings={len(schema_warnings) + len(consistency_warnings)}")
+    return 0
+
+
+def _run_diff(args: argparse.Namespace) -> int:
+    path_a = Path(args.a).expanduser().resolve()
+    path_b = Path(args.b).expanduser().resolve()
+    if not path_a.exists() or not path_b.exists():
+        print("❌ Missing input file", file=sys.stderr)
+        return 1
+
+    doc_a = _load_json_file(path_a)
+    doc_b = _load_json_file(path_b)
+
+    counts_a = _counts(doc_a)
+    counts_b = _counts(doc_b)
+    keys = sorted(set(counts_a.keys()) | set(counts_b.keys()))
+
+    print("# Wagstaff Mechanism Index Diff")
+    print("")
+    print("## Counts")
+    print("```yaml")
+    for k in keys:
+        print(f"{k}: {counts_a.get(k)} -> {counts_b.get(k)}")
+    print("```")
+    print("")
+
+    comps_a = _component_ids(doc_a)
+    comps_b = _component_ids(doc_b)
+    pref_a = _prefab_ids(doc_a)
+    pref_b = _prefab_ids(doc_b)
+
+    _print_section("Components Added", sorted(comps_b - comps_a), args.limit)
+    _print_section("Components Removed", sorted(comps_a - comps_b), args.limit)
+    _print_section("Prefabs Added", sorted(pref_b - pref_a), args.limit)
+    _print_section("Prefabs Removed", sorted(pref_a - pref_b), args.limit)
+
+    links_a = _link_pairs(doc_a)
+    links_b = _link_pairs(doc_b)
+
+    added_links = sorted([f"{a} -> {b}" for (a, b) in (links_b - links_a)])
+    removed_links = sorted([f"{a} -> {b}" for (a, b) in (links_a - links_b)])
+
+    _print_section("Links Added", added_links, args.limit)
+    _print_section("Links Removed", removed_links, args.limit)
+    return 0
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+    if not args_list or args_list[0] not in ("build", "validate", "diff"):
+        args_list = ["build"] + args_list
+
+    p = argparse.ArgumentParser(description="Mechanism index workflow (build/validate/diff).")
+    sub = p.add_subparsers(dest="cmd")
+
+    p_build = sub.add_parser("build", help="Build mechanism index artifacts")
+    p_build.add_argument("--out", default="data/index/wagstaff_mechanism_index_v1.json", help="Output JSON path")
+    p_build.add_argument("--sqlite", default="data/index/wagstaff_mechanism_index_v1.sqlite", help="Output SQLite path")
+    p_build.add_argument("--summary", default="data/reports/mechanism_index_summary.md", help="Output summary Markdown")
+    p_build.add_argument(
+        "--crosscheck",
+        default="data/reports/mechanism_crosscheck_report.md",
+        help="Output crosscheck Markdown",
+    )
+    p_build.add_argument("--resource-index", default="data/index/wagstaff_resource_index_v1.json", help="Input resource index")
+    p_build.add_argument("--scripts-zip", default=None, help="Override scripts zip path")
+    p_build.add_argument("--scripts-dir", default=None, help="Override scripts folder path")
+    p_build.add_argument("--dst-root", default=None, help="Override DST root (default from config)")
+    p_build.add_argument("--no-sqlite", action="store_true", help="Skip SQLite output")
+    p_build.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
+    p_build.add_argument("--silent", action="store_true", help="Suppress engine logs")
+    p_build.add_argument("--strict", action="store_true", help="Fail build on any validation warning")
+
+    p_validate = sub.add_parser("validate", help="Validate mechanism index JSON")
+    p_validate.add_argument(
+        "--in",
+        dest="input_path",
+        default="data/index/wagstaff_mechanism_index_v1.json",
+        help="Input JSON path",
+    )
+    p_validate.add_argument("--strict", action="store_true", help="Treat warnings as errors")
+
+    p_diff = sub.add_parser("diff", help="Diff two mechanism index JSON files")
+    p_diff.add_argument("--a", required=True, help="Path to baseline JSON")
+    p_diff.add_argument("--b", required=True, help="Path to target JSON")
+    p_diff.add_argument("--limit", type=int, default=40, help="Max items per section")
+
+    args = p.parse_args(args_list)
+
+    if args.cmd == "build":
+        return _run_build(args)
+    if args.cmd == "validate":
+        return _run_validate(args)
+    if args.cmd == "diff":
+        return _run_diff(args)
     return 0
 
 

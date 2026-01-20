@@ -30,7 +30,7 @@ from core.indexers.shared import _extract_strings_names  # type: ignore
 from core.engine import WagstaffEngine  # type: ignore
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

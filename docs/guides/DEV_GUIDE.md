@@ -1,4 +1,4 @@
-# Wagstaff-Lab 开发规范 (v3.2)
+# Wagstaff-Lab 开发规范 (v4.0.0-dev)
 
 本指南用于约束核心架构边界与开发协作方式，确保可维护与可扩展。
 
@@ -12,7 +12,7 @@
 
 ```yaml
 dev_guide:
-  version: v3.2
+  version: v4.0.0-dev
   must_update_on:
     - 架构/目录调整
     - CLI/Web/Server 入口变更
@@ -38,6 +38,9 @@ dev_guide:
 - `apps/server/`：服务器运维（DST 运行/备份/恢复），与数据分析解耦。
 - `apps/webcraft/`：WebCraft 服务层（API + UI）。只通过索引产物与 `core/` 暴露的能力。
 - `devtools/`：构建、报表、快照等流程工具。
+- `devtools/validators.py`：质量/校验库（无独立 CLI 入口），由质量门禁与机制索引调用。
+- `devtools/report_hub.py`：报告中心（build/list/open），统一汇总输出与 manifest。
+- `devtools/portal_hub.py`：聚合视图（管理 + 报告 + 质量）。
 - `data/`：所有产物、报告、索引、静态资源的统一落盘目录。
 - CLI 角色与职责见 `docs/guides/CLI_GUIDE.md`。
 
@@ -57,16 +60,30 @@ dev_guide:
 ## 4. 数据产物与命名
 
 - 统一落盘到 `data/`，并带版本号后缀，例如：
+  - `data/index/wagstaff_resource_index_v1.json`
   - `data/index/wagstaff_catalog_v2.json`
   - `data/index/wagstaff_catalog_v2.sqlite`
+  - `data/index/wagstaff_catalog_index_v1.json`
   - `data/index/wagstaff_icon_index_v1.json`
+  - `data/index/wagstaff_i18n_v1.json`
+  - `data/index/wagstaff_tuning_trace_v1.json`
   - `data/index/wagstaff_farming_defs_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.sqlite`
+  - `data/index/wagstaff_index_manifest.json`
+  - `data/reports/quality_gate_report.md`
+  - `data/reports/catalog_quality_report.md`
+  - `data/reports/dst_raw_coverage.md`
   - `data/reports/mechanism_index_summary.md`
   - `data/reports/mechanism_crosscheck_report.md`
+  - `data/reports/wagstaff_report_manifest.json`
+  - `data/reports/index.html`
+  - `data/reports/portal_index.html`
 - 产物默认不入库：`data/index/` 与 `data/static/icons/` 由工具生成，需要时用 `make catalog` / `make icons` 重建。
-- 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
+- 产物需携带统一元信息（schema / generated / tool / sources / scripts hash），SQLite 额外记录 `db_schema_version`。
+- SQLite v4 结构定义见 `docs/specs/SQLITE_V4_SPEC.md`，catalog/mechanism 优先遵循该表结构。
+- 索引清单由 `devtools/build_index_manifest.py` 汇总，包含每个产物的 schema 与版本。
+- 统一版本入口为 `conf/version.json`：`project_version` / `index_version` 写入各索引 `meta`，文件名的 `v1/v2` 仅代表 `schema_version`。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
 - Catalog v2 产物新增 `cooking_ingredients` 字段用于料理食材 tags 索引。
 - Mechanism index 的 JSON schema 见 `docs/specs/mechanism_index_v1.schema.json`。
@@ -170,7 +187,8 @@ dev_guide:
 - `make resindex` / `make catalog` / `make catalog-index`
 - `make catalog-sqlite`
 - `make i18n` / `make farming-defs` / `make mechanism-index` / `make icons`
-- `make quality` / `make gate`
+- `make index-manifest`
+- `make quality`（运行质量门禁）
 - `make webcraft` / `make snap`
 
 ## 9.1 增量构建 (devtools)
@@ -178,8 +196,8 @@ dev_guide:
 - `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
 - `build_mechanism_index.py` 依赖 `scripts` 与 `resource_index` 签名，JSON 与 SQLite 输出统一比对。
 - `build_mechanism_index.py --strict` 会在任意校验告警时返回非零。
-- `validate_mechanism_index.py` 用于校验机制索引 JSON 结构与关键字段。
-- `diff_mechanism_index.py` 用于对比两份机制索引的增量变化。
+- `build_mechanism_index.py validate` 用于校验机制索引 JSON 结构与关键字段。
+- `build_mechanism_index.py diff` 用于对比两份机制索引的增量变化。
 - 需强制全量重建时，追加 `--force`。
 
 ## 10. 最低自检清单
@@ -187,5 +205,7 @@ dev_guide:
 - `wagstaff dash` (主界面可运行)
 - `python devtools/build_catalog_v2.py --silent`
 - `python devtools/quality_gate.py` (信息提示，CI 可加 --enforce/--strict)
+- `python devtools/report_hub.py list`
+- `python devtools/portal_hub.py list`
 - `python devtools/snapshot.py --mode llm --plan` (快照计划可生成)
 - `python devtools/serve_webcraft.py --help` (需要 uvicorn)

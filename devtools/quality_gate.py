@@ -7,9 +7,13 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from devtools.validators import validate_mechanism_index, validate_sqlite_v4  # noqa: E402
 
 
 def _load_json(path: Path) -> Optional[Dict[str, Any]]:
@@ -161,12 +165,26 @@ def main() -> int:
     p.add_argument("--icon-index", default="data/index/wagstaff_icon_index_v1.json", help="Icon index JSON path")
     p.add_argument("--i18n", default="data/index/wagstaff_i18n_v1.json", help="i18n index JSON path")
     p.add_argument("--tuning-trace", default="data/index/wagstaff_tuning_trace_v1.json", help="Tuning trace JSON path")
+    p.add_argument(
+        "--mechanism",
+        default="data/index/wagstaff_mechanism_index_v1.json",
+        help="Mechanism index JSON path",
+    )
+    p.add_argument("--catalog-sqlite", default="data/index/wagstaff_catalog_v2.sqlite", help="Catalog SQLite path")
+    p.add_argument(
+        "--mechanism-sqlite",
+        default="data/index/wagstaff_mechanism_index_v1.sqlite",
+        help="Mechanism SQLite path",
+    )
+    p.add_argument("--skip-sqlite", action="store_true", help="Skip SQLite v4 validation")
+    p.add_argument("--skip-mechanism", action="store_true", help="Skip mechanism index validation")
     p.add_argument("--min-items", type=int, default=1000, help="Minimum catalog items to pass")
     p.add_argument("--min-icons", type=int, default=1000, help="Minimum icon entries to warn")
     p.add_argument("--min-i18n-ratio", type=float, default=0.30, help="Minimum i18n coverage ratio to warn")
     p.add_argument("--strict", action="store_true", help="Treat warnings as failures (only when --enforce)")
     p.add_argument("--enforce", action="store_true", help="Exit non-zero on failures (for CI/release)")
     p.add_argument("--out", default="data/reports/quality_gate_report.md", help="Output report path")
+    p.add_argument("--out-json", default="data/reports/quality_gate_report.json", help="Output JSON report path")
     args = p.parse_args()
 
     inputs = {
@@ -175,6 +193,9 @@ def main() -> int:
         "icon_index": args.icon_index,
         "i18n": args.i18n,
         "tuning_trace": args.tuning_trace,
+        "mechanism": args.mechanism,
+        "catalog_sqlite": args.catalog_sqlite,
+        "mechanism_sqlite": args.mechanism_sqlite,
     }
 
     issues: List[Tuple[str, str]] = []
@@ -235,10 +256,65 @@ def main() -> int:
         issues.extend(trace_issues)
         summary.update({f"trace_{k}": v for k, v in trace_metrics.items()})
 
+    # mechanism index (optional)
+    if not args.skip_mechanism:
+        mech_path = (PROJECT_ROOT / args.mechanism).resolve()
+        mech_doc = _load_json(mech_path)
+        if mech_doc is None:
+            issues.append(("warn", f"mechanism index missing or unreadable: {mech_path}"))
+        else:
+            mech_counts = _as_dict(mech_doc.get("counts"))
+            summary["mechanism_schema_version"] = int(
+                mech_doc.get("schema_version") or (mech_doc.get("meta") or {}).get("schema") or 0
+            )
+            summary["mechanism_components_total"] = int(mech_counts.get("components_total") or 0)
+            summary["mechanism_prefabs_total"] = int(mech_counts.get("prefabs_total") or 0)
+            summary["mechanism_prefab_component_edges"] = int(mech_counts.get("prefab_component_edges") or 0)
+
+            mech_result = validate_mechanism_index(mech_doc)
+            mech_errors = mech_result.get("errors") or []
+            mech_warnings = mech_result.get("warnings") or []
+            summary["mechanism_validation_errors"] = len(mech_errors)
+            summary["mechanism_validation_warnings"] = len(mech_warnings)
+            for msg in mech_errors:
+                issues.append(("fail", f"mechanism index: {msg}"))
+            for msg in mech_warnings:
+                issues.append(("warn", f"mechanism index: {msg}"))
+
+    # sqlite v4
+    if not args.skip_sqlite:
+        catalog_sqlite = (PROJECT_ROOT / args.catalog_sqlite).resolve()
+        catalog_summary, catalog_issues = validate_sqlite_v4(catalog_sqlite, kind="catalog")
+        issues.extend(catalog_issues)
+        summary.update({f"sqlite_catalog_{k}": v for k, v in catalog_summary.items()})
+
+        mechanism_sqlite = (PROJECT_ROOT / args.mechanism_sqlite).resolve()
+        mech_summary, mech_issues = validate_sqlite_v4(mechanism_sqlite, kind="mechanism")
+        issues.extend(mech_issues)
+        summary.update({f"sqlite_mechanism_{k}": v for k, v in mech_summary.items()})
+
+    issue_counts = {"fail": 0, "warn": 0}
+    for level, _ in issues:
+        if level in issue_counts:
+            issue_counts[level] += 1
+    summary["issues_total"] = len(issues)
+    summary["issues_fail"] = issue_counts["fail"]
+    summary["issues_warn"] = issue_counts["warn"]
+
     out_path = (PROJECT_ROOT / args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(render_report(inputs=inputs, summary=summary, issues=issues), encoding="utf-8")
+
+    out_json_path = (PROJECT_ROOT / args.out_json).resolve()
+    out_json_path.parent.mkdir(parents=True, exist_ok=True)
+    out_json = {
+        "inputs": inputs,
+        "summary": summary,
+        "issues": [{"level": level, "message": msg} for level, msg in issues],
+    }
+    out_json_path.write_text(json.dumps(out_json, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"OK: Quality gate report written: {out_path}")
+    print(f"OK: Quality gate JSON written: {out_json_path}")
 
     if not args.enforce:
         return 0

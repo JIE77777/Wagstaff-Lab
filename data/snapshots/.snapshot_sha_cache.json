@@ -95,9 +95,9 @@
     "sha256_12": "bbfc33a27ce7"
   },
   "devtools/build_icons.py": {
-    "mtime_ns": 1768611065749801312,
-    "size": 27213,
-    "sha256_12": "57d30abe8b2a"
+    "mtime_ns": 1768899892430066649,
+    "size": 29929,
+    "sha256_12": "51fdeac1b40a"
   },
   "devtools/codemap.py": {
     "mtime_ns": 1768534644392156488,
@@ -130,14 +130,14 @@
     "sha256_12": "50594fb292b8"
   },
   "devtools/sampler.py": {
-    "mtime_ns": 1768534635359196835,
-    "size": 14606,
-    "sha256_12": "2cc68ca2e29a"
+    "mtime_ns": 1768914373979324042,
+    "size": 14614,
+    "sha256_12": "44c1ca6632d6"
   },
   "devtools/serve_webcraft.py": {
-    "mtime_ns": 1768555083232990565,
-    "size": 5481,
-    "sha256_12": "3b73ccd15fd9"
+    "mtime_ns": 1768895981485538619,
+    "size": 6049,
+    "sha256_12": "180c7d164d0a"
   },
   "devtools/snapshot.py": {
     "mtime_ns": 1768544094058507833,
@@ -145,9 +145,9 @@
     "sha256_12": "6411307db9d8"
   },
   "devtools/snapshot_gui.py": {
-    "mtime_ns": 1768540139185612988,
-    "size": 66096,
-    "sha256_12": "3ba389c54d32"
+    "mtime_ns": 1768914799033433982,
+    "size": 66112,
+    "sha256_12": "7940229d33ef"
   },
   "docs/WEBCRAFT_NETWORK_STACK.md": {
     "mtime_ns": 1768353772090295245,
@@ -195,9 +195,9 @@
     "sha256_12": "1920da880bb9"
   },
   "README.md": {
-    "mtime_ns": 1768557405017506155,
-    "size": 3799,
-    "sha256_12": "ad4890397a9c"
+    "mtime_ns": 1768921629453001822,
+    "size": 4899,
+    "sha256_12": "51d4e400a967"
   },
   "PROJECT_STATUS.json": {
     "mtime_ns": 1768287237635238708,
@@ -235,7 +235,7 @@
     "sha256_12": "f5b10da0f56e"
   },
   "data/reports/asset_registry.md": {
-    "mtime_ns": 1768273086361415226,
+    "mtime_ns": 1768916590642461686,
     "size": 2096,
     "sha256_12": "45c762a51673"
   },
@@ -255,7 +255,7 @@
     "sha256_12": "bb7f66b78652"
   },
   "data/reports/recipe_distribution.md": {
-    "mtime_ns": 1768273087805408775,
+    "mtime_ns": 1768916591336458598,
     "size": 1655,
     "sha256_12": "e177df3496c5"
   },
@@ -325,19 +325,19 @@
     "sha256_12": "c1deddf0bfc3"
   },
   "docs/README.md": {
-    "mtime_ns": 1768544232029842844,
-    "size": 466,
-    "sha256_12": "9088f3deea34"
+    "mtime_ns": 1768922528450007913,
+    "size": 1002,
+    "sha256_12": "c49ff2098dd4"
   },
   "docs/guides/DEV_GUIDE.md": {
-    "mtime_ns": 1768617611732670067,
-    "size": 5751,
-    "sha256_12": "e04dc09b8fd7"
+    "mtime_ns": 1768922572566812166,
+    "size": 11820,
+    "sha256_12": "9bdf3a820c53"
   },
   "docs/management/ROADMAP.md": {
-    "mtime_ns": 1768617341529872248,
-    "size": 1914,
-    "sha256_12": "f44e75296c14"
+    "mtime_ns": 1768904574878157598,
+    "size": 2099,
+    "sha256_12": "40bb5fc18729"
   },
   "apps/cli/main.py": {
     "mtime_ns": 1768538902966128320,
@@ -345,9 +345,9 @@
     "sha256_12": "1f13f3912194"
   },
   "apps/cli/registry.py": {
-    "mtime_ns": 1768545283158143995,
-    "size": 4880,
-    "sha256_12": "fb4ace09edbb"
+    "mtime_ns": 1768919212915774322,
+    "size": 5733,
+    "sha256_12": "bf4db21c5938"
   },
   "apps/__init__.py": {
     "mtime_ns": 1768534367565392961,
@@ -370,9 +370,9 @@
     "sha256_12": "6ea567813f48"
   },
   "apps/cli/commands/dash.py": {
-    "mtime_ns": 1768544320020436468,
-    "size": 6322,
-    "sha256_12": "7ab0813dd13e"
+    "mtime_ns": 1768922072037033005,
+    "size": 11582,
+    "sha256_12": "5b127fa90c44"
   },
   "apps/cli/commands/doctor.py": {
     "mtime_ns": 1768536617856341077,
@@ -380,14 +380,14 @@
     "sha256_12": "9f344e461317"
   },
   "apps/cli/commands/explorer.py": {
-    "mtime_ns": 1768534788816511398,
-    "size": 9698,
-    "sha256_12": "fed2c31acc6b"
+    "mtime_ns": 1768898539233117660,
+    "size": 9805,
+    "sha256_12": "6d063399516d"
   },
   "apps/cli/commands/mgmt.py": {
-    "mtime_ns": 1768544330667387387,
-    "size": 8668,
-    "sha256_12": "1037af5080dc"
+    "mtime_ns": 1768917421923756742,
+    "size": 7876,
+    "sha256_12": "004cb61bd8a5"
   },
   "apps/cli/commands/server.py": {
     "mtime_ns": 1768542747142596892,
@@ -395,9 +395,9 @@
     "sha256_12": "6c94b0d9aa63"
   },
   "apps/cli/commands/wiki.py": {
-    "mtime_ns": 1768540427280329237,
-    "size": 22253,
-    "sha256_12": "7e3ee796673c"
+    "mtime_ns": 1768898559623026378,
+    "size": 22341,
+    "sha256_12": "a442b723e453"
   },
   "apps/server/__init__.py": {
     "mtime_ns": 1768542607790213641,
@@ -430,29 +430,29 @@
     "sha256_12": "43210b35acae"
   },
   "apps/webcraft/api.py": {
-    "mtime_ns": 1768614431027827830,
-    "size": 24167,
-    "sha256_12": "10c6ae4105c9"
+    "mtime_ns": 1768896067658151409,
+    "size": 35980,
+    "sha256_12": "92c2d565d4de"
   },
   "apps/webcraft/app.py": {
-    "mtime_ns": 1768614310249366501,
-    "size": 7083,
-    "sha256_12": "778a0e07ed89"
+    "mtime_ns": 1768905862704399590,
+    "size": 9336,
+    "sha256_12": "0419bf41fdfd"
   },
   "apps/webcraft/catalog_store.py": {
-    "mtime_ns": 1768617575118833374,
-    "size": 45241,
-    "sha256_12": "6f658886004f"
+    "mtime_ns": 1768906234834737514,
+    "size": 59435,
+    "sha256_12": "c4146e6d324a"
   },
   "apps/webcraft/cooking_planner.py": {
-    "mtime_ns": 1768356636465472996,
-    "size": 4276,
-    "sha256_12": "bd00afb78bbe"
+    "mtime_ns": 1768846094703500858,
+    "size": 41532,
+    "sha256_12": "db5056ac693c"
   },
   "apps/webcraft/i18n_index.py": {
-    "mtime_ns": 1768556920575679308,
-    "size": 3476,
-    "sha256_12": "98b97123f865"
+    "mtime_ns": 1768642609713471920,
+    "size": 4390,
+    "sha256_12": "0fa925eef1c1"
   },
   "apps/webcraft/i18n_service.py": {
     "mtime_ns": 1768476198153879902,
@@ -460,9 +460,9 @@
     "sha256_12": "28951d7fce69"
   },
   "apps/webcraft/icon_service.py": {
-    "mtime_ns": 1768614442466776812,
-    "size": 10007,
-    "sha256_12": "26a4f75bb2a2"
+    "mtime_ns": 1768899881183116868,
+    "size": 12077,
+    "sha256_12": "96a6a2513eea"
   },
   "apps/webcraft/planner.py": {
     "mtime_ns": 1768353714947547458,
@@ -475,14 +475,14 @@
     "sha256_12": "57f5a4c92b56"
   },
   "apps/webcraft/tuning_trace.py": {
-    "mtime_ns": 1768556956779518457,
-    "size": 2474,
-    "sha256_12": "ff14604df156"
+    "mtime_ns": 1768905820186589498,
+    "size": 3858,
+    "sha256_12": "0a796c1a7679"
   },
   "apps/webcraft/ui.py": {
-    "mtime_ns": 1768614437423799304,
-    "size": 114320,
-    "sha256_12": "1b3873f46225"
+    "mtime_ns": 1768727798667945401,
+    "size": 1260,
+    "sha256_12": "8082523ecd0a"
   },
   "core/__init__.py": {
     "mtime_ns": 1768534367561392979,
@@ -495,14 +495,14 @@
     "sha256_12": "0237e6589e2c"
   },
   "core/craft_recipes.py": {
-    "mtime_ns": 1768534880084103747,
-    "size": 28234,
-    "sha256_12": "fce8d1e871d7"
+    "mtime_ns": 1768892892958451245,
+    "size": 28217,
+    "sha256_12": "651e3208046b"
   },
   "core/engine.py": {
-    "mtime_ns": 1768617488486218694,
-    "size": 15955,
-    "sha256_12": "9dce78e27eb2"
+    "mtime_ns": 1768900224170585401,
+    "size": 16480,
+    "sha256_12": "fec51fe8b91f"
   },
   "core/indexers/__init__.py": {
     "mtime_ns": 1768534367563392970,
@@ -515,24 +515,24 @@
     "sha256_12": "ea5d556592d6"
   },
   "core/indexers/catalog_v2.py": {
-    "mtime_ns": 1768617532594022515,
-    "size": 25944,
-    "sha256_12": "30128b52ab7b"
+    "mtime_ns": 1768891796527369020,
+    "size": 25945,
+    "sha256_12": "e1330d4f874e"
   },
   "core/indexers/i18n_index.py": {
-    "mtime_ns": 1768488127586688536,
-    "size": 5194,
-    "sha256_12": "552388a832ee"
+    "mtime_ns": 1768642584220585731,
+    "size": 6512,
+    "sha256_12": "e2e7d3de4162"
   },
   "core/indexers/resource_index.py": {
-    "mtime_ns": 1768535043550373624,
-    "size": 17170,
-    "sha256_12": "fd0cfebe2c3b"
+    "mtime_ns": 1768891809223312003,
+    "size": 23514,
+    "sha256_12": "26d106eaa728"
   },
   "core/indexers/shared.py": {
-    "mtime_ns": 1768544833673142112,
-    "size": 2072,
-    "sha256_12": "a6599a86dc03"
+    "mtime_ns": 1768891768938492920,
+    "size": 2067,
+    "sha256_12": "20b8e9e42b9c"
   },
   "core/klei_atlas_tex.py": {
     "mtime_ns": 1768610608322833823,
@@ -550,9 +550,9 @@
     "sha256_12": "1dc18eed6fb8"
   },
   "core/schemas/meta.py": {
-    "mtime_ns": 1768534390375291074,
-    "size": 697,
-    "sha256_12": "c48fab200453"
+    "mtime_ns": 1768898457817482123,
+    "size": 808,
+    "sha256_12": "f3a5643f582b"
   },
   "core/tagging.py": {
     "mtime_ns": 1768475928832079283,
@@ -575,19 +575,19 @@
     "sha256_12": "4dd79b3fb540"
   },
   "devtools/build_catalog_v2.py": {
-    "mtime_ns": 1768535546034129210,
-    "size": 4808,
-    "sha256_12": "0028e925694e"
+    "mtime_ns": 1768899949855810238,
+    "size": 6479,
+    "sha256_12": "af3b1c977d49"
   },
   "devtools/build_i18n_index.py": {
-    "mtime_ns": 1768535935259390634,
-    "size": 9149,
-    "sha256_12": "7f72ec505945"
+    "mtime_ns": 1768899949854810243,
+    "size": 9722,
+    "sha256_12": "adbc55ab6ae0"
   },
   "devtools/build_resource_index.py": {
-    "mtime_ns": 1768535554615090882,
-    "size": 3236,
-    "sha256_12": "9a78b5a4bbe4"
+    "mtime_ns": 1768899949855810238,
+    "size": 5320,
+    "sha256_12": "a47bde51cd90"
   },
   "devtools/catalog_quality.py": {
     "mtime_ns": 1768552395320299236,
@@ -595,58 +595,298 @@
     "sha256_12": "7e13eec0b0fb"
   },
   "devtools/quality_gate.py": {
-    "mtime_ns": 1768536651043192734,
-    "size": 9571,
-    "sha256_12": "43c44fe987d3"
+    "mtime_ns": 1768921040518627416,
+    "size": 13291,
+    "sha256_12": "ea888a6abf12"
   },
   "devtools/raw_scan.py": {
-    "mtime_ns": 1768544845703085082,
-    "size": 29218,
-    "sha256_12": "c09c6650e75b"
+    "mtime_ns": 1768899949854810243,
+    "size": 29214,
+    "sha256_12": "4066504f9eac"
   },
   "data/reports/catalog_quality_report.md": {
-    "mtime_ns": 1768554123399380571,
+    "mtime_ns": 1768921536830414761,
     "size": 3351,
-    "sha256_12": "2fbb1f8af721"
+    "sha256_12": "02158681fd99"
   },
   "data/reports/catalog_v2_summary.md": {
-    "mtime_ns": 1768618137096325288,
-    "size": 339,
-    "sha256_12": "e8deeacc65d6"
+    "mtime_ns": 1768900144556940881,
+    "size": 341,
+    "sha256_12": "40df99deacde"
   },
   "docs/architecture/WEBCRAFT_NETWORK_STACK.md": {
-    "mtime_ns": 1768478084625482166,
-    "size": 1594,
-    "sha256_12": "049aed942a93"
+    "mtime_ns": 1768905356546661403,
+    "size": 1868,
+    "sha256_12": "69134d3ef311"
   },
   "docs/guides/CLI_GUIDE.md": {
-    "mtime_ns": 1768545297985077909,
-    "size": 2574,
-    "sha256_12": "7d4c2ccec158"
+    "mtime_ns": 1768922582508768055,
+    "size": 3291,
+    "sha256_12": "e861f5485b74"
   },
   "docs/management/PROJECT_MANAGEMENT.md": {
-    "mtime_ns": 1768617334700902622,
-    "size": 4277,
-    "sha256_12": "83b5d066f06b"
+    "mtime_ns": 1768921095685381474,
+    "size": 5613,
+    "sha256_12": "51a74bbf8cf3"
   },
   "docs/specs/CATALOG_V2_SPEC.md": {
-    "mtime_ns": 1768617601140717330,
-    "size": 11133,
-    "sha256_12": "21f3544647f7"
+    "mtime_ns": 1768905911525181539,
+    "size": 11740,
+    "sha256_12": "e57b140a47fc"
   },
   "devtools/build_catalog_sqlite.py": {
-    "mtime_ns": 1768617556814914784,
-    "size": 19031,
-    "sha256_12": "7684a3d7a3c3"
+    "mtime_ns": 1768905801056674942,
+    "size": 24035,
+    "sha256_12": "31af5764fb1a"
   },
   "devtools/stats_gap_inspect.py": {
-    "mtime_ns": 1768554058488681084,
-    "size": 13521,
-    "sha256_12": "74dada835443"
+    "mtime_ns": 1768891838966178430,
+    "size": 13516,
+    "sha256_12": "99fce71b728c"
   },
   "data/reports/stats_gap_inspect.md": {
     "mtime_ns": 1768554129969350156,
     "size": 1124,
     "sha256_12": "e0eead6dd5a4"
+  },
+  "apps/cli/i18n.py": {
+    "mtime_ns": 1768916290200798576,
+    "size": 3712,
+    "sha256_12": "c7ec26928806"
+  },
+  "apps/cli/mgmt_parser.py": {
+    "mtime_ns": 1768917321125206122,
+    "size": 2233,
+    "sha256_12": "d17344d0fdfd"
+  },
+  "apps/webcraft/mechanism_store.py": {
+    "mtime_ns": 1768907621090551645,
+    "size": 15278,
+    "sha256_12": "f247804f6708"
+  },
+  "core/assets/__init__.py": {
+    "mtime_ns": 1768899916877957490,
+    "size": 61,
+    "sha256_12": "7ddf1961ae47"
+  },
+  "core/assets/klei_atlas_tex.py": {
+    "mtime_ns": 1768610608322833823,
+    "size": 17536,
+    "sha256_12": "14b3a7105299"
+  },
+  "core/config/__init__.py": {
+    "mtime_ns": 1768899936734868825,
+    "size": 155,
+    "sha256_12": "f66f248d1bf3"
+  },
+  "core/config/loader.py": {
+    "mtime_ns": 1768899979760676712,
+    "size": 1022,
+    "sha256_12": "b40df7bcb20c"
+  },
+  "core/indexers/farming_defs.py": {
+    "mtime_ns": 1768891803596337273,
+    "size": 19303,
+    "sha256_12": "c55f523da4ff"
+  },
+  "core/indexers/mechanism_index.py": {
+    "mtime_ns": 1768907712398144319,
+    "size": 16549,
+    "sha256_12": "04943ae9991c"
+  },
+  "core/lua/__init__.py": {
+    "mtime_ns": 1768891441465963664,
+    "size": 1089,
+    "sha256_12": "e0649c1b83f7"
+  },
+  "core/lua/call_extractor.py": {
+    "mtime_ns": 1768891429389017901,
+    "size": 5394,
+    "sha256_12": "5588fec4b7be"
+  },
+  "core/lua/expr.py": {
+    "mtime_ns": 1768891401298144052,
+    "size": 4804,
+    "sha256_12": "87b0d66a5bd5"
+  },
+  "core/lua/match.py": {
+    "mtime_ns": 1768891371415278254,
+    "size": 1691,
+    "sha256_12": "786839bb2405"
+  },
+  "core/lua/scan.py": {
+    "mtime_ns": 1768891335481439625,
+    "size": 3332,
+    "sha256_12": "19edc5ad75ae"
+  },
+  "core/lua/split.py": {
+    "mtime_ns": 1768891357731339706,
+    "size": 3617,
+    "sha256_12": "bcd71d71a3c6"
+  },
+  "core/parsers/__init__.py": {
+    "mtime_ns": 1768892276544214770,
+    "size": 812,
+    "sha256_12": "89fd1dc20368"
+  },
+  "core/parsers/base.py": {
+    "mtime_ns": 1768891449746926473,
+    "size": 540,
+    "sha256_12": "68e9935d3a97"
+  },
+  "core/parsers/component.py": {
+    "mtime_ns": 1768892271223238625,
+    "size": 3047,
+    "sha256_12": "880faae7031f"
+  },
+  "core/parsers/cooking.py": {
+    "mtime_ns": 1768891736468638754,
+    "size": 27295,
+    "sha256_12": "33386ba348fc"
+  },
+  "core/parsers/loot.py": {
+    "mtime_ns": 1768891465084857590,
+    "size": 2175,
+    "sha256_12": "3595dc46ca58"
+  },
+  "core/parsers/lua_analyzer.py": {
+    "mtime_ns": 1768891517924620273,
+    "size": 1623,
+    "sha256_12": "cecaa2d581fa"
+  },
+  "core/parsers/prefab.py": {
+    "mtime_ns": 1768891506161673103,
+    "size": 3102,
+    "sha256_12": "f08e0ff280ca"
+  },
+  "core/parsers/strings.py": {
+    "mtime_ns": 1768891487552756680,
+    "size": 610,
+    "sha256_12": "bf621ad77af2"
+  },
+  "core/parsers/tuning.py": {
+    "mtime_ns": 1768891579176345172,
+    "size": 12559,
+    "sha256_12": "e43dd5a73a7b"
+  },
+  "core/parsers/widget.py": {
+    "mtime_ns": 1768891479893791079,
+    "size": 575,
+    "sha256_12": "ccd11e91cddd"
+  },
+  "core/version.py": {
+    "mtime_ns": 1768898450097516683,
+    "size": 1182,
+    "sha256_12": "fd907b450742"
+  },
+  "devtools/build_cache.py": {
+    "mtime_ns": 1768827884500661842,
+    "size": 2553,
+    "sha256_12": "dadaa666e6b2"
+  },
+  "devtools/build_farming_defs.py": {
+    "mtime_ns": 1768899949853810247,
+    "size": 3327,
+    "sha256_12": "e8b2ff3ebd60"
+  },
+  "devtools/build_index_manifest.py": {
+    "mtime_ns": 1768900339950068432,
+    "size": 5866,
+    "sha256_12": "b3087b84a361"
+  },
+  "devtools/build_mechanism_index.py": {
+    "mtime_ns": 1768921048713590881,
+    "size": 22780,
+    "sha256_12": "75ed6486d405"
+  },
+  "devtools/portal_hub.py": {
+    "mtime_ns": 1768918065650887348,
+    "size": 24138,
+    "sha256_12": "602f6d81f1a3"
+  },
+  "devtools/report_hub.py": {
+    "mtime_ns": 1768919302172376547,
+    "size": 24028,
+    "sha256_12": "0c3c7791def8"
+  },
+  "devtools/report_utils.py": {
+    "mtime_ns": 1768917299838301026,
+    "size": 7650,
+    "sha256_12": "8b2e940b23e4"
+  },
+  "devtools/validators.py": {
+    "mtime_ns": 1768921030598671642,
+    "size": 12630,
+    "sha256_12": "3dd3a4cef1b1"
+  },
+  "data/reports/catalog_index_summary.md": {
+    "mtime_ns": 1768900153995898735,
+    "size": 198,
+    "sha256_12": "58b64665db95"
+  },
+  "data/reports/dst_raw_coverage.md": {
+    "mtime_ns": 1768916587833474185,
+    "size": 12001,
+    "sha256_12": "25bf603e5f6b"
+  },
+  "data/reports/mechanism_crosscheck_report.md": {
+    "mtime_ns": 1768911818859870824,
+    "size": 1824,
+    "sha256_12": "f33209a4ec09"
+  },
+  "data/reports/mechanism_index_summary.md": {
+    "mtime_ns": 1768911818855870842,
+    "size": 821,
+    "sha256_12": "7fcd5cd604ab"
+  },
+  "data/reports/quality_gate_report.md": {
+    "mtime_ns": 1768921536628415662,
+    "size": 1581,
+    "sha256_12": "46feb9bc8059"
+  },
+  "data/reports/resource_index_summary.md": {
+    "mtime_ns": 1768900106377111355,
+    "size": 1247,
+    "sha256_12": "495c92f7d778"
+  },
+  "docs/archived/COOKING_UPGRADE.md": {
+    "mtime_ns": 1768618530886568896,
+    "size": 2022,
+    "sha256_12": "118ef24f1c4c"
+  },
+  "docs/archived/WEBCRAFT_UI_MODULARIZATION.md": {
+    "mtime_ns": 1768653007829018730,
+    "size": 2829,
+    "sha256_12": "b7ef1f4059e6"
+  },
+  "docs/management/VNEXT_REFACTOR_PLAN.md": {
+    "mtime_ns": 1768894299544128054,
+    "size": 7679,
+    "sha256_12": "5f3cbf715663"
+  },
+  "docs/management/WEBCRAFT_ATLAS_LEDGER_UI_REFACTOR.md": {
+    "mtime_ns": 1768817202548268226,
+    "size": 1395,
+    "sha256_12": "45625a3ebd8b"
+  },
+  "docs/management/WEBCRAFT_MOBILE_APP_SHELL.md": {
+    "mtime_ns": 1768670907544400747,
+    "size": 2388,
+    "sha256_12": "b93409358ae9"
+  },
+  "docs/specs/FARMING_MECHANICS_REPORT.md": {
+    "mtime_ns": 1768878052631612510,
+    "size": 4401,
+    "sha256_12": "ea09674a3e8e"
+  },
+  "docs/specs/MECHANISM_INDEX_SPEC.md": {
+    "mtime_ns": 1768907632331501494,
+    "size": 3037,
+    "sha256_12": "0c1e16905f63"
+  },
+  "docs/specs/SQLITE_V4_SPEC.md": {
+    "mtime_ns": 1768907661365371976,
+    "size": 7953,
+    "sha256_12": "59fbc3f5852a"
   }
 }

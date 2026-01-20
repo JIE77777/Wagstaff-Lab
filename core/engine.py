@@ -27,9 +27,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Optional project config (exists in repo under core/utils.py)
+# Optional project config (exists in repo under core/config/loader.py)
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:  # pragma: no cover
     wagstaff_config = None  # type: ignore
 

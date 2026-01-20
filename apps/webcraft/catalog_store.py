@@ -185,6 +185,8 @@ class CatalogStore:
         self._use_sqlite = _is_sqlite_path(self._path)
         self._lock = threading.RLock()
         self._mtime: float = -1.0
+        self._catalog_fts_available: Optional[bool] = None
+        self._catalog_fts_mtime: float = -1.0
         self._icon_index_mtime: float = -1.0
         self._icon_index: Dict[str, str] = {}
         self._icon_index_path: Path = self._path.parent / "wagstaff_icon_index_v1.json"
@@ -340,16 +342,72 @@ class CatalogStore:
             raise CatalogError(f"Failed to open SQLite catalog: {path}") from exc
         try:
             cur = conn.cursor()
-            meta_rows = {row["key"]: row["value"] for row in cur.execute("SELECT key, value FROM meta")}
-            items_rows = cur.execute("SELECT id, data FROM items").fetchall()
-            assets_rows = cur.execute("SELECT id, data FROM assets").fetchall()
-            craft_rows = cur.execute("SELECT key, data FROM craft").fetchall()
-            cooking_rows = cur.execute("SELECT name, data FROM cooking").fetchall()
             tables = {row["name"] for row in cur.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if "meta" not in tables or "items" not in tables:
+                raise CatalogError("SQLite catalog missing required tables")
+
+            meta_rows = {row["key"]: row["value"] for row in cur.execute("SELECT key, value FROM meta")}
+
+            def _table_columns(name: str) -> set[str]:
+                try:
+                    return {row["name"] for row in cur.execute(f"PRAGMA table_info({name})")}
+                except Exception:
+                    return set()
+
+            def _pick_payload(table: str) -> str:
+                cols = _table_columns(table)
+                if "raw_json" in cols:
+                    return "raw_json"
+                if "data" in cols:
+                    return "data"
+                return ""
+
+            items_payload = _pick_payload("items")
+            assets_payload = _pick_payload("assets")
+            if not items_payload or not assets_payload:
+                raise CatalogError("SQLite catalog missing payload columns")
+
+            items_rows = cur.execute(f"SELECT id, {items_payload} AS payload FROM items").fetchall()
+            assets_rows = cur.execute(f"SELECT id, {assets_payload} AS payload FROM assets").fetchall()
+
+            craft: Dict[str, Any] = {}
+            craft_recipes: Dict[str, Any] = {}
+            if "craft_meta" in tables:
+                craft_meta_rows = cur.execute("SELECT key, value_json FROM craft_meta").fetchall()
+                craft = {str(row["key"]): row["value_json"] for row in craft_meta_rows}
+            if "craft_recipes" in tables:
+                craft_payload = _pick_payload("craft_recipes")
+                if craft_payload:
+                    craft_rows = cur.execute(
+                        f"SELECT name, {craft_payload} AS payload FROM craft_recipes"
+                    ).fetchall()
+                    craft_recipes = {str(row["name"]): row["payload"] for row in craft_rows}
+            if craft or craft_recipes:
+                craft.setdefault("recipes", craft_recipes)
+            elif "craft" in tables:
+                craft_rows = cur.execute("SELECT key, data FROM craft").fetchall()
+                craft = {str(row["key"]): row["data"] for row in craft_rows}
+
+            cooking: Dict[str, Any] = {}
+            if "cooking_recipes" in tables:
+                cooking_payload = _pick_payload("cooking_recipes")
+                if cooking_payload:
+                    cooking_rows = cur.execute(
+                        f"SELECT name, {cooking_payload} AS payload FROM cooking_recipes"
+                    ).fetchall()
+                    cooking = {str(row["name"]): row["payload"] for row in cooking_rows}
+            elif "cooking" in tables:
+                cooking_rows = cur.execute("SELECT name, data FROM cooking").fetchall()
+                cooking = {str(row["name"]): row["data"] for row in cooking_rows}
+
+            cooking_ingredients: Dict[str, Any] = {}
             if "cooking_ingredients" in tables:
-                cooking_ingredient_rows = cur.execute("SELECT item_id, data FROM cooking_ingredients").fetchall()
-            else:
-                cooking_ingredient_rows = []
+                cooking_payload = _pick_payload("cooking_ingredients")
+                if cooking_payload:
+                    cooking_rows = cur.execute(
+                        f"SELECT item_id, {cooking_payload} AS payload FROM cooking_ingredients"
+                    ).fetchall()
+                    cooking_ingredients = {str(row["item_id"]): row["payload"] for row in cooking_rows}
         except Exception as exc:
             raise CatalogError(f"SQLite catalog missing tables: {path}") from exc
         finally:
@@ -369,11 +427,17 @@ class CatalogStore:
         if schema_version is None:
             schema_version = (meta_obj or {}).get("schema") or 0
 
-        items = {str(row["id"]): _load_json(row["data"]) for row in items_rows}
-        assets = {str(row["id"]): _load_json(row["data"]) for row in assets_rows}
-        craft = {str(row["key"]): _load_json(row["data"]) for row in craft_rows}
-        cooking = {str(row["name"]): _load_json(row["data"]) for row in cooking_rows}
-        cooking_ingredients = {str(row["item_id"]): _load_json(row["data"]) for row in cooking_ingredient_rows}
+        items = {str(row["id"]): _load_json(row["payload"]) for row in items_rows}
+        assets = {str(row["id"]): _load_json(row["payload"]) for row in assets_rows}
+
+        if craft:
+            craft = {str(k): _load_json(v) for k, v in craft.items()}
+        if craft_recipes:
+            craft["recipes"] = {str(k): _load_json(v) for k, v in craft_recipes.items()}
+        if cooking:
+            cooking = {str(k): _load_json(v) for k, v in cooking.items()}
+        if cooking_ingredients:
+            cooking_ingredients = {str(k): _load_json(v) for k, v in cooking_ingredients.items()}
 
         return {
             "schema_version": schema_version,
@@ -757,9 +821,22 @@ class CatalogStore:
             return
         try:
             cur = conn.cursor()
+            cols = {row["name"] for row in cur.execute("PRAGMA table_info(catalog_index)")}
+            cat_col = "categories_json" if "categories_json" in cols else "categories"
+            beh_col = "behaviors_json" if "behaviors_json" in cols else "behaviors"
+            src_col = "sources_json" if "sources_json" in cols else "sources"
+            tag_col = "tags_json" if "tags_json" in cols else "tags"
+            comp_col = "components_json" if "components_json" in cols else "components"
+            slot_col = "slots_json" if "slots_json" in cols else "slots"
             rows = cur.execute(
-                """
-                SELECT id, name, icon, image, has_icon, icon_only, kind, categories, behaviors, sources, tags, components, slots
+                f"""
+                SELECT id, name, icon, image, has_icon, icon_only, kind,
+                       {cat_col} AS categories,
+                       {beh_col} AS behaviors,
+                       {src_col} AS sources,
+                       {tag_col} AS tags,
+                       {comp_col} AS components,
+                       {slot_col} AS slots
                 FROM catalog_index
                 ORDER BY id
                 """
@@ -811,6 +888,123 @@ class CatalogStore:
         self._catalog_index_items = out
         self._catalog_index_total = len(out)
         self._catalog_index_mtime = mtime
+
+    def _has_catalog_fts(self) -> bool:
+        if not self._use_sqlite:
+            return False
+        try:
+            mtime = self._path.stat().st_mtime
+        except Exception:
+            mtime = -1.0
+        if self._catalog_fts_available is not None and self._catalog_fts_mtime == mtime:
+            return bool(self._catalog_fts_available)
+        available = False
+        try:
+            conn = sqlite3.connect(str(self._path))
+            cur = conn.cursor()
+            row = cur.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='catalog_index_fts' LIMIT 1"
+            ).fetchone()
+            available = bool(row)
+        except Exception:
+            available = False
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._catalog_fts_available = available
+        self._catalog_fts_mtime = mtime
+        return available
+
+    def _fetch_catalog_index_from_fts(self, words: List[str], *, limit: int) -> Optional[List[Dict[str, Any]]]:
+        if not words:
+            return None
+        if not self._has_catalog_fts():
+            return None
+
+        terms = []
+        for w in words:
+            w = str(w or "").strip()
+            if not w:
+                continue
+            w = w.replace('"', '""')
+            terms.append(f'"{w}"')
+        if not terms:
+            return None
+        query = " OR ".join(terms)
+
+        try:
+            conn = sqlite3.connect(str(self._path))
+            conn.row_factory = sqlite3.Row
+        except Exception:
+            return None
+        try:
+            cur = conn.cursor()
+            cols = {row["name"] for row in cur.execute("PRAGMA table_info(catalog_index)")}
+            cat_col = "categories_json" if "categories_json" in cols else "categories"
+            beh_col = "behaviors_json" if "behaviors_json" in cols else "behaviors"
+            src_col = "sources_json" if "sources_json" in cols else "sources"
+            tag_col = "tags_json" if "tags_json" in cols else "tags"
+            comp_col = "components_json" if "components_json" in cols else "components"
+            slot_col = "slots_json" if "slots_json" in cols else "slots"
+            rows = cur.execute(
+                f"""
+                SELECT c.id, c.name, c.icon, c.image, c.has_icon, c.icon_only, c.kind,
+                       c.{cat_col} AS categories,
+                       c.{beh_col} AS behaviors,
+                       c.{src_col} AS sources,
+                       c.{tag_col} AS tags,
+                       c.{comp_col} AS components,
+                       c.{slot_col} AS slots
+                FROM catalog_index_fts fts
+                JOIN catalog_index c ON c.rowid = fts.rowid
+                WHERE catalog_index_fts MATCH ?
+                LIMIT ?
+                """,
+                (query, int(limit)),
+            ).fetchall()
+        except Exception:
+            return None
+        finally:
+            conn.close()
+
+        def _load_list(value: Any) -> List[str]:
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return [str(x) for x in value if x]
+            try:
+                out = json.loads(value)
+                if isinstance(out, list):
+                    return [str(x) for x in out if x]
+            except Exception:
+                pass
+            return []
+
+        out: List[Dict[str, Any]] = []
+        for row in rows:
+            iid = str(row["id"] or "").strip()
+            if not iid:
+                continue
+            out.append(
+                {
+                    "id": iid,
+                    "name": row["name"],
+                    "icon": row["icon"],
+                    "image": row["image"],
+                    "has_icon": bool(row["has_icon"]),
+                    "icon_only": bool(row["icon_only"]),
+                    "kind": row["kind"],
+                    "categories": _load_list(row["categories"]),
+                    "behaviors": _load_list(row["behaviors"]),
+                    "sources": _load_list(row["sources"]),
+                    "tags": _load_list(row["tags"]),
+                    "components": _load_list(row["components"]),
+                    "slots": _load_list(row["slots"]),
+                }
+            )
+        return out
 
     def _ensure_icon_index(self) -> None:
         self._load_icon_index_if_stale()
@@ -952,9 +1146,20 @@ class CatalogStore:
                         return False
             return True
 
-        with self._lock:
-            self._load_catalog_index_if_stale()
-            items = list(self._catalog_index_items) if self._catalog_index_items else self.catalog_index()
+        items: List[Dict[str, Any]]
+        use_fts = bool(words) and self._use_sqlite and not name_lookup
+        if use_fts:
+            candidate_limit = min(max(int(offset or 0) + int(limit or 200), 2000), 10000)
+            fts_items = self._fetch_catalog_index_from_fts(words, limit=candidate_limit)
+            if fts_items is not None:
+                items = fts_items
+            else:
+                use_fts = False
+
+        if not use_fts:
+            with self._lock:
+                self._load_catalog_index_if_stale()
+                items = list(self._catalog_index_items) if self._catalog_index_items else self.catalog_index()
 
         extra_names: Dict[str, str] = {}
         if name_lookup:

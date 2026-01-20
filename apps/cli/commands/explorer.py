@@ -10,6 +10,7 @@ from rich.prompt import Prompt, IntPrompt
 from rich.syntax import Syntax
 from rich import box
 from apps.cli.cli_common import PROJECT_ROOT
+from core.version import project_version
 
 from core.engine import WagstaffEngine
 
@@ -24,7 +25,8 @@ class DSTExplorer:
             console.print(f"[red]引擎启动失败: {e}[/red]")
             sys.exit(1)
         
-        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 v3.1[/bold cyan]\n模式: {self.engine.mode.upper()} | 解析核心: Multi-Parser", border_style="blue"))
+        ver = project_version()
+        console.print(Panel(f"[bold cyan]Wagstaff 源码透视镜 {ver}[/bold cyan]\n模式: {self.engine.mode.upper()} | 解析核心: Multi-Parser", border_style="blue"))
         if self.engine.tuning:
             console.print(f"[dim]⚡ Tuning 数值库就绪 ({len(self.engine.tuning.raw_map)} 条目)[/dim]")
 
@@ -215,7 +217,8 @@ class DSTExplorer:
 def main():
     explorer = DSTExplorer()
     while True:
-        console.print("\n[bold white on blue] 🦁 Wagstaff 探索面板 v3.1 [/bold white on blue]")
+        ver = project_version()
+        console.print(f"\n[bold white on blue] 🦁 Wagstaff 探索面板 {ver} [/bold white on blue]")
         console.print("1. [bold]📁 结构[/]  2. [bold]🔍 搜索[/]  3. [bold]👀 预览&分析[/]  4. [bold]🔢 数值[/]  0. [bold red]退出[/]")
         choice = IntPrompt.ask("选择", choices=["0","1","2","3","4"], default=1)
         if choice == 0: break

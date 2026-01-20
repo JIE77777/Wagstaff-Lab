@@ -87,6 +87,16 @@ def main() -> None:
         default=os.environ.get("WAGSTAFF_I18N_INDEX", ""),
         help="Optional i18n index JSON path (default: catalog dir/wagstaff_i18n_v1.json)",
     )
+    parser.add_argument(
+        "--mechanism-index",
+        default=os.environ.get("WAGSTAFF_MECHANISM_INDEX", ""),
+        help="Optional mechanism index path (default: catalog dir/wagstaff_mechanism_index_v1.json)",
+    )
+    parser.add_argument(
+        "--reload-mechanism",
+        action="store_true",
+        help="Auto-reload mechanism index when it changes",
+    )
     args = parser.parse_args()
 
     catalog_path = Path(args.catalog).expanduser().resolve()
@@ -110,6 +120,8 @@ def main() -> None:
         auto_reload_tuning_trace=bool(args.reload_trace or args.reload_catalog),
         i18n_index_path=(Path(args.i18n_index).expanduser().resolve() if args.i18n_index else None),
         auto_reload_i18n_index=bool(args.reload_i18n or args.reload_catalog),
+        mechanism_path=(Path(args.mechanism_index).expanduser().resolve() if args.mechanism_index else None),
+        auto_reload_mechanism=bool(args.reload_mechanism or args.reload_catalog),
     )
 
     host = str(args.host)

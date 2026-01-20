@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -14,6 +15,7 @@ from .api import router as api_router
 from .catalog_store import CatalogStore
 from .icon_service import IconConfig, IconService
 from .i18n_index import I18nIndexStore
+from .mechanism_store import MechanismStore
 from .settings import WebCraftSettings
 from .tuning_trace import TuningTraceStore
 from .ui import render_index_html, render_cooking_html, render_cooking_tools_html, render_catalog_html
@@ -43,8 +45,30 @@ def create_app(
     # i18n index (optional)
     i18n_index_path: Optional[Path] = None,
     auto_reload_i18n_index: bool = False,
+    # mechanism index (optional)
+    mechanism_path: Optional[Path] = None,
+    auto_reload_mechanism: bool = False,
 ) -> FastAPI:
     """FastAPI app factory."""
+
+    def _is_sqlite_path(path: Path) -> bool:
+        return path.suffix.lower() in (".sqlite", ".sqlite3", ".db")
+
+    def _has_tuning_trace_table(path: Path) -> bool:
+        if not _is_sqlite_path(path) or not path.exists():
+            return False
+        try:
+            conn = sqlite3.connect(str(path))
+            cur = conn.cursor()
+            tables = {row[0] for row in cur.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            return "tuning_trace" in tables
+        except Exception:
+            return False
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     rp = WebCraftSettings.normalize_root_path(root_path)
 
@@ -72,7 +96,13 @@ def create_app(
     app.state.store = CatalogStore(Path(catalog_path))
 
     # tuning trace (separate from catalog)
-    ttp = Path(tuning_trace_path) if tuning_trace_path else (Path(catalog_path).parent / "wagstaff_tuning_trace_v1.json")
+    ttp = Path(tuning_trace_path) if tuning_trace_path else None
+    if ttp is None:
+        catalog_sqlite = app.state.store.path if _is_sqlite_path(app.state.store.path) else None
+        if catalog_sqlite and _has_tuning_trace_table(catalog_sqlite):
+            ttp = catalog_sqlite
+        else:
+            ttp = Path(catalog_path).parent / "wagstaff_tuning_trace_v1.json"
     app.state.tuning_trace_path = ttp
     if ttp.exists():
         app.state.tuning_trace_store = TuningTraceStore(ttp)
@@ -88,6 +118,16 @@ def create_app(
     else:
         app.state.i18n_index_store = None
     app.state.auto_reload_i18n_index = bool(auto_reload_i18n_index or auto_reload_catalog)
+
+    # mechanism index (separate from catalog)
+    mp = Path(mechanism_path) if mechanism_path else (Path(catalog_path).parent / "wagstaff_mechanism_index_v1.json")
+    mp = MechanismStore.resolve_path(mp)
+    app.state.mechanism_path = mp
+    if mp.exists():
+        app.state.mechanism_store = MechanismStore(mp)
+    else:
+        app.state.mechanism_store = None
+    app.state.auto_reload_mechanism = bool(auto_reload_mechanism or auto_reload_catalog)
 
     # analyzer (auto-on if scripts_zip hint is available)
     scripts_zip_hint = None

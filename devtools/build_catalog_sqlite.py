@@ -18,6 +18,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.indexers.catalog_index import build_catalog_index, load_icon_index  # noqa: E402
 from devtools.build_cache import file_sig, load_cache, save_cache  # noqa: E402
 
+DB_SCHEMA_VERSION = 4
+
 
 def _load_json(path: Path) -> Dict[str, Any]:
     try:
@@ -28,6 +30,18 @@ def _load_json(path: Path) -> Dict[str, Any]:
 
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
+
+
+def _load_trace(path: Optional[Path]) -> Dict[str, Any]:
+    if path is None:
+        return {}
+    if not path.exists():
+        return {}
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return doc if isinstance(doc, dict) else {}
 
 
 def _as_list(value: Any) -> List[str]:
@@ -44,31 +58,54 @@ def _iter_map_rows(obj: Any) -> Iterable[Tuple[str, str]]:
     return [(str(k), _json_dumps(v)) for k, v in obj.items()]
 
 
-def _iter_item_rows(items_obj: Any) -> Iterable[Tuple[str, str, str, str, str, str, str, str, str]]:
+def _iter_craft_meta_rows(craft_obj: Any) -> Iterable[Tuple[str, str]]:
+    if not isinstance(craft_obj, dict):
+        return []
+    rows = []
+    for key, value in craft_obj.items():
+        if key == "recipes":
+            continue
+        rows.append((str(key), _json_dumps(value)))
+    return rows
+
+
+def _iter_item_rows(items_obj: Any, assets_obj: Any) -> Iterable[Tuple[str, str, str, str, str, str, str, str, str, str, str, str]]:
     if not isinstance(items_obj, dict):
         return []
+    assets_obj = assets_obj if isinstance(assets_obj, dict) else {}
     out = []
     for iid, raw in items_obj.items():
         if not iid:
             continue
         item = dict(raw) if isinstance(raw, dict) else {"id": iid}
+        asset = assets_obj.get(iid)
+        if not isinstance(asset, dict):
+            asset = {}
+        name = str(asset.get("name") or item.get("name") or iid)
+        assets_json = item.get("assets")
+        if not isinstance(assets_json, dict):
+            assets_json = asset if asset else {}
+        prefab_files = item.get("prefab_files") or []
         out.append(
             (
                 str(item.get("id") or iid),
                 str(item.get("kind") or ""),
+                name,
                 _json_dumps(_as_list(item.get("categories"))),
                 _json_dumps(_as_list(item.get("behaviors"))),
                 _json_dumps(_as_list(item.get("sources"))),
                 _json_dumps(_as_list(item.get("tags"))),
                 _json_dumps(_as_list(item.get("components"))),
                 _json_dumps(_as_list(item.get("slots"))),
+                _json_dumps(assets_json),
+                _json_dumps(prefab_files),
                 _json_dumps(item),
             )
         )
     return out
 
 
-def _iter_asset_rows(assets_obj: Any) -> Iterable[Tuple[str, str, str, str, str]]:
+def _iter_asset_rows(assets_obj: Any) -> Iterable[Tuple[str, str, str, str, str, str, str, str]]:
     if not isinstance(assets_obj, dict):
         return []
     out = []
@@ -78,7 +115,10 @@ def _iter_asset_rows(assets_obj: Any) -> Iterable[Tuple[str, str, str, str, str]
         name = str(raw.get("name") or "")
         icon = str(raw.get("icon") or "")
         image = str(raw.get("image") or "")
-        out.append((str(iid), name, icon, image, _json_dumps(raw)))
+        atlas = str(raw.get("atlas") or "")
+        build = str(raw.get("build") or "")
+        bank = str(raw.get("bank") or "")
+        out.append((str(iid), name, icon, image, atlas, build, bank, _json_dumps(raw)))
     return out
 
 
@@ -129,7 +169,7 @@ def _iter_join_rows(items_obj: Any, field: str) -> Iterable[Tuple[str, str]]:
     return out
 
 
-def _iter_craft_recipe_rows(craft_obj: Dict[str, Any]) -> Iterable[Tuple[str, str, str, str, str, str, str, str]]:
+def _iter_craft_recipe_rows(craft_obj: Dict[str, Any]) -> Iterable[Tuple[str, str, str, str, str, str, str, str, str]]:
     recipes = craft_obj.get("recipes") if isinstance(craft_obj, dict) else None
     if not isinstance(recipes, dict):
         return []
@@ -149,6 +189,7 @@ def _iter_craft_recipe_rows(craft_obj: Dict[str, Any]) -> Iterable[Tuple[str, st
                 str(raw.get("station_tag") or ""),
                 _json_dumps(filters),
                 _json_dumps(btags),
+                _json_dumps(raw),
             )
         )
     return out
@@ -178,7 +219,7 @@ def _iter_craft_ingredient_rows(craft_obj: Dict[str, Any]) -> Iterable[Tuple[str
     return out
 
 
-def _iter_cooking_rows(cooking_obj: Any) -> Iterable[Tuple[str, float, float, str, str, str, str, str, str, str, str]]:
+def _iter_cooking_rows(cooking_obj: Any) -> Iterable[Tuple[str, float, float, str, str, str, str, str, str, str, str, str]]:
     if not isinstance(cooking_obj, dict):
         return []
     out = []
@@ -215,7 +256,7 @@ def _iter_cooking_rows(cooking_obj: Any) -> Iterable[Tuple[str, float, float, st
     return out
 
 
-def _iter_cooking_ingredient_rows(cooking_obj: Any) -> Iterable[Tuple[str, str, str]]:
+def _iter_cooking_ingredient_rows(cooking_obj: Any) -> Iterable[Tuple[str, str, str, str, str]]:
     if not isinstance(cooking_obj, dict):
         return []
     out = []
@@ -223,7 +264,9 @@ def _iter_cooking_ingredient_rows(cooking_obj: Any) -> Iterable[Tuple[str, str, 
         if not isinstance(raw, dict):
             continue
         tags = _json_dumps(raw.get("tags") or {})
-        out.append((str(item_id), tags, _json_dumps(raw)))
+        tags_expr = raw.get("tags_expr") or raw.get("tags_exprs") or ""
+        sources = _json_dumps(raw.get("sources") or [])
+        out.append((str(item_id), tags, str(tags_expr or ""), sources, _json_dumps(raw)))
     return out
 
 
@@ -253,11 +296,17 @@ def _iter_catalog_index_rows(items: List[Dict[str, Any]]) -> Iterable[Tuple[str,
     return out
 
 
-def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[Path]) -> None:
+def _build_sqlite(
+    catalog_path: Path,
+    out_path: Path,
+    icon_index_path: Optional[Path],
+    tuning_trace_path: Optional[Path],
+) -> None:
     doc = _load_json(catalog_path)
     schema_version = doc.get("schema_version") or (doc.get("meta") or {}).get("schema") or 0
     meta = doc.get("meta") or {}
     stats = doc.get("stats") or {}
+    tuning_trace = _load_trace(tuning_trace_path)
 
     icon_index = load_icon_index(icon_index_path) if icon_index_path else {}
     index_doc = build_catalog_index(doc, icon_index=icon_index)
@@ -284,6 +333,7 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
             DROP TABLE IF EXISTS item_components;
             DROP TABLE IF EXISTS item_slots;
             DROP TABLE IF EXISTS assets;
+            DROP TABLE IF EXISTS craft_meta;
             DROP TABLE IF EXISTS craft;
             DROP TABLE IF EXISTS craft_recipes;
             DROP TABLE IF EXISTS craft_ingredients;
@@ -291,19 +341,24 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
             DROP TABLE IF EXISTS cooking_recipes;
             DROP TABLE IF EXISTS cooking_ingredients;
             DROP TABLE IF EXISTS catalog_index;
+            DROP TABLE IF EXISTS catalog_index_fts;
+            DROP TABLE IF EXISTS tuning_trace;
 
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
             CREATE TABLE items (
                 id TEXT PRIMARY KEY,
                 kind TEXT,
-                categories TEXT,
-                behaviors TEXT,
-                sources TEXT,
-                tags TEXT,
-                components TEXT,
-                slots TEXT,
-                data TEXT NOT NULL
+                name TEXT,
+                categories_json TEXT,
+                behaviors_json TEXT,
+                sources_json TEXT,
+                tags_json TEXT,
+                components_json TEXT,
+                slots_json TEXT,
+                assets_json TEXT,
+                prefab_files_json TEXT,
+                raw_json TEXT NOT NULL
             );
 
             CREATE TABLE item_stats (
@@ -313,25 +368,29 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
                 expr_resolved TEXT,
                 trace_key TEXT,
                 value_json TEXT,
-                data TEXT
+                raw_json TEXT,
+                PRIMARY KEY (item_id, stat_key)
             );
 
-            CREATE TABLE item_categories (item_id TEXT NOT NULL, category TEXT NOT NULL);
-            CREATE TABLE item_behaviors (item_id TEXT NOT NULL, behavior TEXT NOT NULL);
-            CREATE TABLE item_sources (item_id TEXT NOT NULL, source TEXT NOT NULL);
-            CREATE TABLE item_tags (item_id TEXT NOT NULL, tag TEXT NOT NULL);
-            CREATE TABLE item_components (item_id TEXT NOT NULL, component TEXT NOT NULL);
-            CREATE TABLE item_slots (item_id TEXT NOT NULL, slot TEXT NOT NULL);
+            CREATE TABLE item_categories (item_id TEXT NOT NULL, category TEXT NOT NULL, PRIMARY KEY (item_id, category));
+            CREATE TABLE item_behaviors (item_id TEXT NOT NULL, behavior TEXT NOT NULL, PRIMARY KEY (item_id, behavior));
+            CREATE TABLE item_sources (item_id TEXT NOT NULL, source TEXT NOT NULL, PRIMARY KEY (item_id, source));
+            CREATE TABLE item_tags (item_id TEXT NOT NULL, tag TEXT NOT NULL, PRIMARY KEY (item_id, tag));
+            CREATE TABLE item_components (item_id TEXT NOT NULL, component TEXT NOT NULL, PRIMARY KEY (item_id, component));
+            CREATE TABLE item_slots (item_id TEXT NOT NULL, slot TEXT NOT NULL, PRIMARY KEY (item_id, slot));
 
             CREATE TABLE assets (
                 id TEXT PRIMARY KEY,
                 name TEXT,
                 icon TEXT,
                 image TEXT,
-                data TEXT NOT NULL
+                atlas TEXT,
+                build TEXT,
+                bank TEXT,
+                raw_json TEXT NOT NULL
             );
 
-            CREATE TABLE craft (key TEXT PRIMARY KEY, data TEXT NOT NULL);
+            CREATE TABLE craft_meta (key TEXT PRIMARY KEY, value_json TEXT NOT NULL);
             CREATE TABLE craft_recipes (
                 name TEXT PRIMARY KEY,
                 product TEXT,
@@ -339,18 +398,19 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
                 tech TEXT,
                 builder_skill TEXT,
                 station_tag TEXT,
-                filters TEXT,
-                builder_tags TEXT
+                filters_json TEXT,
+                builder_tags_json TEXT,
+                raw_json TEXT NOT NULL
             );
             CREATE TABLE craft_ingredients (
                 recipe_name TEXT NOT NULL,
                 item_id TEXT NOT NULL,
                 amount_num REAL,
                 amount_value REAL,
-                data TEXT
+                raw_json TEXT,
+                PRIMARY KEY (recipe_name, item_id)
             );
 
-            CREATE TABLE cooking (name TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE cooking_recipes (
                 name TEXT PRIMARY KEY,
                 priority REAL,
@@ -361,14 +421,21 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
                 sanity_json TEXT,
                 perishtime_json TEXT,
                 cooktime_json TEXT,
-                tags TEXT,
-                card_ingredients TEXT,
-                data TEXT
+                tags_json TEXT,
+                card_ingredients_json TEXT,
+                raw_json TEXT NOT NULL
             );
             CREATE TABLE cooking_ingredients (
                 item_id TEXT PRIMARY KEY,
-                tags TEXT,
-                data TEXT NOT NULL
+                tags_json TEXT,
+                tags_expr TEXT,
+                sources_json TEXT,
+                raw_json TEXT NOT NULL
+            );
+
+            CREATE TABLE tuning_trace (
+                trace_key TEXT PRIMARY KEY,
+                raw_json TEXT NOT NULL
             );
 
             CREATE TABLE catalog_index (
@@ -379,12 +446,12 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
                 has_icon INTEGER,
                 icon_only INTEGER,
                 kind TEXT,
-                categories TEXT,
-                behaviors TEXT,
-                sources TEXT,
-                tags TEXT,
-                components TEXT,
-                slots TEXT
+                categories_json TEXT,
+                behaviors_json TEXT,
+                sources_json TEXT,
+                tags_json TEXT,
+                components_json TEXT,
+                slots_json TEXT
             );
 
             CREATE INDEX idx_items_kind ON items(kind);
@@ -409,10 +476,19 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
             CREATE INDEX idx_catalog_name ON catalog_index(name);
             """
         )
+        fts_enabled = False
+        try:
+            cur.execute(
+                "CREATE VIRTUAL TABLE catalog_index_fts USING fts5(id, name, content='catalog_index', content_rowid='rowid')"
+            )
+            fts_enabled = True
+        except sqlite3.OperationalError:
+            fts_enabled = False
         cur.executemany(
             "INSERT INTO meta (key, value) VALUES (?, ?)",
             [
                 ("schema_version", _json_dumps(schema_version)),
+                ("db_schema_version", _json_dumps(DB_SCHEMA_VERSION)),
                 ("meta", _json_dumps(meta)),
                 ("stats", _json_dumps(stats)),
                 ("catalog_index_meta", _json_dumps(index_doc.get("meta") or {})),
@@ -427,48 +503,77 @@ def _build_sqlite(catalog_path: Path, out_path: Path, icon_index_path: Optional[
         cooking_ingredients_obj = doc.get("cooking_ingredients") or {}
 
         cur.executemany(
-            "INSERT INTO items (id, kind, categories, behaviors, sources, tags, components, slots, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            _iter_item_rows(items_obj),
+            "INSERT INTO items (id, kind, name, categories_json, behaviors_json, sources_json, tags_json, components_json, slots_json, assets_json, prefab_files_json, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            _iter_item_rows(items_obj, assets_obj),
         )
         cur.executemany(
-            "INSERT INTO assets (id, name, icon, image, data) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO assets (id, name, icon, image, atlas, build, bank, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             _iter_asset_rows(assets_obj),
         )
         cur.executemany(
-            "INSERT INTO item_stats (item_id, stat_key, expr, expr_resolved, trace_key, value_json, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO item_stats (item_id, stat_key, expr, expr_resolved, trace_key, value_json, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
             _iter_item_stat_rows(items_obj),
         )
-        cur.executemany("INSERT INTO item_categories (item_id, category) VALUES (?, ?)", _iter_join_rows(items_obj, "categories"))
-        cur.executemany("INSERT INTO item_behaviors (item_id, behavior) VALUES (?, ?)", _iter_join_rows(items_obj, "behaviors"))
-        cur.executemany("INSERT INTO item_sources (item_id, source) VALUES (?, ?)", _iter_join_rows(items_obj, "sources"))
-        cur.executemany("INSERT INTO item_tags (item_id, tag) VALUES (?, ?)", _iter_join_rows(items_obj, "tags"))
-        cur.executemany("INSERT INTO item_components (item_id, component) VALUES (?, ?)", _iter_join_rows(items_obj, "components"))
-        cur.executemany("INSERT INTO item_slots (item_id, slot) VALUES (?, ?)", _iter_join_rows(items_obj, "slots"))
-
-        cur.executemany("INSERT INTO craft (key, data) VALUES (?, ?)", _iter_map_rows(craft_obj))
         cur.executemany(
-            "INSERT INTO craft_recipes (name, product, tab, tech, builder_skill, station_tag, filters, builder_tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO item_categories (item_id, category) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "categories"),
+        )
+        cur.executemany(
+            "INSERT OR IGNORE INTO item_behaviors (item_id, behavior) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "behaviors"),
+        )
+        cur.executemany(
+            "INSERT OR IGNORE INTO item_sources (item_id, source) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "sources"),
+        )
+        cur.executemany(
+            "INSERT OR IGNORE INTO item_tags (item_id, tag) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "tags"),
+        )
+        cur.executemany(
+            "INSERT OR IGNORE INTO item_components (item_id, component) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "components"),
+        )
+        cur.executemany(
+            "INSERT OR IGNORE INTO item_slots (item_id, slot) VALUES (?, ?)",
+            _iter_join_rows(items_obj, "slots"),
+        )
+
+        cur.executemany("INSERT INTO craft_meta (key, value_json) VALUES (?, ?)", _iter_craft_meta_rows(craft_obj))
+        cur.executemany(
+            "INSERT INTO craft_recipes (name, product, tab, tech, builder_skill, station_tag, filters_json, builder_tags_json, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             _iter_craft_recipe_rows(craft_obj),
         )
         cur.executemany(
-            "INSERT INTO craft_ingredients (recipe_name, item_id, amount_num, amount_value, data) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO craft_ingredients (recipe_name, item_id, amount_num, amount_value, raw_json) VALUES (?, ?, ?, ?, ?)",
             _iter_craft_ingredient_rows(craft_obj),
         )
 
-        cur.executemany("INSERT INTO cooking (name, data) VALUES (?, ?)", _iter_item_list_rows(cooking_obj))
         cur.executemany(
-            "INSERT INTO cooking_recipes (name, priority, weight, foodtype, hunger_json, health_json, sanity_json, perishtime_json, cooktime_json, tags, card_ingredients, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO cooking_recipes (name, priority, weight, foodtype, hunger_json, health_json, sanity_json, perishtime_json, cooktime_json, tags_json, card_ingredients_json, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             _iter_cooking_rows(cooking_obj),
         )
         cur.executemany(
-            "INSERT INTO cooking_ingredients (item_id, tags, data) VALUES (?, ?, ?)",
+            "INSERT INTO cooking_ingredients (item_id, tags_json, tags_expr, sources_json, raw_json) VALUES (?, ?, ?, ?, ?)",
             _iter_cooking_ingredient_rows(cooking_ingredients_obj),
         )
 
+        if tuning_trace:
+            cur.executemany(
+                "INSERT INTO tuning_trace (trace_key, raw_json) VALUES (?, ?)",
+                [(str(k), _json_dumps(v)) for k, v in tuning_trace.items() if k],
+            )
+
         cur.executemany(
-            "INSERT INTO catalog_index (id, name, icon, image, has_icon, icon_only, kind, categories, behaviors, sources, tags, components, slots) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO catalog_index (id, name, icon, image, has_icon, icon_only, kind, categories_json, behaviors_json, sources_json, tags_json, components_json, slots_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             _iter_catalog_index_rows(index_doc.get("items") or []),
         )
+
+        if fts_enabled:
+            try:
+                cur.execute("INSERT INTO catalog_index_fts(catalog_index_fts) VALUES ('rebuild')")
+            except sqlite3.OperationalError:
+                pass
 
         conn.commit()
     finally:
@@ -482,6 +587,7 @@ def main() -> int:
     p.add_argument("--catalog", default="data/index/wagstaff_catalog_v2.json", help="Catalog JSON path")
     p.add_argument("--icon-index", default="data/index/wagstaff_icon_index_v1.json", help="Icon index JSON path")
     p.add_argument("--out", default="data/index/wagstaff_catalog_v2.sqlite", help="Output SQLite path")
+    p.add_argument("--tuning-trace", default="data/index/wagstaff_tuning_trace_v1.json", help="Tuning trace JSON path")
     p.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
     args = p.parse_args()
 
@@ -494,10 +600,12 @@ def main() -> int:
         icon_index_path = None
 
     out_path = (PROJECT_ROOT / args.out).resolve()
+    tuning_trace_path = (PROJECT_ROOT / args.tuning_trace).resolve() if args.tuning_trace else None
 
     inputs_sig = {
         "catalog": file_sig(catalog_path),
         "icon_index": file_sig(icon_index_path) if icon_index_path else {"path": "", "exists": False},
+        "tuning_trace": file_sig(tuning_trace_path) if tuning_trace_path else {"path": "", "exists": False},
     }
     outputs_sig = {"out": file_sig(out_path)}
     cache = load_cache()
@@ -508,7 +616,7 @@ def main() -> int:
             print("✅ Catalog SQLite up-to-date; skip rebuild")
             return 0
 
-    _build_sqlite(catalog_path, out_path, icon_index_path)
+    _build_sqlite(catalog_path, out_path, icon_index_path, tuning_trace_path)
     outputs_sig = {"out": file_sig(out_path)}
     cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
     save_cache(cache)

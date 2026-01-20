@@ -1,4 +1,4 @@
-# Wagstaff-Lab 项目管理总览 (v3)
+# Wagstaff-Lab 项目管理总览 (v4.0.0-dev)
 
 本文件是**执行层面的单一管理入口**。ROADMAP 仅保留长期方向，SPEC 仅描述数据/接口契约，PROJECT_STATUS 保持运行快照与近期记录。
 
@@ -49,7 +49,7 @@
 ### 数据质量
 - **E5 stats 覆盖扩展**：更多组件/属性/方法（进行中）
 - **E6 i18n 覆盖扩展**：names/desc/quotes + UI 词条（进行中）
-- **E7 质量报告与门禁**：catqa + quality_gate（完成）
+- **E7 质量报告与门禁**：report_hub + quality_gate（完成）
 
 ### WebCraft 应用
 - **E8 Catalog 列表/检索**：items + indexes（完成）
@@ -82,10 +82,9 @@
 - **T-107**：Mechanism SQLite schema v1（links 表 + 统一映射策略）
 - **T-108**：Mechanism summary + consistency 校验（JSON/SQLite 对齐）
 - **T-109**：Mechanism crosscheck 报告（resource_index 对齐 + 缺口清单）
-- **T-110**：Mechanism JSON schema 校验工具（validate_mechanism_index.py）
-- **T-111**：Mechanism diff 工具（diff_mechanism_index.py）
 - **T-112**：Mechanism JSON schema 文件（machine-readable）
 - **T-113**：Mechanism build 严格校验开关（--strict）
+- **T-114**：SQLite v4 schema 设计（DDL + 索引 + 迁移策略，见 `docs/specs/SQLITE_V4_SPEC.md`）
 
 ## 5. 最近完成（摘要）
 
@@ -94,6 +93,12 @@
 - Catalog index v1 规范与 WebCraft API 契约补齐
 - pyproject 入口统一、bin/installer 清理完成
 - 新增耕种机制索引产物与机制报告（farming defs）
+- 索引清单落盘：新增 `index-manifest` 生成器与 Makefile 入口
+- SQLite 产物增加 `db_schema_version=4`，为 v4 结构演进预留标记
+- core 收口：`klei_atlas_tex` 迁移至 `core/assets/`，配置加载迁移至 `core/config/`
+- 索引全量重建并生成 `wagstaff_index_manifest.json`
+- SQLite v4：catalog/mechanism 构建器升级 + WebCraft v4 表优先加载
+- mechanism-index 收口：validate/diff 合并为子命令，旧脚本内退
 
 ## 6. 下一步建议（短期）
 

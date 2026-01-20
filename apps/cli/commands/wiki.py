@@ -25,6 +25,7 @@ from rich.tree import Tree
 from apps.cli.cli_common import PROJECT_ROOT
 from core.engine import WagstaffEngine  # noqa: E402
 from core.parsers import LuaAnalyzer, LootParser  # noqa: E402
+from core.version import project_version  # noqa: E402
 
 console = Console()
 
@@ -154,10 +155,11 @@ class WagstaffWiki:
             self._print_help()
 
     def _print_help(self):
+        ver = project_version()
         console.print(
             Panel(
-                """
-[bold cyan]📖 Wagstaff Wiki v2.6 (Craft + Cooking)[/bold cyan]
+                f"""
+[bold cyan]📖 Wagstaff Wiki {ver} (Craft + Cooking)[/bold cyan]
 
 [green]wagstaff wiki recipe <配方名/产物名>[/green]
 [green]wagstaff wiki recipe tab <TAB>[/green]            按制作栏大类列出

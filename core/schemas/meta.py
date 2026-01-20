@@ -7,6 +7,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from core.version import versions
+
 
 def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
@@ -24,6 +26,10 @@ def build_meta(
         "generated": now_iso(),
         "tool": str(tool),
     }
+    try:
+        meta.update(versions())
+    except Exception:
+        pass
     if sources:
         meta["sources"] = sources
     if extra:

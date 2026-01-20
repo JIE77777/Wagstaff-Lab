@@ -1,4 +1,4 @@
-# Wagstaff CLI Role Plan (v3)
+# Wagstaff CLI Role Plan (v4.0.0-dev)
 
 Goal: make the CLI an engineering console with clear roles and low cognitive load.
 
@@ -26,6 +26,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
   - Purpose: show/sync milestones and active tasks.
   - Command: `wagstaff mgmt`
   - Tip: `wagstaff mgmt check` for DEV_GUIDE emphasis
+  - i18n: `--lang` or `WAGSTAFF_LANG=zh|en`
 
 
 - **Build (index outputs)**
@@ -33,15 +34,20 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
   - Commands:
     - `wagstaff resindex` resource index
     - `wagstaff catalog2` catalog v2
+    - `wagstaff catalog-sqlite` catalog sqlite v4
     - `wagstaff catindex` compact catalog index
     - `wagstaff i18n` i18n index
     - `wagstaff icons` icons + icon index
+    - `wagstaff farming-defs` farming defs
+    - `wagstaff mechanism-index build` mechanism index
+    - Tip: `wagstaff mechanism-index validate` / `wagstaff mechanism-index diff`
+    - `wagstaff index-manifest` index manifest
 
 - **Quality (coverage checks)**
-  - Purpose: coverage report + quality gate (default info-only).
-  - Commands:
-    - `wagstaff catqa`
-    - `wagstaff quality`
+  - Purpose: quality gate (default info-only); reports generated via report hub.
+  - Command:
+    - `wagstaff quality` (includes sqlite + mechanism checks)
+  - Report refresh: `wagstaff report build --quality`
 
 - **Ops (service)**
   - Purpose: run WebCraft for UI validation.
@@ -53,17 +59,20 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
 
 - **Utility (support)**
   - Purpose: snapshots, reports, macro scans.
-  - Commands: `wagstaff snap` / `wagstaff report` / `wagstaff map` / `wagstaff samples`
+  - Commands: `wagstaff snap` / `wagstaff report` / `wagstaff samples`
+  - Report hub: `wagstaff report build --all` / `wagstaff report build --stats-gap` / `wagstaff report list` / `wagstaff report open`
+  - Portal: `wagstaff portal build` / `wagstaff portal list` / `wagstaff portal open`
 
 ## 2. Command Overview
 
 - Entry
   - `wagstaff` / `wagstaff dash`
 - Build
-  - `wagstaff resindex` / `wagstaff catalog2` / `wagstaff catindex`
-  - `wagstaff i18n` / `wagstaff icons`
+  - `wagstaff resindex` / `wagstaff catalog2` / `wagstaff catalog-sqlite` / `wagstaff catindex`
+  - `wagstaff i18n` / `wagstaff icons` / `wagstaff farming-defs` / `wagstaff mechanism-index build`
+  - `wagstaff index-manifest`
 - Quality
-  - `wagstaff catqa` / `wagstaff quality`
+  - `wagstaff quality`
 - Service
   - `wagstaff web`
 - Server
@@ -73,7 +82,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
 - Management
   - `wagstaff mgmt`
 - Utilities
-  - `wagstaff snap` / `wagstaff report` / `wagstaff map` / `wagstaff samples`
+  - `wagstaff snap` / `wagstaff report` / `wagstaff portal` / `wagstaff samples`
 
 ## 3. Operating Principles
 

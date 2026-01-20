@@ -42,13 +42,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from core.klei_atlas_tex import decode_ktex_to_image, fix_ktex_orientation  # type: ignore
+    from core.assets.klei_atlas_tex import decode_ktex_to_image, fix_ktex_orientation  # type: ignore
 except Exception as e:  # pragma: no cover
     raise SystemExit(
-        "ERROR: cannot import core.klei_atlas_tex.decode_ktex_to_image. Ensure project root is on PYTHONPATH.\n"
+        "ERROR: cannot import core.assets.klei_atlas_tex.decode_ktex_to_image. Ensure project root is on PYTHONPATH.\n"
         f"{e}"
     )
 from devtools.build_cache import dir_sig, file_sig, load_cache, paths_sig, save_cache  # noqa: E402
+from core.schemas.meta import build_meta  # noqa: E402
 
 # ---------------------------- utils ----------------------------
 
@@ -786,8 +787,22 @@ def main() -> None:
     for n in missing:
         reason_counts[missing_reason.get(n, "not_exported")] += 1
 
+    meta = build_meta(
+        schema=1,
+        tool="build_icons",
+        sources={
+            "catalog": str(catalog_path),
+            "bundles": [str(p) for p in bundle_paths],
+            "data_dir": str(data_dir) if data_dir else None,
+        },
+        extra={
+            "mode": "all-elements" if export_all else "catalog-ids",
+        },
+    )
+
     doc = {
         "schema_version": 1,
+        "meta": meta,
         "generated_from": {
             "catalog": str(catalog_path),
             "bundles": [str(p) for p in bundle_paths],

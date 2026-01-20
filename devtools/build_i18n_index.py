@@ -18,7 +18,7 @@ from core.indexers.i18n_index import build_item_name_map, load_ui_strings, load_
 from core.schemas.meta import build_meta  # noqa: E402
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

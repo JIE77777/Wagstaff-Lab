@@ -6,7 +6,7 @@
 - ASGI 框架：FastAPI
 - 服务器：Uvicorn
 - 中间件：GZip、可选 CORS
-- 数据源：data/index/wagstaff_catalog_v2.json（item-centric 索引产物）
+- 数据源：`data/index/wagstaff_catalog_v2.{json,sqlite}`（item-centric） + `data/index/wagstaff_mechanism_index_v1.{json,sqlite}`（机制索引）
 
 ## 目录结构
 - apps/webcraft/
@@ -41,8 +41,13 @@ UI 与 API 都使用相同 root_path 前缀，前端以相对路径访问 `/api/
 - GET /api/v1/craft/recipes/{name}
 - POST /api/v1/craft/plan
 - POST /api/v1/craft/missing
+- GET /api/v1/mechanism/meta
+- GET /api/v1/mechanism/components
+- GET /api/v1/mechanism/components/{component_id}
+- GET /api/v1/mechanism/prefabs
+- GET /api/v1/mechanism/prefabs/{prefab_id}
 
 ## 后续扩展建议
 - 引入 “station/tech/skill tree” 规则：只扩展 planner + API，不改 UI 架构
-- catalog 改为 SQLite：CatalogStore 层替换为 SQLiteStore（API/UI 无需变化）
+- catalog 已优先 SQLite v4 表结构（JSON 作为 fallback），后续仅需补充 v4 扩展表
 - 加 websocket/SSE：用于索引重建、长任务进度推送

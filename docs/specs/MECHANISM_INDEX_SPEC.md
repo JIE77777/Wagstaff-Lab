@@ -8,12 +8,13 @@
 - SQLite: `data/index/wagstaff_mechanism_index_v1.sqlite`
 - schema_version: 1
 - JSON schema: `docs/specs/mechanism_index_v1.schema.json`
+- SQLite 结构版本通过 meta 的 `db_schema_version` 标记（当前 v4）。
 
 ## 2. 顶层结构（JSON）
 
 ```yaml
 schema_version: 1
-meta: {schema, generated, tool, sources, scripts_sha256_12, ...}
+meta: {schema, project_version, index_version, generated, tool, sources, scripts_sha256_12, ...}
 counts:
   components_total: int
   prefabs_total: int
@@ -53,6 +54,12 @@ brains: ["brains/spiderbrain", ...]
 stategraphs: ["SGspider", ...]
 helpers: ["MakeSmallBurnable", ...]
 files: ["scripts/prefabs/spider.lua", ...]
+events: ["attacked", ...]
+assets: [{type: "ANIM", path: "anim/spider.zip"}, ...]
+component_calls:
+  - component: "combat"
+    methods: ["SetDefaultDamage(34)", ...]
+    properties: ["defaultdamage = 34", ...]
 ```
 
 ### 2.3 Link
@@ -68,13 +75,14 @@ target_id: "combat"
 
 核心表：
 
+- `meta`：包含 `schema_version` 与 `db_schema_version`（SQLite 结构版本，当前 v4）
 - `components(id, class_name, path, aliases_json, methods_json, fields_json, events_json, requires_json, raw_json)`
 - `component_fields(component_id, field)`
 - `component_methods(component_id, method)`
 - `component_events(component_id, event)`
-- `prefabs(id, components_json, tags_json, brains_json, stategraphs_json, helpers_json, files_json, raw_json)`
+- `prefabs(id, components_json, tags_json, brains_json, stategraphs_json, helpers_json, files_json, events_json, assets_json, component_calls_json, raw_json)`
 - `prefab_components(prefab_id, component_id)`
-- `links(source, source_id, target, target_id)`
+- `links(source, source_id, target, target_id, relation)`（relation 可选，缺省视为 prefab_component）
 
 保留扩展表（后续解析落盘）：
 

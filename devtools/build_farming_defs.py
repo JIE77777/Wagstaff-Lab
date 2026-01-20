@@ -17,7 +17,7 @@ from core.indexers.farming_defs import build_farming_defs  # noqa: E402
 from devtools.build_cache import file_sig, files_sig, load_cache, save_cache  # noqa: E402
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

@@ -1,4 +1,4 @@
-# Wagstaff-Lab 版本演进方向 (v3+)
+# Wagstaff-Lab 版本演进方向 (v4+)
 
 本文件仅保留**长期方向**，执行计划与进度请统一查看：
 - `docs/management/PROJECT_MANAGEMENT.md`
@@ -16,6 +16,7 @@ vNext 破兼容重构规划见：
 - Catalog schema v2：更多字段归一化（prefab、asset、tuning trace）。
 - 增量构建：对比 scripts hash，支持局部重建与 cache reuse。
 - 存储升级：从 JSON 过渡到 SQLite/Parquet（大规模检索性能）。
+- SQLite v4 结构：统一 db_schema_version 与表分组设计（见 `docs/specs/SQLITE_V4_SPEC.md`）。
 
 ## 3. WebCraft 体验
 

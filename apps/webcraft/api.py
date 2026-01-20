@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .catalog_store import CatalogStore, CraftRecipe, CookingRecipe
+from .mechanism_store import MechanismStore
 from .planner import craftable_recipes, missing_for, normalize_inventory
 from .cooking_planner import explore_cookpot, find_cookable, simulate_cookpot, normalize_counts
 
@@ -28,10 +29,41 @@ def get_store(request: Request) -> CatalogStore:
     return store
 
 
-def _cache_headers(request: Request, *, max_age: int, etag: Optional[str] = None) -> Dict[str, str]:
+def get_mechanism_store(request: Request) -> Optional[MechanismStore]:
+    """Resolve mechanism index store from app state (with optional auto-reload)."""
+
+    store = getattr(request.app.state, "mechanism_store", None)
+    if store is None:
+        path = getattr(request.app.state, "mechanism_path", None)
+        if path:
+            try:
+                from pathlib import Path
+
+                p = Path(path)
+                if p.exists():
+                    store = MechanismStore(p)
+                    request.app.state.mechanism_store = store
+            except Exception:
+                store = None
+    auto = bool(getattr(request.app.state, "auto_reload_mechanism", False))
+    if store is not None and auto:
+        try:
+            store.load(force=False)
+        except Exception:
+            pass
+    return store
+
+
+def _cache_headers(
+    request: Request,
+    *,
+    max_age: int,
+    etag: Optional[str] = None,
+    auto_reload_attr: str = "auto_reload_catalog",
+) -> Dict[str, str]:
     if max_age <= 0:
         return {}
-    if bool(getattr(request.app.state, "auto_reload_catalog", False)):
+    if bool(getattr(request.app.state, auto_reload_attr, False)):
         return {}
     headers = {"Cache-Control": f"public, max-age={int(max_age)}"}
     if etag:
@@ -227,6 +259,24 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
         except Exception:
             pass
 
+    mstore = get_mechanism_store(request)
+    if mstore is not None:
+        try:
+            m.update(
+                {
+                    "mechanism_enabled": True,
+                    "mechanism_schema_version": mstore.schema_version(),
+                    "mechanism_counts": mstore.counts(),
+                }
+            )
+        except Exception:
+            m.update({"mechanism_enabled": True})
+    else:
+        m.update({"mechanism_enabled": False})
+
+    analysis_mode = "mechanism" if mstore else ("runtime" if eng else "none")
+    m.update({"analysis_enabled": analysis_mode != "none", "analysis_mode": analysis_mode})
+
     # tuning traces for UI (optional; requires scripts mounted)
     tuning = _ensure_tuning(eng, store.meta())
     if tuning is not None:
@@ -266,6 +316,146 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
     etag = f'W/"meta-{int(store.mtime())}"'
     headers = _cache_headers(request, max_age=60, etag=etag)
     return _json(m, headers=headers)
+
+
+# ----------------- mechanism index -----------------
+
+
+@router.get("/mechanism/meta")
+def mechanism_meta(request: Request):
+    store = get_mechanism_store(request)
+    if store is None:
+        return _json({"enabled": False, "schema_version": 0, "meta": {}, "counts": {}})
+
+    out = {
+        "enabled": True,
+        "schema_version": store.schema_version(),
+        "meta": store.meta(),
+        "counts": store.counts(),
+    }
+    etag = f'W/"mechanism-meta-{int(store.mtime())}"'
+    headers = _cache_headers(request, max_age=60, etag=etag, auto_reload_attr="auto_reload_mechanism")
+    return _json(out, headers=headers)
+
+
+@router.get("/mechanism/components")
+def mechanism_components(
+    request: Request,
+    q: Optional[str] = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=2000),
+):
+    store = get_mechanism_store(request)
+    if store is None:
+        return {"enabled": False, "items": [], "count": 0, "total": 0, "offset": int(offset), "limit": int(limit)}
+
+    ids = store.search_components(q or "")
+    total = len(ids)
+    start = int(offset)
+    end = start + int(limit)
+    page = ids[start:end]
+
+    items: List[Dict[str, Any]] = []
+    for cid in page:
+        comp = store.get_component(cid) or {}
+        used_by = store.component_usage(cid)
+        items.append(
+            {
+                "id": cid,
+                "class_name": comp.get("class_name"),
+                "path": comp.get("path"),
+                "aliases": comp.get("aliases") or [],
+                "methods_count": len(comp.get("methods") or []),
+                "fields_count": len(comp.get("fields") or []),
+                "events_count": len(comp.get("events") or []),
+                "prefabs_count": len(used_by),
+            }
+        )
+
+    q_sig = hashlib.sha1(str(q).encode("utf-8")).hexdigest()[:8] if q else "all"
+    etag = f'W/"mechanism-components-{int(store.mtime())}-{q_sig}-{total}-{start}-{end}"'
+    headers = _cache_headers(request, max_age=120, etag=etag, auto_reload_attr="auto_reload_mechanism")
+    return _json(
+        {"enabled": True, "items": items, "count": len(items), "total": total, "offset": start, "limit": int(limit)},
+        headers=headers,
+    )
+
+
+@router.get("/mechanism/components/{component_id}")
+def mechanism_component_detail(component_id: str, request: Request):
+    store = get_mechanism_store(request)
+    if store is None:
+        raise HTTPException(status_code=404, detail="mechanism index not available")
+    comp = store.get_component(component_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail=f"component not found: {component_id}")
+    used_by = store.component_usage(component_id)
+    return {"component": comp, "used_by": used_by, "prefabs_count": len(used_by)}
+
+
+@router.get("/mechanism/prefabs")
+def mechanism_prefabs(
+    request: Request,
+    q: Optional[str] = None,
+    component: Optional[str] = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(200, ge=1, le=2000),
+):
+    store = get_mechanism_store(request)
+    if store is None:
+        return {"enabled": False, "items": [], "count": 0, "total": 0, "offset": int(offset), "limit": int(limit)}
+
+    if component:
+        ids = store.prefabs_for_component(component)
+    else:
+        ids = store.search_prefabs(q or "")
+    total = len(ids)
+    start = int(offset)
+    end = start + int(limit)
+    page = ids[start:end]
+
+    items: List[Dict[str, Any]] = []
+    for pid in page:
+        row = store.get_prefab(pid) or {}
+        items.append(
+            {
+                "id": pid,
+                "components": row.get("components") or [],
+                "tags": row.get("tags") or [],
+                "brains": row.get("brains") or [],
+                "stategraphs": row.get("stategraphs") or [],
+                "helpers": row.get("helpers") or [],
+                "files": row.get("files") or [],
+            }
+        )
+
+    q_sig = hashlib.sha1(str(component or q or "").encode("utf-8")).hexdigest()[:8] if (component or q) else "all"
+    etag = f'W/"mechanism-prefabs-{int(store.mtime())}-{q_sig}-{total}-{start}-{end}"'
+    headers = _cache_headers(request, max_age=120, etag=etag, auto_reload_attr="auto_reload_mechanism")
+    return _json(
+        {
+            "enabled": True,
+            "items": items,
+            "count": len(items),
+            "total": total,
+            "offset": start,
+            "limit": int(limit),
+            "component": component,
+            "q": q,
+        },
+        headers=headers,
+    )
+
+
+@router.get("/mechanism/prefabs/{prefab_id}")
+def mechanism_prefab_detail(prefab_id: str, request: Request):
+    store = get_mechanism_store(request)
+    if store is None:
+        raise HTTPException(status_code=404, detail="mechanism index not available")
+    row = store.get_prefab(prefab_id)
+    if not row:
+        raise HTTPException(status_code=404, detail=f"prefab not found: {prefab_id}")
+    return {"prefab": row}
 
 
 @router.get("/tuning/trace")
@@ -755,31 +945,89 @@ def cooking_simulate(req: CookingSimulateRequest, request: Request, store: Catal
     return out
 
 
+def _prefab_report_from_mechanism(prefab_id: str, row: Dict[str, Any]) -> Dict[str, Any]:
+    comps = sorted({str(x) for x in (row.get("components") or []) if x})
+    tags = sorted({str(x) for x in (row.get("tags") or []) if x})
+    brains = sorted({str(x) for x in (row.get("brains") or []) if x})
+    stategraphs = sorted({str(x) for x in (row.get("stategraphs") or []) if x})
+    helpers = sorted({str(x) for x in (row.get("helpers") or []) if x})
+    files = sorted({str(x) for x in (row.get("files") or []) if x})
+    return {
+        "type": "prefab",
+        "prefab_name": prefab_id,
+        "components": comps,
+        "tags": tags,
+        "brain": brains[0] if brains else None,
+        "stategraph": stategraphs[0] if stategraphs else None,
+        "brains": brains,
+        "stategraphs": stategraphs,
+        "helpers": helpers,
+        "files": files,
+        "events": [],
+        "assets": [],
+        "source": "mechanism_index",
+    }
+
+
 @router.get("/analyze/prefab/{name}")
-def analyze_prefab(name: str, request: Request):
-    """Parse a prefab lua file and return a structured report.
-
-    Requires the server to be started with analyzer enabled (scripts mounted).
-    """
-    eng = getattr(request.app.state, "engine", None)
-    if eng is None:
-        raise HTTPException(status_code=400, detail="analyzer disabled (no scripts source mounted)")
-
+def analyze_prefab(name: str, request: Request, mode: Optional[str] = None):
+    """Return a prefab analysis report (mechanism index preferred, runtime optional)."""
     q = (name or "").strip()
     if not q:
         raise HTTPException(status_code=400, detail="empty name")
 
-    try:
-        path = eng.find_file(q, fuzzy=True)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    if not path:
-        raise HTTPException(status_code=404, detail=f"file not found for: {q}")
+    mode_norm = str(mode or "").strip().lower()
+    eng = getattr(request.app.state, "engine", None)
+    mstore = get_mechanism_store(request)
 
-    content = eng.read_file(path)
-    if content is None:
-        raise HTTPException(status_code=404, detail=f"cannot read: {path}")
+    def _from_mechanism() -> Optional[Dict[str, Any]]:
+        if mstore is None:
+            return None
+        pid = q
+        row = mstore.get_prefab(pid)
+        if row is None and pid.lower() != pid:
+            pid = pid.lower()
+            row = mstore.get_prefab(pid)
+        if not row:
+            return None
+        report = _prefab_report_from_mechanism(str(row.get("id") or pid), row)
+        files = report.get("files") or []
+        path = files[0] if files else None
+        return {"query": q, "path": path, "report": report, "mode": "mechanism"}
 
-    from core.parsers import LuaAnalyzer
-    rep = LuaAnalyzer(content, path=path).get_report()
-    return {"query": q, "path": path, "report": rep}
+    def _from_engine() -> Dict[str, Any]:
+        if eng is None:
+            raise HTTPException(status_code=400, detail="analyzer disabled (no scripts source mounted)")
+        try:
+            path = eng.find_file(q, fuzzy=True)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        if not path:
+            raise HTTPException(status_code=404, detail=f"file not found for: {q}")
+
+        content = eng.read_file(path)
+        if content is None:
+            raise HTTPException(status_code=404, detail=f"cannot read: {path}")
+
+        from core.parsers import LuaAnalyzer
+
+        rep = LuaAnalyzer(content, path=path).get_report()
+        return {"query": q, "path": path, "report": rep, "mode": "runtime"}
+
+    if mode_norm in {"mechanism", "index"}:
+        rep = _from_mechanism()
+        if rep is not None:
+            return rep
+        if mstore is None:
+            raise HTTPException(status_code=400, detail="mechanism index not available")
+        raise HTTPException(status_code=404, detail=f"prefab not found: {q}")
+
+    if mode_norm in {"runtime", "engine", "analyzer"}:
+        return _from_engine()
+
+    rep = _from_mechanism()
+    if rep is not None:
+        return rep
+    if eng is not None:
+        return _from_engine()
+    raise HTTPException(status_code=400, detail="prefab analysis unavailable (no mechanism index or analyzer)")

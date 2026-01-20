@@ -17,7 +17,7 @@ from core.indexers.resource_index import build_resource_index, render_resource_i
 from devtools.build_cache import dir_sig, file_sig, load_cache, paths_sig, save_cache, files_sig  # noqa: E402
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

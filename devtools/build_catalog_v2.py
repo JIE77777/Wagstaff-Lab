@@ -18,7 +18,7 @@ from core.engine import WagstaffEngine  # noqa: E402
 from devtools.build_cache import file_sig, load_cache, save_cache, files_sig  # noqa: E402
 
 try:
-    from core.utils import wagstaff_config  # type: ignore
+    from core.config import wagstaff_config  # type: ignore
 except Exception:
     wagstaff_config = None  # type: ignore
 

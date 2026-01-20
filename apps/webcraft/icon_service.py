@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from core.klei_atlas_tex import (
+from core.assets.klei_atlas_tex import (
     Atlas,
     decode_ktex_to_image,
     parse_atlas_xml,

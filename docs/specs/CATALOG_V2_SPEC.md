@@ -31,11 +31,16 @@ vNext 破兼容重构规划见 `docs/management/VNEXT_REFACTOR_PLAN.md`。
   独立链路索引（可选，便于裁剪）。
 
 SQLite 产物表（派生，摘要）：
-- `items`：`id/kind/categories/.../data`
-- `item_stats`：`item_id/stat_key/expr/value_json/trace_key`
-- `catalog_index`：`id/name/icon/kind/...`（列表/检索）
-- `craft_recipes` / `craft_ingredients`
+- v4 结构以 `db_schema_version=4` 标记，细节见 `docs/specs/SQLITE_V4_SPEC.md`。
+- 文件名仍以 catalog JSON 的 schema 版本为准（v2），SQLite 结构版本通过 `db_schema_version` 区分。
+- `items`：`id/kind/name/*_json/raw_json`
+- `item_stats`：`item_id/stat_key/expr/value_json/trace_key/raw_json`
+- `item_*` join 表：category/behavior/source/tag/component/slot
+- `assets`：`id/name/icon/image/atlas/build/bank/raw_json`
+- `craft_meta` / `craft_recipes` / `craft_ingredients`
 - `cooking_recipes` / `cooking_ingredients`
+- `catalog_index`：`id/name/icon/kind/*_json`（列表/检索）
+- `tuning_trace`：`trace_key/raw_json`（可选）
 
 ## 3. 核心实体草案
 
@@ -55,6 +60,8 @@ SQLite 产物表（派生，摘要）：
 
 建议字段：
 - `schema`：产物版本号
+- `project_version`：项目版本（统一版本入口）
+- `index_version`：索引版本（与 schema 独立）
 - `generated`：构建时间 (ISO8601)
 - `tool`：构建工具名
 - `sources`：构建输入来源（scripts_zip / scripts_dir / resource_index 等）
