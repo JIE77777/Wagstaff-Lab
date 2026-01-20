@@ -1,7 +1,7 @@
 PY ?= python
 DST_ROOT ?= ../dontstarvetogether_dedicated_server
 
-.PHONY: all resindex catalog catalog-sqlite catalog-index i18n farming-defs icons quality gate webcraft snap clean
+.PHONY: all resindex catalog catalog-sqlite catalog-index i18n farming-defs mechanism-index icons quality gate webcraft snap clean
 
 all: resindex catalog catalog-index i18n farming-defs quality
 
@@ -22,6 +22,9 @@ i18n:
 
 farming-defs:
 	$(PY) devtools/build_farming_defs.py --dst-root $(DST_ROOT)
+
+mechanism-index:
+	$(PY) devtools/build_mechanism_index.py --dst-root $(DST_ROOT)
 
 icons:
 	$(PY) devtools/build_icons.py --dst-root $(DST_ROOT) --all-elements --overwrite

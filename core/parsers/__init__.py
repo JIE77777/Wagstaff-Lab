@@ -2,6 +2,7 @@
 """Domain parsers for DST scripts."""
 
 from core.parsers.base import BaseParser
+from core.parsers.component import ComponentParser
 from core.parsers.cooking import CookingIngredientAnalyzer, CookingRecipeAnalyzer, parse_oceanfish_ingredients
 from core.parsers.lua_analyzer import LuaAnalyzer
 from core.parsers.loot import LootParser
@@ -12,6 +13,7 @@ from core.parsers.widget import WidgetParser
 
 __all__ = [
     "BaseParser",
+    "ComponentParser",
     "CookingIngredientAnalyzer",
     "CookingRecipeAnalyzer",
     "LuaAnalyzer",

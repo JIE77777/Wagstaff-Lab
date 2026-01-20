@@ -67,6 +67,11 @@ wagstaff quality    # info-only quality gate
 make farming-defs
 ```
 
+可选：机制索引（组件/Prefab 链路）：
+```bash
+make mechanism-index
+```
+
 可选：生成 SQLite 版本 catalog：
 ```bash
 make catalog-sqlite
@@ -117,6 +122,8 @@ data/index/wagstaff_catalog_v2.json
 data/index/wagstaff_catalog_v2.sqlite
 data/index/wagstaff_catalog_index_v1.json
 data/index/wagstaff_farming_defs_v1.json
+data/index/wagstaff_mechanism_index_v1.json
+data/index/wagstaff_mechanism_index_v1.sqlite
 data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json

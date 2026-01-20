@@ -61,6 +61,8 @@ dev_guide:
   - `data/index/wagstaff_catalog_v2.sqlite`
   - `data/index/wagstaff_icon_index_v1.json`
   - `data/index/wagstaff_farming_defs_v1.json`
+  - `data/index/wagstaff_mechanism_index_v1.json`
+  - `data/index/wagstaff_mechanism_index_v1.sqlite`
 - 产物默认不入库：`data/index/` 与 `data/static/icons/` 由工具生成，需要时用 `make catalog` / `make icons` 重建。
 - 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
@@ -164,13 +166,13 @@ dev_guide:
 - `make all`：resindex + catalog + catalog-index + i18n + farming-defs + quality
 - `make resindex` / `make catalog` / `make catalog-index`
 - `make catalog-sqlite`
-- `make i18n` / `make farming-defs` / `make icons`
+- `make i18n` / `make farming-defs` / `make mechanism-index` / `make icons`
 - `make quality` / `make gate`
 - `make webcraft` / `make snap`
 
 ## 9.1 增量构建 (devtools)
 
-- `build_resource_index.py` / `build_farming_defs.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
+- `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
 - 需强制全量重建时，追加 `--force`。
 
 ## 10. 最低自检清单
