@@ -173,6 +173,7 @@ dev_guide:
 ## 9.1 增量构建 (devtools)
 
 - `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
+- `build_mechanism_index.py` 依赖 `scripts` 与 `resource_index` 签名，JSON 与 SQLite 输出统一比对。
 - 需强制全量重建时，追加 `--force`。
 
 ## 10. 最低自检清单

@@ -83,6 +83,13 @@ def build_mechanism_index(
     components = _scan_components(engine)
     prefab_links = _build_prefab_links(resource_index)
     component_usage = _build_component_usage(prefab_links)
+    mapping = {
+        "prefab_component": [
+            {"source": "prefab", "source_id": pid, "target": "component", "target_id": cid}
+            for cid, pids in component_usage.items()
+            for pid in pids
+        ]
+    }
 
     scripts_zip = getattr(getattr(engine, "source", None), "filename", None)
     scripts_sha = _sha256_12_file(Path(scripts_zip)) if scripts_zip else None
@@ -110,8 +117,10 @@ def build_mechanism_index(
             "components_total": len(components.get("items") or {}),
             "prefabs_total": len(prefab_links),
             "components_used": len(component_usage),
+            "prefab_component_edges": len(mapping.get("prefab_component") or []),
         },
         "components": components,
         "prefabs": {"items": prefab_links},
         "component_usage": component_usage,
+        "links": mapping,
     }

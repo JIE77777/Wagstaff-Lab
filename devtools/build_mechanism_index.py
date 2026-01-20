@@ -91,6 +91,13 @@ def _write_sqlite(doc: dict, path: Path) -> None:
                 PRIMARY KEY (prefab_id, component_id)
             );
 
+            CREATE TABLE links (
+                source TEXT,
+                source_id TEXT,
+                target TEXT,
+                target_id TEXT
+            );
+
             CREATE TABLE stategraphs (id TEXT PRIMARY KEY, raw_json TEXT);
             CREATE TABLE stategraph_states (stategraph_id TEXT, state_name TEXT, raw_json TEXT);
             CREATE TABLE stategraph_events (stategraph_id TEXT, event TEXT, raw_json TEXT);
@@ -170,6 +177,19 @@ def _write_sqlite(doc: dict, path: Path) -> None:
                     "INSERT OR REPLACE INTO prefab_components (prefab_id, component_id) VALUES (?, ?)",
                     (pid, comp),
                 )
+
+        for link in (doc.get("links") or {}).get("prefab_component") or []:
+            if not isinstance(link, dict):
+                continue
+            cur.execute(
+                "INSERT INTO links (source, source_id, target, target_id) VALUES (?, ?, ?, ?)",
+                (
+                    link.get("source"),
+                    link.get("source_id"),
+                    link.get("target"),
+                    link.get("target_id"),
+                ),
+            )
 
         conn.commit()
     finally:

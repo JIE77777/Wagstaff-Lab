@@ -34,6 +34,7 @@
 - **simulation index（轻量）**：以种植为主的简化模拟输入输出与参数表。
 - **analysis reports**：覆盖率、机制差异、脚本演进对比等。
 - **storage**：JSON 与 SQLite 同步落盘，机制索引与 catalog 同步支持查询。
+  - JSON 主键统一以 prefab id 为核心，附 `links` 映射表兜底。
 
 ## 3. 目标架构蓝图
 
@@ -63,6 +64,7 @@ core/
 - 状态机解析：StateGraph、事件流与状态迁移图。
 - AI/Brain 解析：行为树/脑图结构与条件。
 - 资源链路：prefab → 组件 → 掉落 → 产物 → 配方。
+  - 统一输出 `links`（source/target/id）用于跨索引 join。
 
 ### 4.2 模拟系统（轻量：种植优先）
 
@@ -91,6 +93,7 @@ core/
   - AI：`brains` / `brain_nodes` / `brain_edges`
   - 映射：`prefab_components` / `prefab_links`
 - 同时保留 `raw_json` 字段或附表，保证解析原貌可追溯。
+- 统一映射表：`links(source, source_id, target, target_id)` 作为跨索引连接入口。
 
 ## 5. 分阶段里程碑（建议）
 
@@ -109,6 +112,7 @@ core/
 - 缓存与增量构建统一到 `data/index/.build_cache.json`。
 - vNext schemas 定义并在 indexers 输出时校验。
 - JSON 与 SQLite 同步落盘，建立一致性校验。
+  - 机制索引中 `links` 与 SQLite `links` 表保持一致。
 
 交付标准：
 - 每个 indexer 有清晰输入/输出契约。
