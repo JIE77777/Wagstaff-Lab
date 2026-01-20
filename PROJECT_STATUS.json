@@ -37,7 +37,8 @@
     "Icons: 修复 KTEX 图标方向翻转并同步 build_icons 导出流程。",
     "Tooling: 修复 build_icons 导入异常导致的 CLI 启动失败。",
     "CatalogV2: 新增 cooking_ingredients 解析与落盘（ingredients.lua/cooking.lua）。",
-    "WebCraft: Cooking 探索/模拟重做，支持接近可做与排序公式说明。"
+    "WebCraft: Cooking 探索/模拟重做，支持接近可做与排序公式说明。",
+    "Farming: 新增耕种机制索引与报告（farming defs）"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
@@ -162,7 +163,10 @@
     "[2026-01-20 02:49] WebCraft UI: Cooking 条件 chip 仅基于当前槽位估算 name/tag，增强半满足对比度。",
     "[2026-01-20 03:02] WebCraft UI: Cooking 半满足视觉弱化并整理槽位条件计算链路。",
     "[2026-01-20 03:18] WebCraft UI: Cooking 结果区增加检索栏并优化卡片层级顺序。",
-    "[2026-01-20 03:34] WebCraft UI: Cooking 食材卡展示 tag 数值并调整移动端信息层级。"
+    "[2026-01-20 03:34] WebCraft UI: Cooking 食材卡展示 tag 数值并调整移动端信息层级。",
+    "[2026-01-20 11:09] 新增耕种机制索引产物与机制报告 (farming defs)",
+    "[2026-01-20 13:54] make all 加入 farming-defs",
+    "[2026-01-20 14:21] Docs: 归档完成规划文档并新增 vNext 重构规划"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

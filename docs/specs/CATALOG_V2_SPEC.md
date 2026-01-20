@@ -3,6 +3,7 @@
 目标：对 DST 做“全面理解与展示”，形成稳定可迁移的索引产物。
 
 说明：本文件仅描述**数据/接口契约**；进度与迁移状态见 `docs/management/PROJECT_MANAGEMENT.md`。
+vNext 破兼容重构规划见 `docs/management/VNEXT_REFACTOR_PLAN.md`。
 
 ## 1. 总体原则
 

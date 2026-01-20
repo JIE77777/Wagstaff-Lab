@@ -5,6 +5,7 @@
 ## 0. 管理约定
 
 - **战略方向**：`docs/management/ROADMAP.md`
+- **vNext 重构规划**：`docs/management/VNEXT_REFACTOR_PLAN.md`
 - **数据契约**：`docs/specs/CATALOG_V2_SPEC.md`
 - **执行管理**：`docs/management/PROJECT_MANAGEMENT.md`（本文件）
 - **运行快照**：`PROJECT_STATUS.json`
@@ -30,7 +31,7 @@
   - 三入口体验：Catalog/Craft/Cooking 结构一致，探索/模拟/百科模式清晰
   - 解释性输出：规则/条件/trace 可视化，配方链路与用途说明
   - catalog 分页/缓存与搜索改造（已落地）
-  - Cooking 升级方案归档：`docs/management/COOKING_UPGRADE.md`
+  - Cooking 升级方案归档：`docs/archived/COOKING_UPGRADE.md`
 - **M3.4 存储升级准备**（规划中）
   - SQLite/Parquet 迁移计划与 schema 对齐
   - SQLite catalog 派生产物与 WebCraft SQLite 优先加载（已落地）
@@ -84,6 +85,7 @@
 - WebCraft UI 模块化：模板迁移至 `apps/webcraft/templates/`，CSS/JS 拆分到 `apps/webcraft/static/`
 - Catalog index v1 规范与 WebCraft API 契约补齐
 - pyproject 入口统一、bin/installer 清理完成
+- 新增耕种机制索引产物与机制报告（farming defs）
 
 ## 6. 下一步建议（短期）
 

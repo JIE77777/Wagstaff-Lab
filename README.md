@@ -49,6 +49,7 @@ DST_ROOT=/path/to/dontstarvetogether_dedicated_server
 ```bash
 make all
 ```
+包含 farming-defs（耕种机制索引）。
 
 或分步构建：
 ```bash
@@ -59,6 +60,11 @@ wagstaff i18n       # i18n index
 wagstaff icons      # icon export + icon index
 wagstaff catqa      # coverage/quality report
 wagstaff quality    # info-only quality gate
+```
+
+可选：耕种机制索引：
+```bash
+make farming-defs
 ```
 
 可选：生成 SQLite 版本 catalog：
@@ -110,6 +116,7 @@ data/index/wagstaff_resource_index_v1.json
 data/index/wagstaff_catalog_v2.json
 data/index/wagstaff_catalog_v2.sqlite
 data/index/wagstaff_catalog_index_v1.json
+data/index/wagstaff_farming_defs_v1.json
 data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json
@@ -143,3 +150,4 @@ WebCraft UI 模板与静态资源：
 - `docs/specs/CATALOG_V2_SPEC.md`：Catalog v2 规范
 - `docs/management/ROADMAP.md`：项目路线图
 - `docs/management/PROJECT_MANAGEMENT.md`：项目管理与进度
+- `docs/management/VNEXT_REFACTOR_PLAN.md`：vNext 重构规划（破兼容版）

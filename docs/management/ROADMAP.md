@@ -2,6 +2,8 @@
 
 本文件仅保留**长期方向**，执行计划与进度请统一查看：
 - `docs/management/PROJECT_MANAGEMENT.md`
+vNext 破兼容重构规划见：
+- `docs/management/VNEXT_REFACTOR_PLAN.md`
 
 ## 1. 架构与工程化
 

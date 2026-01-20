@@ -11,12 +11,18 @@
 
 - `management/PROJECT_MANAGEMENT.md`：执行管理与进度
 - `management/ROADMAP.md`：长期方向
+- `management/VNEXT_REFACTOR_PLAN.md`：vNext 重构规划（破兼容版）
 
 ## specs/
 
 - `specs/CATALOG_V2_SPEC.md`：Catalog v2 + API 契约
+- `specs/FARMING_MECHANICS_REPORT.md`：DST 耕种机制报告与关键调参
 
 ## architecture/
 
 - `architecture/WEBCRAFT_NETWORK_STACK.md`：WebCraft 网络与服务栈
 
+## archived/
+
+- `archived/WEBCRAFT_UI_MODULARIZATION.md`：已完成的 WebCraft UI 模块化改造计划
+- `archived/COOKING_UPGRADE.md`：Cooking 探索/模拟升级方案（归档）
