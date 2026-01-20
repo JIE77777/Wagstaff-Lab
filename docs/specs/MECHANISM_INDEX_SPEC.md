@@ -7,6 +7,7 @@
 - JSON: `data/index/wagstaff_mechanism_index_v1.json`
 - SQLite: `data/index/wagstaff_mechanism_index_v1.sqlite`
 - schema_version: 1
+- JSON schema: `docs/specs/mechanism_index_v1.schema.json`
 
 ## 2. 顶层结构（JSON）
 

@@ -69,6 +69,7 @@ dev_guide:
 - 产物需携带统一元信息（schema / generated / tool / sources / scripts hash）。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
 - Catalog v2 产物新增 `cooking_ingredients` 字段用于料理食材 tags 索引。
+- Mechanism index 的 JSON schema 见 `docs/specs/mechanism_index_v1.schema.json`。
 
 ## 5. WebCraft 约定
 
@@ -176,7 +177,9 @@ dev_guide:
 
 - `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
 - `build_mechanism_index.py` 依赖 `scripts` 与 `resource_index` 签名，JSON 与 SQLite 输出统一比对。
+- `build_mechanism_index.py --strict` 会在任意校验告警时返回非零。
 - `validate_mechanism_index.py` 用于校验机制索引 JSON 结构与关键字段。
+- `diff_mechanism_index.py` 用于对比两份机制索引的增量变化。
 - 需强制全量重建时，追加 `--force`。
 
 ## 10. 最低自检清单

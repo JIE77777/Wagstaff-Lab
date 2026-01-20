@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wagstaff Mechanism Index v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "meta",
+    "counts",
+    "components",
+    "prefabs",
+    "component_usage",
+    "links"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "meta": {
+      "type": "object"
+    },
+    "counts": {
+      "type": "object",
+      "required": [
+        "components_total",
+        "prefabs_total",
+        "components_used",
+        "prefab_component_edges"
+      ],
+      "properties": {
+        "components_total": { "type": "integer" },
+        "prefabs_total": { "type": "integer" },
+        "components_used": { "type": "integer" },
+        "prefab_component_edges": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "components": {
+      "type": "object",
+      "required": ["total_files", "items"],
+      "properties": {
+        "total_files": { "type": "integer" },
+        "items": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/component" }
+        }
+      }
+    },
+    "prefabs": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/prefab_link" }
+        }
+      }
+    },
+    "component_usage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "links": {
+      "type": "object",
+      "properties": {
+        "prefab_component": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/link" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": ["type", "id", "path"],
+      "properties": {
+        "type": { "type": "string", "const": "component" },
+        "id": { "type": "string" },
+        "class_name": { "type": ["string", "null"] },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "methods": { "type": "array", "items": { "type": "string" } },
+        "fields": { "type": "array", "items": { "type": "string" } },
+        "events": { "type": "array", "items": { "type": "string" } },
+        "requires": { "type": "array", "items": { "type": "string" } },
+        "path": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "prefab_link": {
+      "type": "object",
+      "properties": {
+        "components": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "brains": { "type": "array", "items": { "type": "string" } },
+        "stategraphs": { "type": "array", "items": { "type": "string" } },
+        "helpers": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "link": {
+      "type": "object",
+      "required": ["source", "source_id", "target", "target_id"],
+      "properties": {
+        "source": { "type": "string", "const": "prefab" },
+        "source_id": { "type": "string" },
+        "target": { "type": "string", "const": "component" },
+        "target_id": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -17,6 +17,7 @@
 
 - `specs/CATALOG_V2_SPEC.md`：Catalog v2 + API 契约
 - `specs/MECHANISM_INDEX_SPEC.md`：Mechanism index v1 规范草案
+- `specs/mechanism_index_v1.schema.json`：Mechanism index v1 JSON schema
 - `specs/FARMING_MECHANICS_REPORT.md`：DST 耕种机制报告与关键调参
 
 ## architecture/

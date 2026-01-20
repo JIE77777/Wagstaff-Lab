@@ -172,7 +172,9 @@
     "[2026-01-20 15:08] Tooling: snapshot 预设移除 analyzer 路径并指向 parsers",
     "[2026-01-20 15:10] Core: mechanism index 统一 links 映射并同步 SQLite schema",
     "[2026-01-20 15:14] Core: mechanism index summary + consistency 校验与 spec 草案",
-    "[2026-01-20 15:32] Core: mechanism crosscheck 报告与 JSON 校验工具补齐"
+    "[2026-01-20 15:32] Core: mechanism crosscheck 报告与 JSON 校验工具补齐",
+    "[2026-01-20 15:36] Tooling: mechanism diff 工具补齐",
+    "[2026-01-20 15:37] Core: mechanism schema 文件与 strict 校验补齐"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

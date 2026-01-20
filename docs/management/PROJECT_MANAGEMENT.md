@@ -83,6 +83,9 @@
 - **T-108**：Mechanism summary + consistency 校验（JSON/SQLite 对齐）
 - **T-109**：Mechanism crosscheck 报告（resource_index 对齐 + 缺口清单）
 - **T-110**：Mechanism JSON schema 校验工具（validate_mechanism_index.py）
+- **T-111**：Mechanism diff 工具（diff_mechanism_index.py）
+- **T-112**：Mechanism JSON schema 文件（machine-readable）
+- **T-113**：Mechanism build 严格校验开关（--strict）
 
 ## 5. 最近完成（摘要）
 

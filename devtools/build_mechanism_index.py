@@ -20,6 +20,7 @@ from core.indexers.mechanism_index import (
     render_mechanism_index_summary,
 )  # noqa: E402
 from devtools.build_cache import file_sig, files_sig, load_cache, save_cache  # noqa: E402
+from devtools.validate_mechanism_index import validate as validate_schema  # noqa: E402
 
 try:
     from core.utils import wagstaff_config  # type: ignore
@@ -279,6 +280,7 @@ def main() -> int:
     p.add_argument("--no-sqlite", action="store_true", help="Skip SQLite output")
     p.add_argument("--force", action="store_true", help="Force rebuild even if cache matches")
     p.add_argument("--silent", action="store_true", help="Suppress engine logs")
+    p.add_argument("--strict", action="store_true", help="Fail build on any validation warning")
 
     args = p.parse_args()
 
@@ -350,9 +352,20 @@ def main() -> int:
     crosscheck_path.parent.mkdir(parents=True, exist_ok=True)
     crosscheck_path.write_text(render_mechanism_crosscheck_report(resource_index, index), encoding="utf-8")
 
-    warnings = _validate_index(index)
-    for msg in warnings:
+    schema_result = validate_schema(index)
+    schema_errors = schema_result.get("errors") or []
+    schema_warnings = schema_result.get("warnings") or []
+    consistency_warnings = _validate_index(index)
+
+    for msg in schema_errors:
+        print(f"❌ {msg}", file=sys.stderr)
+    for msg in schema_warnings:
         print(f"⚠️  {msg}", file=sys.stderr)
+    for msg in consistency_warnings:
+        print(f"⚠️  {msg}", file=sys.stderr)
+
+    has_errors = bool(schema_errors)
+    has_warnings = bool(schema_warnings or consistency_warnings)
 
     outputs_sig = {
         "out": file_sig(out_path),
@@ -360,16 +373,24 @@ def main() -> int:
         "summary": file_sig(summary_path),
         "crosscheck": file_sig(crosscheck_path),
     }
-    cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
-    save_cache(cache)
 
     print(f"✅ Mechanism index written: {out_path}")
     if not args.no_sqlite:
         print(f"✅ Mechanism sqlite written: {sqlite_path}")
     print(f"✅ Summary written: {summary_path}")
     print(f"✅ Crosscheck written: {crosscheck_path}")
-    if warnings:
-        print(f"⚠️  Warnings: {len(warnings)}", file=sys.stderr)
+    if has_errors or (args.strict and has_warnings):
+        print(
+            f"❌ Validation failed. errors={len(schema_errors)} warnings={len(schema_warnings) + len(consistency_warnings)}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if has_warnings:
+        print(f"⚠️  Warnings: {len(schema_warnings) + len(consistency_warnings)}", file=sys.stderr)
+
+    cache[cache_key] = {"signature": inputs_sig, "outputs": outputs_sig}
+    save_cache(cache)
     return 0
 
 
