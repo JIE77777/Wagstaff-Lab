@@ -8,6 +8,13 @@
 - 当前痛点：core 过于耦合（解析/领域逻辑/索引混杂），索引构建链路难复用，机制解析与模拟缺乏统一入口。
 - vNext 必须提供明确的“机制解析 → 索引 → 分析 → 可视化”的链路。
 
+## 0.1 已确认方向
+
+- **机制解析优先级**：组件解析优先（Components > StateGraph > Brain）。
+- **产物形态**：JSON 与 SQLite 同步落盘。
+- **旧 analyzer.py**：仅保留最小适配或直接移除，以最小历史包袱为原则。
+- **应用层节奏**：应用层慢慢做，core 重构优先。
+
 ## 1. 重构原则（抛弃历史包袱）
 
 - 允许移除旧 API 与旧文件结构，不做兼容层“补丁”。
@@ -20,8 +27,10 @@
 
 - **catalog v3**：更细粒度的物品/机制索引，覆盖组件、状态机、掉落、行为、技能、资源链路。
 - **mechanism index**：DST 机制解析产物（组件属性/方法、状态机、脑图、事件流、配方规则）。
-- **simulation index**：种植/烹饪等模拟输入输出与参数面板。
+- **component index**：组件定义与接口索引（字段/方法/默认值/事件）。
+- **simulation index（轻量）**：以种植为主的简化模拟输入输出与参数表。
 - **analysis reports**：覆盖率、机制差异、脚本演进对比等。
+- **storage**：JSON 与 SQLite 同步落盘，机制索引与 catalog 同步支持查询。
 
 ## 3. 目标架构蓝图
 
@@ -47,16 +56,16 @@ core/
 
 ### 4.1 DST 机制解析
 
-- 组件 API 解析：属性、方法、数值推导（含 TUNING 链路）。
+- **组件解析优先**：组件 API 解析先落盘（属性、方法、数值推导，含 TUNING 链路）。
 - 状态机解析：StateGraph、事件流与状态迁移图。
 - AI/Brain 解析：行为树/脑图结构与条件。
 - 资源链路：prefab → 组件 → 掉落 → 产物 → 配方。
 
-### 4.2 模拟系统（重点：种植）
+### 4.2 模拟系统（轻量：种植优先）
 
-- 种植模拟：生长时间、营养/水分/季节影响、杂草与肥料。
-- 烹饪模拟：规则解释、接近可做、排序公式与约束解释。
-- 输出标准化：模拟输入/输出 schema，便于 UI 与分析工具复用。
+- 种植模拟：提供“输入参数 → 结论”简化模型（生长时间/营养/水分/季节/肥料）。
+- 烹饪模拟：保留规则解释与接近可做输出，不追求重型 UI。
+- 输出标准化：模拟输入/输出 schema，为 CLI/报告优先，UI 后置。
 
 ### 4.3 分析工具与可视化
 
@@ -70,12 +79,23 @@ core/
 - 运行健康与日志聚合，支持结构化输出。
 - 与数据分析层解耦，但共享同一配置与日志规范。
 
+### 4.5 存储与查询（SQLite vNext）
+
+- JSON 与 SQLite 同步落盘，保证产物一致性。
+- SQLite 结构向“机制查询”优化：
+  - `components` / `component_fields` / `component_methods`
+  - `stategraphs` / `stategraph_states` / `stategraph_events` / `stategraph_edges`
+  - `brains` / `brain_nodes` / `brain_edges`
+  - `prefab_components` / `prefab_links`
+- 以 `id` 与 `kind` 为主索引，提供可 join 的关系表，避免单表巨型 JSON。
+
 ## 5. 分阶段里程碑（建议）
 
 ### Phase A: Core 拆分与基础迁移
 - 拆分 `core/analyzer.py` 为 `core/lua` + `core/parsers/*`。
 - `core/engine` 专注挂载/IO/缓存，不承担解析与索引。
 - 引入 `schemas/validators`，建立最小校验链路。
+- 旧 `core/analyzer.py` 仅保留最小适配层（必要时迁移到 `core/legacy/`），不再扩展。
 
 交付标准：
 - 旧模块依赖清除 80%+。
@@ -85,12 +105,14 @@ core/
 - 建立“step-based pipeline”（resource → catalog → mechanism → simulation → reports）。
 - 缓存与增量构建统一到 `data/index/.build_cache.json`。
 - vNext schemas 定义并在 indexers 输出时校验。
+- JSON 与 SQLite 同步落盘，建立一致性校验。
 
 交付标准：
 - 每个 indexer 有清晰输入/输出契约。
 - 可独立复用与单测。
 
 ### Phase C: 机制解析落盘
+- 组件解析与索引产物优先落盘（component index + prefab 组件映射）。
 - StateGraph/Brain 解析器与索引产物落盘。
 - 组件方法/属性解析覆盖率提升（与 TUNING 统一追踪）。
 
@@ -98,7 +120,7 @@ core/
 - 机制索引产物可被 Web/CLI 查询。
 
 ### Phase D: 种植模拟与机制工具
-- farming simulation 模块化，提供可解释输出。
+- farming simulation 轻量化落盘，提供可解释输出（CLI/报告优先）。
 - 机制/模拟报告工具（差异/覆盖/异常样本）。
 
 交付标准：
@@ -113,7 +135,7 @@ core/
 
 ## 6. 迁移与清理策略
 
-- 移除旧 `core/analyzer.py` 巨型模块，拆分为独立目录。
+- 移除旧 `core/analyzer.py` 巨型模块，拆分为独立目录；仅保留最小适配层（或直接移除）。
 - `core/indexers` 内部依赖改为 `parsers` 输出结构，不直接解析 Lua。
 - 将 `klei_atlas_tex.py` 迁移到 `core/assets/`，统一图像处理入口。
 - 旧 CLI/Devtools 入口保留最小桥接，逐步迁移到新 pipeline。
@@ -139,5 +161,5 @@ core/
 
 - vNext 版本号策略（v4 或 v3.x 破兼容）。
 - 旧 WebCraft UI 保留/重建的范围与节奏。
-- 机制解析优先级：StateGraph vs Brain vs Components。
-- 种植模拟优先落地的输入/输出面板形态。
+- SQLite 机制索引表的粒度与主键策略（component/stategraph/brain 细节拆表程度）。
+- 机制索引与 catalog 索引之间的引用方式（id 统一还是多源映射）。
