@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 import re
 
 from core.lua import LuaCallExtractor, strip_lua_comments, _skip_string_or_long_string
+from core.lua.match import _find_matching
+from core.lua.split import _split_top_level
 from core.parsers import LootParser, PrefabParser
 from core.indexers.shared import _sha256_12_file
 from core.craft_recipes import CraftRecipeDB
@@ -209,6 +211,21 @@ _STAT_PROPERTIES = {
     "planararmor": {"absorption": "planar_absorption", "baseabsorption": "planar_absorption_base"},
     "workable": {"workleft": "work_left"},
 }
+
+
+def _build_stat_key_component_map() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for comp, mapping in _STAT_METHODS.items():
+        for specs in mapping.values():
+            for key, _ in specs:
+                out.setdefault(key, comp)
+    for comp, mapping in _STAT_PROPERTIES.items():
+        for key in mapping.values():
+            out.setdefault(key, comp)
+    return out
+
+
+_STAT_KEY_COMPONENT = _build_stat_key_component_map()
 
 
 def _clean_id(x: Any) -> Optional[str]:
@@ -436,6 +453,94 @@ def _scan_assignment_expr(text: str, start: int) -> str:
     return text[start:i].strip().rstrip(",")
 
 
+def _scan_prev_ident(text: str, pos: int) -> str:
+    i = pos - 1
+    while i >= 0 and text[i].isspace():
+        i -= 1
+    if i < 0 or not re.match(r"[A-Za-z_]", text[i]):
+        return ""
+    j = i
+    while j >= 0 and re.match(r"[A-Za-z0-9_]", text[j]):
+        j -= 1
+    return text[j + 1 : i + 1]
+
+
+def _is_function_def(text: str, pos: int) -> bool:
+    return _scan_prev_ident(text, pos) == "function"
+
+
+def _build_component_file_map(resource_index: Dict[str, Any]) -> Dict[str, str]:
+    scripts = resource_index.get("scripts") if isinstance(resource_index, dict) else {}
+    scripts = scripts if isinstance(scripts, dict) else {}
+    by_kind = scripts.get("by_kind") if isinstance(scripts, dict) else {}
+    by_kind = by_kind if isinstance(by_kind, dict) else {}
+    comp_files = by_kind.get("component") if isinstance(by_kind, dict) else None
+    comp_files = comp_files if isinstance(comp_files, list) else []
+
+    out: Dict[str, str] = {}
+    for path in comp_files:
+        if not isinstance(path, str):
+            continue
+        name = Path(path).stem.strip().lower()
+        if not name:
+            continue
+        if name not in out:
+            out[name] = path
+    return out
+
+
+def _extract_component_default_stat_exprs(component: str, content: str) -> Dict[str, str]:
+    prop_map = _STAT_PROPERTIES.get(component, {})
+    method_map = _STAT_METHODS.get(component, {})
+    if not prop_map and not method_map:
+        return {}
+    clean = strip_lua_comments(content or "")
+    out: Dict[str, str] = {}
+    scores: Dict[str, int] = {}
+
+    if method_map:
+        extractor = LuaCallExtractor(clean)
+        method_names = set(method_map.keys())
+        for call in extractor.iter_calls(method_names, include_member_calls=True):
+            if _is_function_def(clean, call.start):
+                continue
+            root = re.split(r"[.:]", call.full_name, 1)[0]
+            if root != "self":
+                continue
+            mapping = method_map.get(call.name)
+            if not mapping:
+                continue
+            for stat_key, idx in mapping:
+                if idx >= len(call.arg_list):
+                    continue
+                expr = (call.arg_list[idx] or "").strip()
+                if not expr:
+                    continue
+                score = _score_stat_expr(expr)
+                if (stat_key not in out) or (score >= scores.get(stat_key, 0)):
+                    out[stat_key] = expr
+                    scores[stat_key] = score
+
+    prop_pat = re.compile(r"\bself\.([A-Za-z0-9_]+)\s*=")
+    for m in prop_pat.finditer(clean):
+        prop = m.group(1).strip().lower()
+        stat_key = prop_map.get(prop) or prop_map.get(prop.lstrip("_"))
+        if not stat_key:
+            continue
+        expr = _scan_assignment_expr(clean, m.end())
+        if not expr:
+            continue
+        expr_norm = expr.strip()
+        if not expr_norm or expr_norm == "nil":
+            continue
+        score = _score_stat_expr(expr_norm)
+        if (stat_key not in out) or (score >= scores.get(stat_key, 0)):
+            out[stat_key] = expr_norm
+            scores[stat_key] = score
+
+    return out
+
+
 def _extract_component_aliases(clean: str) -> Dict[str, str]:
     aliases: Dict[str, str] = {}
     for m in re.finditer(
@@ -452,6 +557,17 @@ def _extract_component_aliases(clean: str) -> Dict[str, str]:
     for m in re.finditer(r"\blocal\s+([A-Za-z0-9_]+)\s*=\s*(?:inst|self)\.components\.([A-Za-z0-9_]+)", clean):
         aliases[m.group(1)] = m.group(2).lower()
     for m in re.finditer(r"\b([A-Za-z0-9_]+)\s*=\s*(?:inst|self)\.components\.([A-Za-z0-9_]+)", clean):
+        if m.group(1) not in aliases:
+            aliases[m.group(1)] = m.group(2).lower()
+    for m in re.finditer(
+        r"\blocal\s+([A-Za-z0-9_]+)\s*=\s*(?:inst|self)\.components\[\s*['\"]([A-Za-z0-9_]+)['\"]\s*\]",
+        clean,
+    ):
+        aliases[m.group(1)] = m.group(2).lower()
+    for m in re.finditer(
+        r"\b([A-Za-z0-9_]+)\s*=\s*(?:inst|self)\.components\[\s*['\"]([A-Za-z0-9_]+)['\"]\s*\]",
+        clean,
+    ):
         if m.group(1) not in aliases:
             aliases[m.group(1)] = m.group(2).lower()
     return aliases
@@ -501,6 +617,37 @@ def _extract_component_stat_exprs(content: str) -> Dict[str, str]:
                 out[stat_key] = expr
                 scores[stat_key] = score
 
+    bracket_call_pat = re.compile(
+        r"components\[\s*['\"]([A-Za-z0-9_]+)['\"]\s*\]\s*[:.]([A-Za-z0-9_]+)\s*\(",
+        re.MULTILINE,
+    )
+    for m in bracket_call_pat.finditer(clean):
+        cname = m.group(1).lower()
+        method = m.group(2)
+        if method not in method_names:
+            continue
+        if comp_names and cname not in comp_names:
+            continue
+        mapping = _STAT_METHODS.get(cname, {}).get(method)
+        if not mapping:
+            continue
+        open_paren = m.end() - 1
+        close = _find_matching(clean, open_paren, "(", ")")
+        if close is None:
+            continue
+        args = clean[open_paren + 1 : close]
+        arg_list = [p for p in _split_top_level(args, ",") if p]
+        for stat_key, idx in mapping:
+            if idx >= len(arg_list):
+                continue
+            expr = (arg_list[idx] or "").strip()
+            if not expr:
+                continue
+            score = _score_stat_expr(expr)
+            if (stat_key not in out) or (score >= scores.get(stat_key, 0)):
+                out[stat_key] = expr
+                scores[stat_key] = score
+
     for cname in sorted(comp_names):
         prop_map = _STAT_PROPERTIES.get(cname, {})
         if not prop_map:
@@ -508,6 +655,23 @@ def _extract_component_stat_exprs(content: str) -> Dict[str, str]:
 
         prop_pat = re.compile(rf"\bcomponents\.{re.escape(cname)}\.([A-Za-z0-9_]+)\s*=")
         for m in prop_pat.finditer(clean):
+            prop = m.group(1).strip().lower()
+            stat_key = prop_map.get(prop)
+            if not stat_key:
+                continue
+            expr = _scan_assignment_expr(clean, m.end())
+            if not expr:
+                continue
+            score = _score_stat_expr(expr)
+            if (stat_key not in out) or (score >= scores.get(stat_key, 0)):
+                out[stat_key] = expr
+                scores[stat_key] = score
+
+        bracket_prop_pat = re.compile(
+            rf"components\[\s*['\"]{re.escape(cname)}['\"]\s*\]\.([A-Za-z0-9_]+)\s*=",
+            re.MULTILINE,
+        )
+        for m in bracket_prop_pat.finditer(clean):
             prop = m.group(1).strip().lower()
             stat_key = prop_map.get(prop)
             if not stat_key:
@@ -537,11 +701,55 @@ def _extract_component_stat_exprs(content: str) -> Dict[str, str]:
                     out[stat_key] = expr
                     scores[stat_key] = score
 
-    if "heat_radius" not in out and "heat_radius_cutoff" in out:
-        out["heat_radius"] = out["heat_radius_cutoff"]
-        scores["heat_radius"] = scores.get("heat_radius_cutoff", 0)
-
     return out
+
+
+def _apply_stat_fallbacks(
+    stat_exprs: Dict[str, str],
+    stat_sources: Dict[str, str],
+    stat_components: Dict[str, str],
+) -> None:
+    def _assign(target: str, expr: str, *, base_key: Optional[str] = None) -> None:
+        if target in stat_exprs or not expr:
+            return
+        stat_exprs[target] = expr
+        stat_sources[target] = "derived"
+        comp = stat_components.get(base_key or "") or _STAT_KEY_COMPONENT.get(target)
+        if comp:
+            stat_components[target] = comp
+
+    # insulator defaults: treat insulation as shared value.
+    if "insulation" in stat_exprs:
+        _assign("insulation_winter", stat_exprs["insulation"], base_key="insulation")
+        _assign("insulation_summer", stat_exprs["insulation"], base_key="insulation")
+    if "insulation" not in stat_exprs and "insulation_winter" in stat_exprs:
+        _assign("insulation", stat_exprs["insulation_winter"], base_key="insulation_winter")
+    if "insulation" not in stat_exprs and "insulation_summer" in stat_exprs:
+        _assign("insulation", stat_exprs["insulation_summer"], base_key="insulation_summer")
+
+    # range fallbacks
+    if "weapon_range" not in stat_exprs:
+        if "weapon_range_max" in stat_exprs:
+            _assign("weapon_range", stat_exprs["weapon_range_max"], base_key="weapon_range_max")
+        elif "weapon_range_min" in stat_exprs:
+            _assign("weapon_range", stat_exprs["weapon_range_min"], base_key="weapon_range_min")
+    if "attack_range" not in stat_exprs and "attack_range_max" in stat_exprs:
+        _assign("attack_range", stat_exprs["attack_range_max"], base_key="attack_range_max")
+
+    # heater radius cutoff fallback
+    if "heat_radius" not in stat_exprs and "heat_radius_cutoff" in stat_exprs:
+        _assign("heat_radius", stat_exprs["heat_radius_cutoff"], base_key="heat_radius_cutoff")
+
+    # planardamage: infer totals/base when only partial info exists.
+    if "planar_damage" not in stat_exprs:
+        base = stat_exprs.get("planar_damage_base")
+        bonus = stat_exprs.get("planar_damage_bonus")
+        if base and bonus:
+            _assign("planar_damage", f"({base}) + ({bonus})", base_key="planar_damage_base")
+        elif base:
+            _assign("planar_damage", base, base_key="planar_damage_base")
+    if "planar_damage_base" not in stat_exprs and "planar_damage" in stat_exprs:
+        _assign("planar_damage_base", stat_exprs["planar_damage"], base_key="planar_damage")
 
 
 def _infer_sources(
@@ -603,6 +811,8 @@ def build_catalog_v2(
 
     overrides = load_tag_overrides(tag_overrides_path)
     prefab_stats_cache: Dict[str, Dict[str, str]] = {}
+    component_file_map = _build_component_file_map(resource_index)
+    component_defaults_cache: Dict[str, Dict[str, str]] = {}
 
     tuning_trace: Optional[Dict[str, Any]] = {} if include_tuning_trace else None
     tuning = getattr(engine, "tuning", None)
@@ -636,6 +846,8 @@ def build_catalog_v2(
 
         stat_exprs: Dict[str, str] = {}
         stat_scores: Dict[str, int] = {}
+        stat_sources: Dict[str, str] = {}
+        stat_components: Dict[str, str] = {}
         for pfile in prefab_files:
             if pfile not in prefab_stats_cache:
                 content = engine.read_file(pfile) or ""
@@ -645,6 +857,27 @@ def build_catalog_v2(
                 if (sk not in stat_exprs) or (score >= stat_scores.get(sk, 0)):
                     stat_exprs[sk] = sv
                     stat_scores[sk] = score
+                    stat_sources[sk] = "prefab"
+                    stat_components.pop(sk, None)
+
+        for comp in sorted(components):
+            comp_path = component_file_map.get(comp)
+            if not comp_path:
+                continue
+            if comp_path not in component_defaults_cache:
+                content = engine.read_file(comp_path) or ""
+                component_defaults_cache[comp_path] = (
+                    _extract_component_default_stat_exprs(comp, content) if content else {}
+                )
+            for sk, sv in component_defaults_cache.get(comp_path, {}).items():
+                if sk in stat_exprs:
+                    continue
+                stat_exprs[sk] = sv
+                stat_scores[sk] = _score_stat_expr(sv)
+                stat_sources[sk] = "component_default"
+                stat_components[sk] = comp
+
+        _apply_stat_fallbacks(stat_exprs, stat_sources, stat_components)
 
         stats_out: Dict[str, Any] = {}
         for stat_key, expr in stat_exprs.items():
@@ -657,6 +890,12 @@ def build_catalog_v2(
                 trace_key=trace_key,
             )
             entry["key"] = stat_key
+            source = stat_sources.get(stat_key)
+            if source:
+                entry["source"] = source
+            source_component = stat_components.get(stat_key)
+            if source_component:
+                entry["source_component"] = source_component
             stats_out[stat_key] = entry
 
         items_out[iid] = {

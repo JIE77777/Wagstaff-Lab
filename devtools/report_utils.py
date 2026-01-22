@@ -81,6 +81,23 @@ def summarize_catalog_quality(path: Path) -> Dict[str, Any]:
     }
 
 
+def summarize_static_mechanics(path: Path) -> Dict[str, Any]:
+    doc = load_json(path)
+    summary = doc.get("summary") if isinstance(doc, dict) else {}
+    if not isinstance(summary, dict):
+        summary = {}
+    def _fmt(val: Any) -> Optional[str]:
+        if isinstance(val, (int, float)):
+            return f"{float(val):.1%}" if 0 <= val <= 1 else str(val)
+        return None
+    return {
+        "components_total": summary.get("components_total"),
+        "coverage_c0": _fmt(summary.get("coverage_c0")),
+        "coverage_c1": _fmt(summary.get("coverage_c1")),
+        "coverage_c2": _fmt(summary.get("coverage_c2")),
+    }
+
+
 def summarize_index_manifest(path: Path) -> Dict[str, Any]:
     doc = load_json(path)
     artifacts = doc.get("artifacts") if isinstance(doc, dict) else None

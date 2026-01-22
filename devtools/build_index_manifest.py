@@ -27,10 +27,12 @@ INDEX_ARTIFACTS = [
     {"id": "catalog_index", "kind": "catalog_index", "format": "json", "path": "data/index/wagstaff_catalog_index_v1.json"},
     {"id": "i18n", "kind": "i18n", "format": "json", "path": "data/index/wagstaff_i18n_v1.json"},
     {"id": "farming_defs", "kind": "farming_defs", "format": "json", "path": "data/index/wagstaff_farming_defs_v1.json"},
+    {"id": "farming_fixed", "kind": "farming_fixed", "format": "json", "path": "data/index/wagstaff_farming_fixed_v1.json"},
     {"id": "icon_index", "kind": "icon_index", "format": "json", "path": "data/index/wagstaff_icon_index_v1.json"},
     {"id": "tuning_trace", "kind": "tuning_trace", "format": "json", "path": "data/index/wagstaff_tuning_trace_v1.json"},
     {"id": "mechanism_index", "kind": "mechanism", "format": "json", "path": "data/index/wagstaff_mechanism_index_v1.json"},
     {"id": "mechanism_sqlite", "kind": "mechanism", "format": "sqlite", "path": "data/index/wagstaff_mechanism_index_v1.sqlite"},
+    {"id": "behavior_graph", "kind": "behavior", "format": "json", "path": "data/index/wagstaff_behavior_graph_v1.json"},
     {"id": "tag_overrides", "kind": "tag_overrides", "format": "json", "path": "data/index/tag_overrides_v1.json"},
 ]
 

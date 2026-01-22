@@ -555,6 +555,24 @@ body[data-view="simulate"] #searchBar {
   color: var(--muted);
 }
 .stat-value { margin-top: 6px; }
+.stat-meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(15, 123, 108, 0.08);
+  border: 1px solid rgba(15, 123, 108, 0.2);
+  color: var(--ink);
+}
 .stat-row {
   display: flex;
   align-items: center;

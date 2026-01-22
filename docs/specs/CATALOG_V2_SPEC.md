@@ -98,6 +98,8 @@ SQLite 产物表（派生，摘要）：
   - `value`：解析值（可为空）
   - `expr_resolved`：解析后的表达式（可为空）
   - `trace_key`：可选，指向 trace 索引键
+  - `source`：可选，`prefab` / `component_default` / `derived`
+  - `source_component`：可选，`source=component_default` 时记录来源组件
 
 ### 3.2 Recipe（Craft）
 

@@ -17,6 +17,7 @@ vNext 破兼容重构规划见：
 - 增量构建：对比 scripts hash，支持局部重建与 cache reuse。
 - 存储升级：从 JSON 过渡到 SQLite/Parquet（大规模检索性能）。
 - SQLite v4 结构：统一 db_schema_version 与表分组设计（见 `docs/specs/SQLITE_V4_SPEC.md`）。
+- 行为图谱解析：stategraph/brain 结构化输出，形成可视化与分析的第二层机制图谱。
 
 ## 3. WebCraft 体验
 

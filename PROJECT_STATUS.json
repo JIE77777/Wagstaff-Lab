@@ -48,7 +48,12 @@
     "SQLite v4 构建器：catalog/mechanism 输出 + WebCraft 优先加载 v4 表",
     "SQLite v4: 新增 SQLite 校验工具并接入 quality_gate",
     "Mechanism: prefab 解析扩张（events/assets/component_calls）并同步 SQLite/schema",
-    "Portal: 新增聚合视图 (管理 + 报告 + 质量) 并提供 portal_hub"
+    "Portal: 新增聚合视图 (管理 + 报告 + 质量) 并提供 portal_hub",
+    "Farming: mechanics 公式摘要补齐 + 轻量模拟 CLI（farming-sim）",
+    "Farming: 规划算法工具（混种配比/水分/营养）",
+    "WebCraft: Farming 混种规划工具 UI + API",
+    "WebCraft: Farming 地块坑位预览与固定坑位模式（9/10/8）",
+    "WebCraft: Farming 固定互补解索引与模式切换（固定/探索/单一肥料）"
   ],
   "RECENT_LOGS": [
     "[2026-01-12 16:03] 优化工具链：实现环境自动注册与统一入口",
@@ -196,7 +201,21 @@
     "[2026-01-20 19:15] Mechanism: prefab 解析扩张（events/assets/component_calls），同步 SQLite/规范/Schema。",
     "[2026-01-20 19:45] Portal: 新增 portal_hub 聚合管理/报告/质量视图。",
     "[2026-01-20 23:00] Tooling: 收口质量/机制索引工具链，校验逻辑内退并统一入口。",
-    "[2026-01-21 10:15] CLI: Dashboard 展示与命令分组更新，强化报告/产物可视化。"
+    "[2026-01-21 10:15] CLI: Dashboard 展示与命令分组更新，强化报告/产物可视化。",
+    "[2026-01-21 11:22] CLI: Dash 排版重构，密度提升并强化概览分区。",
+    "[2026-01-21 13:40] Docs: 明确静态机制/行为图谱双路线规划与数据契约草案。",
+    "[2026-01-21 15:05] Tooling: 静态机制覆盖基准 + 行为图谱 MVP 索引落盘。",
+    "[2026-01-21 12:49] CatalogV2: stats 组件默认值回填并标注来源（component_default）。",
+    "[2026-01-21 13:19] i18n/BehaviorGraph/Quality/WebCraft: descriptions+quotes 索引、图谱 mvp+、质量趋势与 stats 来源展示。",
+    "[2026-01-21 14:22] WebCraft: item 详情展示 descriptions/quotes，i18n EN 优先 + CN 回退策略。",
+    "[2026-01-21 14:52] i18n: strings.lua 英文覆盖 + quotes_meta 记录台词来源角色。",
+    "[2026-01-21 15:02] i18n: speech_*.lua 英文描述/台词解析补齐，EN 详情不再回退到 CN。",
+    "[2026-01-21 16:32] Farming: mechanics 公式摘要补齐并新增 farming-sim 轻量 CLI。",
+    "[2026-01-21 17:10] Farming: 新增混种配比规划算法（季节筛选/营养平衡/水分需求）。",
+    "[2026-01-21 18:33] WebCraft: 新增 Farming 混种规划工具 UI 与 API。",
+    "[2026-01-21 19:05] WebCraft: Farming 地块坑位选择 + 预览，支持 9/10/8 固定坑位与家族判定。",
+    "[2026-01-21 19:42] WebCraft: Farming 固定互补解索引 + 模式切换（固定/探索/单一肥料）。",
+    "[2026-01-22 00:55] WebCraft: Farming 模拟 UI 调优与水分显示收敛，移除弃用 UI 字段与文案。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

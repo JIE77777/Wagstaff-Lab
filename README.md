@@ -11,9 +11,11 @@ Wagstaff-Lab 是 DST（Don't Starve Together）数据实验室：负责索引、
 
 - **Catalog v2**：以物品为中心的可标签化目录，含 stats 与 assets
 - **Tuning trace**：可选输出 TUNING 解析链路
-- **i18n index**：名称 + UI 词条（数据层与语言解耦）
+- **i18n index**：名称 + 描述/台词 + UI 词条（数据层与语言解耦）
 - **Icon pipeline**：静态图标 + 动态回退
 - **Mechanism index**：组件解析 + prefab 链路 + SQLite 输出
+- **Behavior graph (MVP)**：stategraph/brain 结构化索引
+- **Farming simulation (lightweight)**：基于 farming defs 的轻量模拟 CLI
 - **Quality gate + Report hub**：质量门禁 + 报告汇总入口
 - **Index manifest**：索引清单与版本汇总
 - **WebCraft**：FastAPI UI，严格使用索引产物
@@ -52,7 +54,7 @@ DST_ROOT=/path/to/dontstarvetogether_dedicated_server
 ```bash
 make all
 ```
-包含 farming-defs（耕种机制索引）与质量门禁。
+包含 farming-defs/farming-fixed（耕种机制索引与固定解索引）与质量门禁。
 
 报告构建：
 ```bash
@@ -68,7 +70,7 @@ wagstaff web --host 0.0.0.0 --port 20000 --reload-catalog
 ```
 
 WebCraft 优先读取 `data/index/wagstaff_catalog_v2.sqlite`（缺失时回退 JSON）。
-i18n 仅使用 `data/index/wagstaff_i18n_v1.json`（运行时不解析 PO）。
+i18n 仅使用 `data/index/wagstaff_i18n_v1.json`（运行时不解析 PO，包含 names/desc/quotes/ui/tags）。
 
 默认本地启动：
 ```bash
@@ -84,6 +86,8 @@ wagstaff web
 - `wagstaff catalog-sqlite`：Catalog SQLite v4 构建
 - `wagstaff catindex`：Catalog 紧凑索引构建
 - `wagstaff mechanism-index`：机制索引（build/validate/diff）
+- `wagstaff behavior-graph`：行为图谱索引
+- `wagstaff farming-sim`：耕种轻量模拟（基于 farming defs）
 - `wagstaff quality`：质量/校验总入口
 - `wagstaff report`：报告中心（build/list/open）
 - `wagstaff portal`：管理+报告+质量聚合视图
@@ -114,8 +118,10 @@ data/index/wagstaff_catalog_v2.json
 data/index/wagstaff_catalog_v2.sqlite
 data/index/wagstaff_catalog_index_v1.json
 data/index/wagstaff_farming_defs_v1.json
+data/index/wagstaff_farming_fixed_v1.json
 data/index/wagstaff_mechanism_index_v1.json
 data/index/wagstaff_mechanism_index_v1.sqlite
+data/index/wagstaff_behavior_graph_v1.json
 data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json
@@ -128,6 +134,8 @@ data/reports/quality_gate_report.md
 data/reports/mechanism_index_summary.md
 data/reports/mechanism_crosscheck_report.md
 data/reports/catalog_quality_report.md
+data/reports/static_mechanics_coverage_report.md
+data/reports/static_mechanics_coverage_report.json
 data/reports/wagstaff_report_manifest.json
 data/reports/index.html
 data/reports/portal_index.html

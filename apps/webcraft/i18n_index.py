@@ -77,6 +77,44 @@ class I18nIndexStore:
                 return {}
             return {str(k): str(v) for k, v in names.items() if k and v}
 
+    def descriptions(self, lang: str) -> Dict[str, str]:
+        l = str(lang or "").strip().lower()
+        if not l:
+            return {}
+        with self._lock:
+            desc = (
+                (self._doc.get("descriptions") or {}).get(l)
+                if isinstance(self._doc.get("descriptions"), dict)
+                else None
+            )
+            if not isinstance(desc, dict):
+                return {}
+            return {str(k): str(v) for k, v in desc.items() if k and v}
+
+    def quotes(self, lang: str) -> Dict[str, str]:
+        l = str(lang or "").strip().lower()
+        if not l:
+            return {}
+        with self._lock:
+            quotes = (self._doc.get("quotes") or {}).get(l) if isinstance(self._doc.get("quotes"), dict) else None
+            if not isinstance(quotes, dict):
+                return {}
+            return {str(k): str(v) for k, v in quotes.items() if k and v}
+
+    def quotes_meta(self, lang: str) -> Dict[str, str]:
+        l = str(lang or "").strip().lower()
+        if not l:
+            return {}
+        with self._lock:
+            meta = (
+                (self._doc.get("quotes_meta") or {}).get(l)
+                if isinstance(self._doc.get("quotes_meta"), dict)
+                else None
+            )
+            if not isinstance(meta, dict):
+                return {}
+            return {str(k): str(v) for k, v in meta.items() if k and v}
+
     def ui_strings(self, lang: str) -> Dict[str, str]:
         l = str(lang or "").strip().lower()
         if not l:
@@ -125,3 +163,9 @@ class I18nIndexStore:
 
     def count_tags(self, lang: str) -> int:
         return len(self.tags(lang))
+
+    def count_descriptions(self, lang: str) -> int:
+        return len(self.descriptions(lang))
+
+    def count_quotes(self, lang: str) -> int:
+        return len(self.quotes(lang))

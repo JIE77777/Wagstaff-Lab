@@ -68,6 +68,10 @@
 - **E14 任务入口规范**（完成）
 - **E15 Snapshot 规范**（完成）
 
+### 机制解析路线
+- **E17 静态机制解析（Static Mechanics）**：prefab/component/stats/recipes 等静态机制结构
+- **E18 行为图谱解析（Behavior Graph）**：stategraph/brain/event 结构化关系
+
 ### 服务器运维
 - **E16 DST server 管理**（完成）
 
@@ -93,12 +97,26 @@
 - Catalog index v1 规范与 WebCraft API 契约补齐
 - pyproject 入口统一、bin/installer 清理完成
 - 新增耕种机制索引产物与机制报告（farming defs）
+- Farming: mechanics 公式摘要补齐 + 轻量模拟 CLI（farming-sim）
+- Farming: 混种配比规划算法（季节筛选/营养平衡/水分需求）
+- WebCraft: Farming 混种规划工具 UI + API
 - 索引清单落盘：新增 `index-manifest` 生成器与 Makefile 入口
 - SQLite 产物增加 `db_schema_version=4`，为 v4 结构演进预留标记
 - core 收口：`klei_atlas_tex` 迁移至 `core/assets/`，配置加载迁移至 `core/config/`
 - 索引全量重建并生成 `wagstaff_index_manifest.json`
 - SQLite v4：catalog/mechanism 构建器升级 + WebCraft v4 表优先加载
 - mechanism-index 收口：validate/diff 合并为子命令，旧脚本内退
+- 静态机制覆盖基准与组件能力地图落盘（static_mechanics_coverage）
+- 行为图谱 MVP 索引与数据契约草案完成（behavior_graph_v1）
+- CatalogV2: stats 组件默认值回填并标注来源（component_default）
+- BehaviorGraph: StateGraph 边补全 + Brain 节点/边启发式解析（mvp+）
+- i18n: 新增 descriptions/quotes 索引与 API 端点
+- Quality: catalog_quality 增加 stats 来源统计与趋势对比
+- WebCraft: Catalog stats 展示数据来源（source/source_component）
+- WebCraft: Catalog 详情展示 descriptions/quotes（EN 优先、CN 回退）
+- i18n: 语言优先级规则（ID 基础、EN 首选、CN 备选）
+- i18n: strings.lua 英文索引 + quotes_meta 记录台词角色来源
+- i18n: speech_*.lua 英文描述/台词补齐（EN 优先不回退 CN）
 
 ## 6. 下一步建议（短期）
 

@@ -26,6 +26,7 @@ from devtools.report_utils import (
     render_markdown,
     summarize_catalog_quality,
     summarize_quality_gate,
+    summarize_static_mechanics,
     web_path,
 )
 
@@ -56,6 +57,15 @@ REPORT_SPECS = [
         "files": [
             {"path": "data/reports/catalog_quality_report.md", "format": "md"},
             {"path": "data/reports/catalog_quality_report.json", "format": "json"},
+        ],
+    },
+    {
+        "id": "static_mechanics_coverage",
+        "title": "Static Mechanics Coverage",
+        "kind": "quality",
+        "files": [
+            {"path": "data/reports/static_mechanics_coverage_report.md", "format": "md"},
+            {"path": "data/reports/static_mechanics_coverage_report.json", "format": "json"},
         ],
     },
     {
@@ -155,6 +165,8 @@ def build_report_manifest() -> Dict[str, Any]:
             summary = summarize_quality_gate(PROJECT_ROOT / "data/reports/quality_gate_report.json")
         elif spec["id"] == "catalog_quality":
             summary = summarize_catalog_quality(PROJECT_ROOT / "data/reports/catalog_quality_report.json")
+        elif spec["id"] == "static_mechanics_coverage":
+            summary = summarize_static_mechanics(PROJECT_ROOT / "data/reports/static_mechanics_coverage_report.json")
 
         reports.append(
             {
@@ -652,6 +664,7 @@ def build_reports(
     if run_quality:
         _run_tool(["devtools/quality_gate.py"])
         _run_tool(["devtools/catalog_quality.py"])
+        _run_tool(["devtools/static_mechanics_coverage.py"])
 
     if run_scan:
         args = ["devtools/raw_scan.py"]

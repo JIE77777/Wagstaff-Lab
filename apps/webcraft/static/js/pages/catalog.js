@@ -30,6 +30,10 @@ const state = {
   i18n: null,         // meta from /api/v1/meta (set in loadMeta)
   i18nNames: {},      // {lang: {id: name}}
   i18nLoaded: {},     // {lang: true}
+  i18nDescriptions: {},      // {lang: {id: description}}
+  i18nDescriptionsLoaded: {}, // {lang: true}
+  i18nQuotes: {},      // {lang: {id: quote}}
+  i18nQuotesLoaded: {}, // {lang: true}
   i18nTags: {},       // {lang: {tag: label}}
   i18nTagsMeta: {},   // {lang: {tag: source}}
   i18nTagsLoaded: {}, // {lang: true}
@@ -93,8 +97,7 @@ function _altId(iid) {
   return '';
 }
 
-function getI18nName(iid) {
-  const mp = (state.i18nNames && state.i18nNames.zh) ? state.i18nNames.zh : null;
+function getI18nEntry(mp, iid) {
   if (!mp) return '';
   const k = String(iid || '').trim();
   if (!k) return '';
@@ -102,6 +105,11 @@ function getI18nName(iid) {
   const a1 = _altId(k);
   const a2 = _altId(lo);
   return mp[k] || mp[lo] || (a1 ? mp[a1] : '') || (a2 ? mp[a2] : '') || '';
+}
+
+function getI18nName(iid) {
+  const mp = (state.i18nNames && state.i18nNames.zh) ? state.i18nNames.zh : null;
+  return getI18nEntry(mp, iid);
 }
 
 async function ensureI18nNames(mode) {
@@ -115,6 +123,40 @@ async function ensureI18nNames(mode) {
     state.i18nLoaded.zh = true;
   } catch (e) {
     state.i18nLoaded.zh = false;
+  }
+}
+
+async function ensureI18nDescriptions(mode) {
+  const m = String(mode || 'en');
+  if (m === 'id') return;
+  const lang = (m === 'zh') ? 'zh' : 'en';
+  if (state.i18nDescriptionsLoaded && state.i18nDescriptionsLoaded[lang]) return;
+  const enabled = Boolean(state.i18n && state.i18n.enabled);
+  if (!enabled) return;
+  try {
+    const res = await fetchJson(api(`/api/v1/i18n/descriptions/${encodeURIComponent(lang)}`));
+    state.i18nDescriptions[lang] = res.descriptions || {};
+    state.i18nDescriptionsLoaded[lang] = true;
+  } catch (e) {
+    state.i18nDescriptions[lang] = {};
+    state.i18nDescriptionsLoaded[lang] = false;
+  }
+}
+
+async function ensureI18nQuotes(mode) {
+  const m = String(mode || 'en');
+  if (m === 'id') return;
+  const lang = (m === 'zh') ? 'zh' : 'en';
+  if (state.i18nQuotesLoaded && state.i18nQuotesLoaded[lang]) return;
+  const enabled = Boolean(state.i18n && state.i18n.enabled);
+  if (!enabled) return;
+  try {
+    const res = await fetchJson(api(`/api/v1/i18n/quotes/${encodeURIComponent(lang)}`));
+    state.i18nQuotes[lang] = res.quotes || {};
+    state.i18nQuotesLoaded[lang] = true;
+  } catch (e) {
+    state.i18nQuotes[lang] = {};
+    state.i18nQuotesLoaded[lang] = false;
   }
 }
 
@@ -166,6 +208,8 @@ function applyUiStrings() {
   if (navCraft) navCraft.textContent = t('nav.craft', 'Craft');
   const navCooking = el('navCooking');
   if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
+  const navFarming = el('navFarming');
+  if (navFarming) navFarming.textContent = t('nav.farming', 'Farming');
   const navCatalog = el('navCatalog');
   if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
   const label = el('labelModeLabel');
@@ -220,10 +264,15 @@ async function setLabelMode(mode) {
   try { localStorage.setItem('ws_label_mode', state.labelMode); } catch (e) {}
   applyLabelModeUI();
   await ensureI18nNames(state.labelMode);
+  await ensureI18nDescriptions(state.labelMode);
+  await ensureI18nQuotes(state.labelMode);
   await ensureUiStrings(uiLang());
   applyUiStrings();
   const q = el('q').value;
   await runSearch(q);
+  if (activeId) {
+    try { await openItem(activeId); } catch (e) { setError(String(e)); }
+  }
 }
 
 function iconHtmlFor(id, sizePx) {
@@ -438,6 +487,13 @@ async function openItem(id) {
   if (!q) return;
   setActiveInList(q);
 
+  await ensureI18nDescriptions(state.labelMode);
+  await ensureI18nQuotes(state.labelMode);
+  if (state.labelMode === 'en') {
+    await ensureI18nDescriptions('zh');
+    await ensureI18nQuotes('zh');
+  }
+
   const data = await fetchJson(api(`/api/v1/items/${encodeURIComponent(q)}`));
   const item = data.item || {};
   const asset = data.asset || {};
@@ -464,6 +520,15 @@ async function openItem(id) {
   const helpers = item?.helpers || [];
   const prefabAssets = item?.prefab_assets || [];
   const stats = item?.stats || {};
+  const detailLang = (state.labelMode === 'zh') ? 'zh' : 'en';
+  const descMap = (state.i18nDescriptions && state.i18nDescriptions[detailLang]) ? state.i18nDescriptions[detailLang] : null;
+  const quoteMap = (state.i18nQuotes && state.i18nQuotes[detailLang]) ? state.i18nQuotes[detailLang] : null;
+  const descZh = (state.i18nDescriptions && state.i18nDescriptions.zh) ? state.i18nDescriptions.zh : null;
+  const quoteZh = (state.i18nQuotes && state.i18nQuotes.zh) ? state.i18nQuotes.zh : null;
+  const descTextPrimary = (state.labelMode === 'id') ? '' : getI18nEntry(descMap, q);
+  const quoteTextPrimary = (state.labelMode === 'id') ? '' : getI18nEntry(quoteMap, q);
+  const descText = descTextPrimary || ((state.labelMode === 'en') ? getI18nEntry(descZh, q) : '');
+  const quoteText = quoteTextPrimary || ((state.labelMode === 'en') ? getI18nEntry(quoteZh, q) : '');
 
   const kindRow = [];
   if (kind) kindRow.push(kind);
@@ -589,6 +654,9 @@ async function openItem(id) {
     const val = entry?.value ?? entry?.expr ?? '';
     const expr = entry?.expr ?? '';
     const showExpr = expr && String(expr) !== String(val);
+    const source = entry?.source ? String(entry.source) : '';
+    const sourceLabel = source ? t(`source.${source}`, source) : '';
+    const sourceComponent = entry?.source_component ? String(entry.source_component) : '';
     const traceKey = entry?.trace_key || `item:${q}:stat:${key}`;
     const trace = entry?.trace || state.tuningTrace[traceKey];
     const enabled = Boolean(state.tuningTraceEnabled);
@@ -598,7 +666,15 @@ async function openItem(id) {
     const details = trace
       ? `<details style="margin-top:4px;"><summary class="small muted">${escHtml(t('label.trace', 'Trace'))}</summary><pre>${escHtml(JSON.stringify(trace, null, 2))}</pre></details>`
       : '';
-    const value = `<span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}`;
+    const sourceRow = source
+      ? `
+        <div class="stat-meta">
+          <span class="stat-pill">${escHtml(t('label.source', 'Source'))}: ${escHtml(sourceLabel)}</span>
+          ${sourceComponent ? `<span class="stat-pill mono">${escHtml(t('label.source_component', 'Component'))}: ${escHtml(sourceComponent)}</span>` : ''}
+        </div>
+      `
+      : '';
+    const value = `<span class="mono">${escHtml(val ?? '')}</span>${showExpr ? ` <span class="small muted mono">${escHtml(expr)}</span>` : ''}${btn}${details}${sourceRow}`;
     return `
       <div class="stat-card">
         <div class="stat-label">${escHtml(label)}</div>
@@ -666,6 +742,16 @@ async function openItem(id) {
     <div class="section">
       <div class="section-title">${escHtml(t('catalog.section.stats', 'Stats'))}</div>
       ${renderStats(stats)}
+    </div>
+
+    <div class="section">
+      <div class="section-title">${escHtml(t('catalog.section.description', 'Description'))}</div>
+      ${descText ? `<div>${escHtml(descText)}</div>` : `<span class="muted">${escHtml(t('catalog.description.empty', '-'))}</span>`}
+    </div>
+
+    <div class="section">
+      <div class="section-title">${escHtml(t('catalog.section.quote', 'Quote'))}</div>
+      ${quoteText ? `<div>${escHtml(quoteText)}</div>` : `<span class="muted">${escHtml(t('catalog.quote.empty', '-'))}</span>`}
     </div>
 
     <div class="section">
@@ -801,6 +887,7 @@ async function loadMeta() {
 
   el('navCraft').href = APP_ROOT + '/craft';
   el('navCooking').href = APP_ROOT + '/cooking';
+  el('navFarming').href = APP_ROOT + '/farming';
   el('navCatalog').href = APP_ROOT + '/catalog';
 }
 

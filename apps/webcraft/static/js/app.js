@@ -15,6 +15,7 @@
       else items.push('pages/cooking_encyclopedia.js');
       return items;
     },
+    farming: ['pages/farming_tool.js'],
   };
 
   var scripts = [

@@ -668,6 +668,7 @@ def render_portal_html(doc: Dict[str, Any]) -> str:
             <a class="link-pill" href="{reports.get('index_path') or 'index.html'}">Report Hub</a>
             <a class="link-pill" href="quality_gate_report.md">Quality Gate</a>
             <a class="link-pill" href="catalog_quality_report.md">Catalog Quality</a>
+            <a class="link-pill" href="static_mechanics_coverage_report.md">Static Mechanics</a>
             <a class="link-pill" href="../index/wagstaff_index_manifest.json">Index Manifest</a>
           </div>
         </section>

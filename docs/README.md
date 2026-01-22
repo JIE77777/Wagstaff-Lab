@@ -19,6 +19,8 @@
 - `specs/MECHANISM_INDEX_SPEC.md`：Mechanism index v1 规范草案
 - `specs/mechanism_index_v1.schema.json`：Mechanism index v1 JSON schema
 - `specs/SQLITE_V4_SPEC.md`：SQLite v4 结构设计
+- `specs/STATIC_MECHANICS_CONTRACT.md`：静态机制解析数据契约草案
+- `specs/BEHAVIOR_GRAPH_SPEC.md`：行为图谱解析数据契约草案
 - `specs/FARMING_MECHANICS_REPORT.md`：DST 耕种机制报告与关键调参
 
 ## architecture/

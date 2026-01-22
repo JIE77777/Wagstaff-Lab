@@ -40,6 +40,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
     - `wagstaff icons` icons + icon index
     - `wagstaff farming-defs` farming defs
     - `wagstaff mechanism-index build` mechanism index
+    - `wagstaff behavior-graph` behavior graph index
     - Tip: `wagstaff mechanism-index validate` / `wagstaff mechanism-index diff`
     - `wagstaff index-manifest` index manifest
 
@@ -59,8 +60,9 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
 
 - **Utility (support)**
   - Purpose: snapshots, reports, macro scans.
-  - Commands: `wagstaff snap` / `wagstaff report` / `wagstaff samples`
+  - Commands: `wagstaff snap` / `wagstaff report` / `wagstaff samples` / `wagstaff farming-sim`
   - Report hub: `wagstaff report build --all` / `wagstaff report build --stats-gap` / `wagstaff report list` / `wagstaff report open`
+  - Static coverage: `wagstaff report build --quality` includes static mechanics baseline
   - Portal: `wagstaff portal build` / `wagstaff portal list` / `wagstaff portal open`
 
 ## 2. Command Overview
@@ -69,7 +71,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
   - `wagstaff` / `wagstaff dash`
 - Build
   - `wagstaff resindex` / `wagstaff catalog2` / `wagstaff catalog-sqlite` / `wagstaff catindex`
-  - `wagstaff i18n` / `wagstaff icons` / `wagstaff farming-defs` / `wagstaff mechanism-index build`
+  - `wagstaff i18n` / `wagstaff icons` / `wagstaff farming-defs` / `wagstaff mechanism-index build` / `wagstaff behavior-graph`
   - `wagstaff index-manifest`
 - Quality
   - `wagstaff quality`
@@ -82,7 +84,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
 - Management
   - `wagstaff mgmt`
 - Utilities
-  - `wagstaff snap` / `wagstaff report` / `wagstaff portal` / `wagstaff samples`
+  - `wagstaff snap` / `wagstaff report` / `wagstaff portal` / `wagstaff samples` / `wagstaff farming-sim`
 
 ## 3. Operating Principles
 

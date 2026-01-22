@@ -45,3 +45,8 @@ def render_cooking_html(app_root: str = "") -> str:
 def render_cooking_tools_html(app_root: str = "") -> str:
     """Render the Cooking tools UI page."""
     return _render_template("cooking_tools.html", app_root)
+
+
+def render_farming_tools_html(app_root: str = "") -> str:
+    """Render the Farming tools UI page."""
+    return _render_template("farming_tools.html", app_root)

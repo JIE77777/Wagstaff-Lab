@@ -33,6 +33,7 @@ dev_guide:
 - `core/parsers/`：Prefab/Loot/Cooking/String 等领域解析器。
 - `core/schemas/`：核心数据结构与元信息规范（仅类型/结构，不含流程）。
 - `core/indexers/`：索引构建逻辑（依赖 `core/` 但不触碰上层）。
+- `core/sim/`：轻量模拟模块（种植/烹饪等），仅依赖 `core` 数据产物。
 - `apps/cli/`：CLI 交互层。调用 `core/`，仅做输入/输出组织。
 - `apps/cli/commands/`：CLI 子命令实现（dashboard/doctor/wiki/explorer 等）。
 - `apps/server/`：服务器运维（DST 运行/备份/恢复），与数据分析解耦。
@@ -68,11 +69,15 @@ dev_guide:
   - `data/index/wagstaff_i18n_v1.json`
   - `data/index/wagstaff_tuning_trace_v1.json`
   - `data/index/wagstaff_farming_defs_v1.json`
+  - `data/index/wagstaff_farming_fixed_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.sqlite`
+  - `data/index/wagstaff_behavior_graph_v1.json`
   - `data/index/wagstaff_index_manifest.json`
   - `data/reports/quality_gate_report.md`
   - `data/reports/catalog_quality_report.md`
+  - `data/reports/static_mechanics_coverage_report.md`
+  - `data/reports/static_mechanics_coverage_report.json`
   - `data/reports/dst_raw_coverage.md`
   - `data/reports/mechanism_index_summary.md`
   - `data/reports/mechanism_crosscheck_report.md`
@@ -86,12 +91,13 @@ dev_guide:
 - 统一版本入口为 `conf/version.json`：`project_version` / `index_version` 写入各索引 `meta`，文件名的 `v1/v2` 仅代表 `schema_version`。
 - WebCraft UI 不应直接读取原始脚本或 datastream，仅消费 `data/index` 等稳定产物。
 - Catalog v2 产物新增 `cooking_ingredients` 字段用于料理食材 tags 索引。
+- Catalog v2 `stats` 可附带 `source/source_component`，用于标识组件默认值回填或 derived 推导。
 - Mechanism index 的 JSON schema 见 `docs/specs/mechanism_index_v1.schema.json`。
 
 ## 5. WebCraft 约定
 
 - API 统一在 `/api/v1` 下，UI 与 API 使用同一 `root_path`。
-- UI 路由固定：`/`(Cooking 模拟主页)、`/craft`(Craft 图鉴)、`/cooking`(Cooking 图鉴)、`/cooking/explore`、`/cooking/simulate`、`/catalog`。
+- UI 路由固定：`/`(Cooking 模拟主页)、`/craft`(Craft 图鉴)、`/cooking`(Cooking 图鉴)、`/cooking/explore`、`/cooking/simulate`、`/farming`(Farming 工具)、`/catalog`。
 - UI 仅通过 API 访问数据；静态资源来自 `data/static/`。
 - 新增字段须保证向后兼容或同步更新 `schema_version`。
 - WebCraft 运行时优先使用 `data/index/wagstaff_catalog_v2.sqlite`，缺失时回退 JSON。
@@ -105,12 +111,14 @@ dev_guide:
 ## 5.2 i18n 与文本规范
 
 - **ID 优先**：代码层/数据层以游戏内 ID（prefab/item id）为唯一主键与引用标准。
-- **英文为默认语义**：英文是 UI fallback 与默认显示语言；中文仅作为 i18n 映射，方便扩展更多语言。
+- **语言优先级**：ID 为底层主键；英文为第一展示语言；中文为第二展示语言（必要时可作为英文缺失的回退）。
 - **统一 i18n 链路**：
   - UI 文本一律使用 `t('key', 'English fallback')`，不得硬编码中文/英文。
   - UI 字符串来源：`conf/i18n_ui.json` → `devtools/build_i18n_index.py` → `data/index/wagstaff_i18n_v1.json`。
   - 新增/调整 UI 文本必须补齐 `conf/i18n_ui.json` 并执行 `make i18n`。
 - **名称映射**：前端展示名称使用 `/api/v1/i18n/names/{lang}`，禁止额外本地映射或重复维护。
+- **描述/台词映射**：可选使用 `/api/v1/i18n/descriptions/{lang}` 与 `/api/v1/i18n/quotes/{lang}`，避免前端直接解析 PO。
+- **EN/CN 来源**：EN 来自 `scripts/strings.lua` 与 `scripts/speech_*.lua`，CN 来自 PO；`quotes_meta` 记录台词来源角色。
 - **标签映射**：`conf/i18n_tags.json` 维护 cooking tags，多语言条目必须附带 `source`（`game`/`manual`/`virtual`），优先对齐游戏内资源；前端使用 `/api/v1/i18n/tags/{lang}` 获取标签文本（`tags_meta` 不用于展示）。
 - **ID 模式展示**：当 UI 使用 `id` 模式时，标签文本需附带 `tags_meta` 的 `source` 信息，用于标识翻译来源。
 - **流程收敛**：去除分散的字符串表或临时翻译逻辑，确保同一 key 在全站复用。
@@ -183,17 +191,18 @@ dev_guide:
 
 ## 9. 任务入口 (Makefile)
 
-- `make all`：resindex + catalog + catalog-index + i18n + farming-defs + quality
+- `make all`：resindex + catalog + catalog-index + i18n + farming-defs + farming-fixed + quality
 - `make resindex` / `make catalog` / `make catalog-index`
 - `make catalog-sqlite`
-- `make i18n` / `make farming-defs` / `make mechanism-index` / `make icons`
+- `make i18n` / `make farming-defs` / `make farming-fixed` / `make mechanism-index` / `make icons`
+- `make behavior-graph`
 - `make index-manifest`
 - `make quality`（运行质量门禁）
 - `make webcraft` / `make snap`
 
 ## 9.1 增量构建 (devtools)
 
-- `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
+- `build_resource_index.py` / `build_farming_defs.py` / `build_mechanism_index.py` / `build_icons.py` / `build_catalog_v2.py` / `build_catalog_sqlite.py` / `build_i18n_index.py` 默认走增量缓存，缓存落盘 `data/index/.build_cache.json`。
 - `build_mechanism_index.py` 依赖 `scripts` 与 `resource_index` 签名，JSON 与 SQLite 输出统一比对。
 - `build_mechanism_index.py --strict` 会在任意校验告警时返回非零。
 - `build_mechanism_index.py validate` 用于校验机制索引 JSON 结构与关键字段。

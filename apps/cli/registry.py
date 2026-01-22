@@ -102,6 +102,14 @@ TOOLS = [
         "folder": "devtools"
     },
     {
+        "file": "farming_sim.py",
+        "alias": "farming-sim",
+        "desc": "耕种模拟（轻量，基于 farming defs）",
+        "usage": "wagstaff farming-sim <plant_id> [--season autumn] [--stress 0]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
         "file": "build_icons.py",
         "alias": "icons",
         "desc": "生成物品图标 PNG + icon index",
@@ -122,6 +130,14 @@ TOOLS = [
         "alias": "mechanism-index",
         "desc": "生成机制索引（组件 + prefab 关系）",
         "usage": "wagstaff mechanism-index [build|validate|diff] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_behavior_graph.py",
+        "alias": "behavior-graph",
+        "desc": "生成行为图谱索引（stategraph + brain）",
+        "usage": "wagstaff behavior-graph [--dst-root PATH]",
         "type": "Dev",
         "folder": "devtools"
     },

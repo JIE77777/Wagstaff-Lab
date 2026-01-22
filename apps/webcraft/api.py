@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import hashlib
+import json
+from pathlib import Path
 
 from fastapi import APIRouter, Request, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+
+from core.sim.farming_planner import suggest_plans
 
 from .catalog_store import CatalogStore, CraftRecipe, CookingRecipe
 from .mechanism_store import MechanismStore
@@ -137,6 +141,116 @@ def _get_i18n_index_store(request: Request):
     return store
 
 
+def _get_farming_defs(request: Request) -> Optional[Dict[str, Any]]:
+    """Resolve farming defs JSON from app state (with optional auto-reload)."""
+
+    path = getattr(request.app.state, "farming_defs_path", None)
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        return None
+
+    auto = bool(getattr(request.app.state, "auto_reload_farming_defs", False))
+    cached = getattr(request.app.state, "farming_defs", None)
+    cached_mtime = getattr(request.app.state, "farming_defs_mtime", None)
+
+    try:
+        mtime = int(p.stat().st_mtime)
+    except Exception:
+        mtime = 0
+
+    if cached is None or (auto and mtime != cached_mtime):
+        try:
+            cached = json.loads(p.read_text(encoding="utf-8"))
+            request.app.state.farming_defs = cached
+            request.app.state.farming_defs_mtime = mtime
+        except Exception:
+            cached = None
+    return cached
+
+
+def _farming_defs_mtime(request: Request) -> int:
+    try:
+        return int(getattr(request.app.state, "farming_defs_mtime", 0) or 0)
+    except Exception:
+        return 0
+
+
+def _get_farming_fixed(request: Request) -> Optional[Dict[str, Any]]:
+    """Resolve farming fixed solutions JSON from app state (with optional auto-reload)."""
+
+    path = getattr(request.app.state, "farming_fixed_path", None)
+    if not path:
+        return None
+    p = Path(path)
+    if not p.exists():
+        return None
+
+    auto = bool(getattr(request.app.state, "auto_reload_farming_fixed", False))
+    cached = getattr(request.app.state, "farming_fixed", None)
+    cached_mtime = getattr(request.app.state, "farming_fixed_mtime", None)
+
+    try:
+        mtime = int(p.stat().st_mtime)
+    except Exception:
+        mtime = 0
+
+    if cached is None or (auto and mtime != cached_mtime):
+        try:
+            cached = json.loads(p.read_text(encoding="utf-8"))
+            request.app.state.farming_fixed = cached
+            request.app.state.farming_fixed_mtime = mtime
+        except Exception:
+            cached = None
+    return cached
+
+
+def _farming_fixed_mtime(request: Request) -> int:
+    try:
+        return int(getattr(request.app.state, "farming_fixed_mtime", 0) or 0)
+    except Exception:
+        return 0
+
+
+def _plant_family_min(plant: Dict[str, Any], tuning: Dict[str, Any]) -> int:
+    val = plant.get("family_min_count")
+    if not isinstance(val, (int, float)):
+        val = tuning.get("FARM_PLANT_SAME_FAMILY_MIN")
+    return int(val) if isinstance(val, (int, float)) else 0
+
+
+def _normalize_triplet(values: Any, *, default: float = 0.0) -> List[float]:
+    if not isinstance(values, list) or len(values) != 3:
+        return [default, default, default]
+    out: List[float] = []
+    for v in values:
+        if isinstance(v, (int, float)):
+            out.append(float(v))
+        else:
+            out.append(default)
+    return out
+
+
+def _normalize_restore(values: Any, consume: List[float]) -> List[bool]:
+    if isinstance(values, list) and len(values) == 3:
+        return [bool(v) for v in values]
+    return [c == 0 for c in consume]
+
+
+def _parse_pair(values: Optional[List[int]]) -> Optional[Tuple[int, int]]:
+    if not values or len(values) != 2:
+        return None
+    try:
+        a = int(values[0])
+        b = int(values[1])
+    except Exception:
+        return None
+    if a <= 0 or b <= 0:
+        return None
+    return a, b
+
+
 def _ensure_tuning(engine, store_meta: Optional[Dict[str, Any]] = None) -> Any:
     """Best-effort: ensure tuning.lua is parsed (even without analyzer engine)."""
 
@@ -231,6 +345,19 @@ class CookingExploreRequest(BaseModel):
     limit: int = 200
 
 
+class FarmingPlanRequest(BaseModel):
+    slots: int = Field(..., ge=1)
+    season: Optional[str] = None
+    include: List[str] = Field(default_factory=list)
+    max_kinds: int = Field(3, ge=2, le=5)
+    grid: Optional[List[int]] = None
+    tile_group: Optional[List[int]] = None
+    tile: Optional[List[int]] = None
+    pit_mode: Optional[str] = None
+    top_n: int = Field(12, ge=1, le=200)
+    allow_randomseed: bool = False
+
+
 @router.get("/meta")
 def meta(request: Request, store: CatalogStore = Depends(get_store)):
     m = store.meta()
@@ -312,6 +439,29 @@ def meta(request: Request, store: CatalogStore = Depends(get_store)):
                 m.update({"i18n": isvc.public_meta(engine=eng, scripts_zip_hint=scripts_zip_hint)})
             except Exception:
                 pass
+
+    # farming defs (optional)
+    fdefs = _get_farming_defs(request)
+    if fdefs is not None:
+        m.update(
+            {
+                "farming_defs_enabled": True,
+                "farming_defs_schema_version": fdefs.get("schema_version"),
+            }
+        )
+    else:
+        m.update({"farming_defs_enabled": False})
+
+    ffixed = _get_farming_fixed(request)
+    if ffixed is not None:
+        m.update(
+            {
+                "farming_fixed_enabled": True,
+                "farming_fixed_schema_version": ffixed.get("schema_version"),
+            }
+        )
+    else:
+        m.update({"farming_fixed_enabled": False})
 
     etag = f'W/"meta-{int(store.mtime())}"'
     headers = _cache_headers(request, max_age=60, etag=etag)
@@ -600,6 +750,39 @@ def i18n_names(lang: str, request: Request, store: CatalogStore = Depends(get_st
     return _json({"lang": str(lang), "names": {}, "count": 0})
 
 
+@router.get("/i18n/descriptions/{lang}")
+def i18n_descriptions(lang: str, request: Request):
+    """Return id->localized description mapping (GENERIC.DESCRIBE)."""
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None:
+        try:
+            mp = iindex.descriptions(str(lang))
+        except Exception:
+            mp = {}
+        if mp:
+            etag = f'W/"i18n-desc-{int(getattr(iindex, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
+            headers = _cache_headers(request, max_age=600, etag=etag)
+            return _json({"lang": str(lang), "descriptions": mp, "count": len(mp or {})}, headers=headers)
+    return _json({"lang": str(lang), "descriptions": {}, "count": 0})
+
+
+@router.get("/i18n/quotes/{lang}")
+def i18n_quotes(lang: str, request: Request):
+    """Return id->localized quote mapping (GENERIC.QUOTES)."""
+    iindex = _get_i18n_index_store(request)
+    if iindex is not None:
+        try:
+            mp = iindex.quotes(str(lang))
+            meta = iindex.quotes_meta(str(lang))
+        except Exception:
+            mp, meta = {}, {}
+        if mp:
+            etag = f'W/"i18n-quotes-{int(getattr(iindex, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
+            headers = _cache_headers(request, max_age=600, etag=etag)
+            return _json({"lang": str(lang), "quotes": mp, "meta": meta, "count": len(mp or {})}, headers=headers)
+    return _json({"lang": str(lang), "quotes": {}, "meta": {}, "count": 0})
+
+
 @router.get("/i18n/tags/{lang}")
 def i18n_tags(lang: str, request: Request):
     """Return tag->localized label mapping (with optional source meta)."""
@@ -614,6 +797,156 @@ def i18n_tags(lang: str, request: Request):
     etag = f'W/"i18n-tags-{int(getattr(store, "mtime", lambda: 0)())}-{lang}-{len(mp)}"'
     headers = _cache_headers(request, max_age=600, etag=etag)
     return _json({"lang": str(lang), "tags": mp, "meta": meta, "count": len(mp or {})}, headers=headers)
+
+
+# ----------------- farming tools -----------------
+
+
+@router.get("/farming/defs")
+def farming_defs(request: Request, include_randomseed: bool = False):
+    defs = _get_farming_defs(request)
+    if defs is None:
+        return _json({"enabled": False, "plants": [], "tuning": {}, "meta": {}, "count": 0, "seasons": []})
+
+    tuning = defs.get("tuning") if isinstance(defs.get("tuning"), dict) else {}
+    plants_raw = defs.get("plants") if isinstance(defs.get("plants"), dict) else {}
+
+    plants: List[Dict[str, Any]] = []
+    seasons: Dict[str, bool] = {}
+    for pid, row in plants_raw.items():
+        if not isinstance(row, dict):
+            continue
+        if row.get("is_randomseed") and not include_randomseed:
+            continue
+        consume = _normalize_triplet(row.get("nutrient_consumption"))
+        restore = _normalize_restore(row.get("nutrient_restoration"), consume)
+        moisture = row.get("moisture") if isinstance(row.get("moisture"), dict) else {}
+        drink_rate = moisture.get("drink_rate")
+        if not isinstance(drink_rate, (int, float)):
+            drink_rate = None
+        good_seasons = row.get("good_seasons") if isinstance(row.get("good_seasons"), dict) else {}
+        for key, ok in good_seasons.items():
+            if ok:
+                seasons[str(key)] = True
+        plants.append(
+            {
+                "id": str(pid),
+                "consume": consume,
+                "restore": restore,
+                "drink_rate": float(drink_rate) if isinstance(drink_rate, (int, float)) else None,
+                "good_seasons": good_seasons,
+                "family_min": _plant_family_min(row, tuning),
+                "seed": row.get("seed"),
+                "is_randomseed": bool(row.get("is_randomseed")),
+            }
+        )
+
+    plants.sort(key=lambda x: str(x.get("id") or ""))
+    tuning_pick = {
+        k: tuning.get(k)
+        for k in (
+            "FARM_PLANT_SAME_FAMILY_MIN",
+            "FARM_PLANT_SAME_FAMILY_RADIUS",
+            "FARM_PANT_OVERCROWDING_MAX_PLANTS",
+            "FARM_PLANT_DRINK_LOW",
+            "FARM_PLANT_DRINK_MED",
+            "FARM_PLANT_DRINK_HIGH",
+        )
+        if k in tuning
+    }
+    meta = defs.get("meta") if isinstance(defs.get("meta"), dict) else {}
+    etag = f'W/"farming-defs-{_farming_defs_mtime(request)}-{1 if include_randomseed else 0}-{len(plants)}"'
+    headers = _cache_headers(request, max_age=300, etag=etag, auto_reload_attr="auto_reload_farming_defs")
+    return _json(
+        {
+            "enabled": True,
+            "schema_version": defs.get("schema_version"),
+            "meta": meta,
+            "tuning": tuning_pick,
+            "plants": plants,
+            "count": len(plants),
+            "seasons": sorted(seasons.keys()),
+        },
+        headers=headers,
+    )
+
+
+@router.get("/farming/fixed")
+def farming_fixed(request: Request):
+    doc = _get_farming_fixed(request)
+    if doc is None:
+        return _json({"enabled": False, "solutions": [], "meta": {}, "count": 0})
+    solutions = doc.get("solutions") if isinstance(doc.get("solutions"), list) else []
+    meta = doc.get("meta") if isinstance(doc.get("meta"), dict) else {}
+    etag = f'W/"farming-fixed-{_farming_fixed_mtime(request)}-{len(solutions)}"'
+    headers = _cache_headers(request, max_age=300, etag=etag, auto_reload_attr="auto_reload_farming_fixed")
+    return _json(
+        {
+            "enabled": True,
+            "schema_version": doc.get("schema_version"),
+            "meta": meta,
+            "count": len(solutions),
+            "solutions": solutions,
+        },
+        headers=headers,
+    )
+
+
+@router.post("/farming/plan")
+def farming_plan(req: FarmingPlanRequest, request: Request):
+    defs = _get_farming_defs(request)
+    if defs is None:
+        raise HTTPException(status_code=503, detail="Farming defs not available")
+
+    slots = int(req.slots)
+    max_kinds = max(2, min(int(req.max_kinds or 3), 6))
+    top_n = max(1, min(int(req.top_n or 12), 200))
+    season = str(req.season or "").strip() or None
+    include_ids = [str(x).strip().lower() for x in (req.include or []) if str(x).strip()]
+
+    grid = _parse_pair(req.grid)
+    if grid and (grid[0] * grid[1] != slots):
+        grid = None
+    tile_group = _parse_pair(req.tile_group)
+    tile = _parse_pair(req.tile)
+    pit_mode = str(req.pit_mode or "").strip() or None
+    if pit_mode not in {None, "8", "9", "10"}:
+        pit_mode = None
+    if pit_mode and not tile:
+        pit_mode = None
+    if pit_mode:
+        holes_per_tile = 10 if pit_mode == "10" else (8 if pit_mode == "8" else 9)
+        if tile:
+            slots = max(1, tile[0] * tile[1] * holes_per_tile)
+        grid = None
+        tile_group = None
+
+    plans = suggest_plans(
+        defs,
+        slots=slots,
+        season=season,
+        include_ids=include_ids or None,
+        allow_randomseed=bool(req.allow_randomseed),
+        max_kinds=max_kinds,
+        grid=grid,
+        tile_shape=tile,
+        pit_mode=pit_mode,
+        tile_group=tile_group,
+        top_n=top_n,
+    )
+
+    return {
+        "ok": True,
+        "slots": slots,
+        "season": season,
+        "max_kinds": max_kinds,
+        "grid": {"width": grid[0], "height": grid[1]} if grid else None,
+        "tile_group": {"width": tile_group[0], "height": tile_group[1]} if tile_group else None,
+        "tile": {"width": tile[0], "height": tile[1]} if tile else None,
+        "pit_mode": pit_mode,
+        "count": len(plans),
+        "plans": plans,
+    }
 
 
 @router.get("/items/{item_id}")

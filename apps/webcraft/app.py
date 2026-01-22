@@ -18,7 +18,13 @@ from .i18n_index import I18nIndexStore
 from .mechanism_store import MechanismStore
 from .settings import WebCraftSettings
 from .tuning_trace import TuningTraceStore
-from .ui import render_index_html, render_cooking_html, render_cooking_tools_html, render_catalog_html
+from .ui import (
+    render_catalog_html,
+    render_cooking_html,
+    render_cooking_tools_html,
+    render_farming_tools_html,
+    render_index_html,
+)
 
 
 def create_app(
@@ -128,6 +134,20 @@ def create_app(
     else:
         app.state.mechanism_store = None
     app.state.auto_reload_mechanism = bool(auto_reload_mechanism or auto_reload_catalog)
+
+    # farming defs (separate from catalog)
+    fdp = Path(catalog_path).parent / "wagstaff_farming_defs_v1.json"
+    app.state.farming_defs_path = fdp
+    app.state.farming_defs = None
+    app.state.farming_defs_mtime = None
+    app.state.auto_reload_farming_defs = bool(auto_reload_catalog)
+
+    # farming fixed solutions (separate from catalog)
+    ffp = Path(catalog_path).parent / "wagstaff_farming_fixed_v1.json"
+    app.state.farming_fixed_path = ffp
+    app.state.farming_fixed = None
+    app.state.farming_fixed_mtime = None
+    app.state.auto_reload_farming_fixed = bool(auto_reload_catalog)
 
     # analyzer (auto-on if scripts_zip hint is available)
     scripts_zip_hint = None
@@ -246,5 +266,10 @@ def create_app(
     def catalog(request: Request):
         root = request.scope.get("root_path") or ""
         return HTMLResponse(render_catalog_html(app_root=str(root)))
+
+    @app.get("/farming", response_class=HTMLResponse)
+    def farming(request: Request):
+        root = request.scope.get("root_path") or ""
+        return HTMLResponse(render_farming_tools_html(app_root=str(root)))
 
     return app

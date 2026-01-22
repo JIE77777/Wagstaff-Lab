@@ -71,6 +71,7 @@ def build_report(
     icon_index: Dict[str, str],
     i18n_doc: Dict[str, Any],
     trace_doc: Dict[str, Any],
+    prev_report: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     items = catalog_doc.get("items") if isinstance(catalog_doc, dict) else None
     items = items if isinstance(items, dict) else {}
@@ -86,11 +87,18 @@ def build_report(
 
     # stats coverage by component
     comp_keys = _collect_component_keys()
+    stat_key_component: Dict[str, str] = {}
+    for comp, keys in comp_keys.items():
+        for key in keys:
+            stat_key_component.setdefault(key, comp)
     comp_counts: Dict[str, Dict[str, Any]] = {}
     comp_item_counts: Dict[str, int] = {}
     comp_key_hits: Dict[str, Counter] = {}
     comp_missing_items: Dict[str, List[str]] = {}
     stat_counts = Counter()
+    stat_sources = Counter()
+    comp_source_counts: Dict[str, Counter] = {}
+    comp_source_items: Dict[str, Dict[str, int]] = {}
 
     items_with_stats = 0
     stats_total = 0
@@ -129,15 +137,55 @@ def build_report(
                     if k in keyset:
                         comp_key_hits[comp][k] += 1
 
+            comp_source_items.setdefault(
+                comp,
+                {
+                    "total": 0,
+                    "missing": 0,
+                    "prefab_present": 0,
+                    "component_default_only": 0,
+                    "derived_only": 0,
+                    "unknown_only": 0,
+                },
+            )
+            comp_source_items[comp]["total"] += 1
+
         for sk, entry in (stats or {}).items():
             if not isinstance(entry, dict):
                 continue
             expr = entry.get("expr")
+            source = str(entry.get("source") or "unknown")
+            stat_sources[source] += 1
+            comp = stat_key_component.get(str(sk))
+            if comp:
+                comp_source_counts.setdefault(comp, Counter())
+                comp_source_counts[comp][source] += 1
             if isinstance(expr, str) and "TUNING." in expr:
                 tuning_stats_total += 1
                 tkey = _stat_trace_key(iid, sk, entry)
                 if tkey in trace_keys:
                     tuning_stats_traced += 1
+
+        # per-component source reason aggregation (by item)
+        for comp in comps:
+            if comp not in comp_keys:
+                continue
+            keyset = comp_keys.get(comp) or set()
+            sources = set()
+            for k in keyset:
+                entry = stats.get(k)
+                if isinstance(entry, dict):
+                    sources.add(str(entry.get("source") or "unknown"))
+            if not sources:
+                comp_source_items[comp]["missing"] += 1
+            elif "prefab" in sources:
+                comp_source_items[comp]["prefab_present"] += 1
+            elif "component_default" in sources:
+                comp_source_items[comp]["component_default_only"] += 1
+            elif "derived" in sources:
+                comp_source_items[comp]["derived_only"] += 1
+            else:
+                comp_source_items[comp]["unknown_only"] += 1
 
     # cooking tuning trace coverage
     cooking_tuning_total = 0
@@ -189,6 +237,27 @@ def build_report(
             "missing_items": len(missing_items),
             "missing_items_sample": _sample(missing_items, 20),
         }
+
+    def _build_i18n_cov(section: str) -> Dict[str, Any]:
+        root = i18n_doc.get(section) if isinstance(i18n_doc, dict) else None
+        root = root if isinstance(root, dict) else {}
+        langs = sorted([str(k) for k in root.keys() if k])
+        out: Dict[str, Any] = {}
+        for lang in langs:
+            mp = root.get(lang) if isinstance(root.get(lang), dict) else {}
+            names = {str(k) for k in mp.keys() if k}
+            covered_items = len(item_ids & names)
+            missing_items = item_ids - names
+            out[lang] = {
+                "entries": len(names),
+                "coverage_items": {
+                    "total": len(item_ids),
+                    "covered": covered_items,
+                },
+                "missing_items": len(missing_items),
+                "missing_items_sample": _sample(missing_items, 20),
+            }
+        return {"langs": langs, "coverage": out}
 
     comp_out: Dict[str, Any] = {}
     comp_missing: Dict[str, List[str]] = {}
@@ -246,7 +315,7 @@ def build_report(
             "missing_sample": missing[:20],
         }
 
-    return {
+    report = {
         "counts": {
             "items_total": len(item_ids),
             "assets_total": len(asset_ids),
@@ -261,6 +330,11 @@ def build_report(
             "missing_keys": comp_missing,
             "low_coverage_keys": comp_low_coverage,
             "missing_items": comp_missing_items_out,
+            "sources": {
+                "overall": dict(stat_sources),
+                "by_component": {k: dict(v) for k, v in comp_source_counts.items()},
+                "by_component_items": comp_source_items,
+            },
         },
         "tuning_trace": {
             "items": {
@@ -275,11 +349,45 @@ def build_report(
         "i18n": {
             "langs": i18n_langs,
             "coverage": i18n_cov,
+            "descriptions": _build_i18n_cov("descriptions"),
+            "quotes": _build_i18n_cov("quotes"),
             "ui_langs": ui_langs,
             "ui_base_lang": base_lang,
             "ui_coverage": ui_cov,
         },
     }
+
+    if prev_report and isinstance(prev_report, dict):
+        prev_counts = prev_report.get("counts") if isinstance(prev_report.get("counts"), dict) else {}
+        prev_stats = prev_report.get("stats_coverage") if isinstance(prev_report.get("stats_coverage"), dict) else {}
+        prev_comp = prev_stats.get("by_component") if isinstance(prev_stats.get("by_component"), dict) else {}
+        deltas: List[Dict[str, Any]] = []
+        for comp, data in (report.get("stats_coverage") or {}).get("by_component", {}).items():
+            prev = prev_comp.get(comp, {}) if isinstance(prev_comp.get(comp), dict) else {}
+            prev_cov = float(prev.get("coverage") or 0.0)
+            cur_cov = float(data.get("coverage") or 0.0)
+            delta = cur_cov - prev_cov
+            if abs(delta) >= 0.001:
+                deltas.append(
+                    {
+                        "component": comp,
+                        "prev": prev_cov,
+                        "current": cur_cov,
+                        "delta": delta,
+                        "items": data.get("items"),
+                    }
+                )
+        deltas.sort(key=lambda r: abs(r.get("delta") or 0.0), reverse=True)
+        report["trends"] = {
+            "counts_delta": {
+                "items_total": int(report["counts"]["items_total"]) - int(prev_counts.get("items_total") or 0),
+                "items_with_stats": int(report["counts"]["items_with_stats"]) - int(prev_counts.get("items_with_stats") or 0),
+                "stats_total": int(report["counts"]["stats_total"]) - int(prev_counts.get("stats_total") or 0),
+            },
+            "stats_coverage_delta": deltas[:10],
+        }
+
+    return report
 
 
 def render_report_md(doc: Dict[str, Any]) -> str:
@@ -329,6 +437,25 @@ def render_report_md(doc: Dict[str, Any]) -> str:
         lines.append("```")
         lines.append("")
 
+    sources = stats_cov.get("sources") or {}
+    by_items = sources.get("by_component_items") if isinstance(sources, dict) else {}
+    if isinstance(by_items, dict) and by_items:
+        lines.append("## Stats Sources (by component, item-level)")
+        lines.append("```yaml")
+        rows = sorted(by_items.items(), key=lambda kv: (-(kv[1].get("total", 0) or 0), kv[0]))
+        for comp, data in rows:
+            total = data.get("total", 0)
+            if not total:
+                continue
+            lines.append(
+                f"{comp}: total={total} prefab={data.get('prefab_present', 0)} "
+                f"component_default={data.get('component_default_only', 0)} "
+                f"derived={data.get('derived_only', 0)} missing={data.get('missing', 0)} "
+                f"unknown={data.get('unknown_only', 0)}"
+            )
+        lines.append("```")
+        lines.append("")
+
     lines.append("## Tuning Trace Coverage")
     lines.append("```yaml")
     items = trace.get("items") or {}
@@ -352,11 +479,50 @@ def render_report_md(doc: Dict[str, Any]) -> str:
     lines.append("```")
     lines.append("")
 
+    desc_cov = (i18n.get("descriptions") or {}).get("coverage") if isinstance(i18n.get("descriptions"), dict) else {}
+    if isinstance(desc_cov, dict) and desc_cov:
+        lines.append("## i18n Descriptions Coverage")
+        lines.append("```yaml")
+        for lang, data in desc_cov.items():
+            cov_items = data.get("coverage_items") or {}
+            lines.append(f"{lang}: {cov_items.get('covered', 0)}/{cov_items.get('total', 0)}")
+        lines.append("```")
+        lines.append("")
+
+    quotes_cov = (i18n.get("quotes") or {}).get("coverage") if isinstance(i18n.get("quotes"), dict) else {}
+    if isinstance(quotes_cov, dict) and quotes_cov:
+        lines.append("## i18n Quotes Coverage")
+        lines.append("```yaml")
+        for lang, data in quotes_cov.items():
+            cov_items = data.get("coverage_items") or {}
+            lines.append(f"{lang}: {cov_items.get('covered', 0)}/{cov_items.get('total', 0)}")
+        lines.append("```")
+        lines.append("")
+
     lines.append("## Top Stats (by frequency)")
     lines.append("```yaml")
     for stat, cnt in (stats_cov.get("top_stats") or [])[:30]:
         lines.append(f"{stat}: {cnt}")
     lines.append("```")
+
+    trends = doc.get("trends") if isinstance(doc, dict) else None
+    if isinstance(trends, dict) and trends:
+        deltas = trends.get("stats_coverage_delta") or []
+        counts_delta = trends.get("counts_delta") or {}
+        lines.append("")
+        lines.append("## Trends (vs previous report)")
+        lines.append("```yaml")
+        if counts_delta:
+            lines.append(
+                f"counts_delta: items_total={counts_delta.get('items_total', 0)} "
+                f"items_with_stats={counts_delta.get('items_with_stats', 0)} "
+                f"stats_total={counts_delta.get('stats_total', 0)}"
+            )
+        for row in deltas:
+            comp = row.get("component")
+            delta = row.get("delta", 0.0)
+            lines.append(f"{comp}: {delta:+.2%}")
+        lines.append("```")
 
     return "\n".join(lines) + "\n"
 
@@ -382,11 +548,14 @@ def main() -> int:
     i18n_doc = _load_json(i18n_path) if i18n_path else {}
     trace_doc = _load_json(trace_path) if trace_path else {}
 
+    prev_report = _load_json((PROJECT_ROOT / args.out_json).resolve())
+
     report = build_report(
         catalog_doc=catalog_doc,
         icon_index=icon_index,
         i18n_doc=i18n_doc,
         trace_doc=trace_doc,
+        prev_report=prev_report if prev_report else None,
     )
 
     out_json = (PROJECT_ROOT / args.out_json).resolve()

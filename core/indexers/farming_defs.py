@@ -291,6 +291,78 @@ def _parse_seed_weights(veggies_src: str, tuning: Optional[TuningResolver]) -> D
     return out
 
 
+def _parse_stress_categories(src: str) -> List[str]:
+    clean = strip_lua_comments(src or "")
+    out: List[str] = []
+    seen: set[str] = set()
+    for m in re.finditer(r'AddStressCategory\((["\'])([^"\']+)\1', clean):
+        name = (m.group(2) or "").strip()
+        if not name or name in seen:
+            continue
+        out.append(name)
+        seen.add(name)
+    return out
+
+
+def _parse_stress_thresholds(src: str) -> Dict[str, int]:
+    clean = strip_lua_comments(src or "")
+    out: Dict[str, int] = {}
+    for m in re.finditer(r"stress\s*<=\s*(\d+)\s*and\s*FARM_PLANT_STRESS\.([A-Z_]+)", clean):
+        level = (m.group(2) or "").strip()
+        if not level:
+            continue
+        out[level] = int(m.group(1))
+    return out
+
+
+def _parse_good_season_multiplier(src: str) -> Optional[float]:
+    clean = strip_lua_comments(src or "")
+    m = re.search(r"is_good_season\s+and\s+([0-9.]+)\s+or\s+1", clean)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except Exception:
+        return None
+
+
+def _parse_weed_spawn_window_ratio(src: str) -> Optional[float]:
+    clean = strip_lua_comments(src or "")
+    m = re.search(r"remainingdaysinseason\s*\*\s*([0-9.]+)", clean)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except Exception:
+        return None
+
+
+def _build_growth_formula_summary() -> Dict[str, Any]:
+    return {
+        "germination": "rand(seed_min, seed_max) * season_multiplier",
+        "stage_time": "calcGrowTime(checkpoint_stress_points, num_stressors + 1, stage_min, stage_max) * season_multiplier",
+        "calc_grow_time": "min + step * (max - min) / num_steps + rand(0,1) * (max - min) / num_steps",
+        "spoil_time": "full or oversized time; if long_life then * FARM_PLANT_LONG_LIFE_MULT",
+        "regrow_time": "rand(regrow_min, regrow_max) when not oversized",
+    }
+
+
+def _build_stress_output_rules() -> Dict[str, Any]:
+    return {
+        "oversized_condition": "final_stress == NONE and not no_oversized",
+        "harvest_loot_rules": {
+            "oversized": ["product_oversized"],
+            "none_low": ["product", "seed", "seed"],
+            "moderate": ["product", "seed"],
+            "high": ["product"],
+        },
+        "rotten_loot_rules": {
+            "normal": ["spoiled_food"],
+            "oversized": "plant_def.loot_oversized_rot or ['spoiled_food' * 3, seed, 'fruitfly', 'fruitfly']",
+        },
+    }
+
+
 def _parse_plants(
     src: str,
     *,
@@ -449,6 +521,9 @@ def build_farming_defs(engine: Any) -> Dict[str, Any]:
     tuning_table = _extract_tuning_tables(tuning_src or "", tuning_table_keys)
 
     plant_src = _read(engine, "scripts/prefabs/farm_plant_defs.lua")
+    farm_plants_src = _read(engine, "scripts/prefabs/farm_plants.lua")
+    stress_src = _read(engine, "scripts/components/farmplantstress.lua")
+    manager_src = _read(engine, "scripts/components/farming_manager.lua")
     weed_src = _read(engine, "scripts/prefabs/weed_defs.lua")
     fert_src = _read(engine, "scripts/prefabs/fertilizer_nutrient_defs.lua")
     veggies_src = _read(engine, "scripts/prefabs/veggies.lua")
@@ -459,6 +534,28 @@ def build_farming_defs(engine: Any) -> Dict[str, Any]:
     )
     weeds = _parse_weeds(weed_src, tuning=tuning, tuning_table=tuning_table)
     fertilizers = _parse_fertilizers(fert_src, tuning=tuning, tuning_table=tuning_table)
+
+    stress_categories = _parse_stress_categories(farm_plants_src)
+    stress_thresholds = _parse_stress_thresholds(stress_src)
+    season_multiplier = _parse_good_season_multiplier(farm_plants_src)
+    weed_spawn_window_ratio = _parse_weed_spawn_window_ratio(manager_src)
+
+    mechanics: Dict[str, Any] = {}
+    if stress_categories or stress_thresholds:
+        stress: Dict[str, Any] = {}
+        if stress_categories:
+            stress["categories"] = stress_categories
+            stress["num_stressors"] = len(stress_categories)
+        if stress_thresholds:
+            stress["thresholds"] = stress_thresholds
+        stress.update(_build_stress_output_rules())
+        mechanics["stress"] = stress
+    growth_summary = _build_growth_formula_summary()
+    if season_multiplier is not None:
+        growth_summary["good_season_multiplier"] = season_multiplier
+    mechanics["growth"] = growth_summary
+    if weed_spawn_window_ratio is not None:
+        mechanics["weed_spawn"] = {"seasonal_window_ratio": weed_spawn_window_ratio}
 
     tuning_keys = [
         "FARM_PLANT_RANDOMSEED_WEED_CHANCE",
@@ -537,6 +634,9 @@ def build_farming_defs(engine: Any) -> Dict[str, Any]:
         "scripts_zip": scripts_zip,
         "scripts_dir": scripts_dir,
         "farm_plant_defs": "scripts/prefabs/farm_plant_defs.lua",
+        "farm_plants": "scripts/prefabs/farm_plants.lua",
+        "farmplantstress": "scripts/components/farmplantstress.lua",
+        "farming_manager": "scripts/components/farming_manager.lua",
         "weed_defs": "scripts/prefabs/weed_defs.lua",
         "fertilizer_defs": "scripts/prefabs/fertilizer_nutrient_defs.lua",
         "veggies_defs": "scripts/prefabs/veggies.lua",
@@ -565,6 +665,7 @@ def build_farming_defs(engine: Any) -> Dict[str, Any]:
         "meta": meta,
         "tuning": tuning_out,
         "seed_weights": seed_weights,
+        "mechanics": mechanics,
         "plants": plants,
         "weeds": weeds,
         "fertilizers": fertilizers,

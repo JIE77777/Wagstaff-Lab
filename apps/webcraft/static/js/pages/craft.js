@@ -4,6 +4,9 @@ if (navCraft) navCraft.href = APP_ROOT + '/craft';
 const navCooking = document.getElementById('navCooking');
 if (navCooking) navCooking.href = APP_ROOT + '/cooking';
 
+const navFarming = document.getElementById('navFarming');
+if (navFarming) navFarming.href = APP_ROOT + '/farming';
+
 const navCatalog = document.getElementById('navCatalog');
 if (navCatalog) navCatalog.href = APP_ROOT + '/catalog';
 
@@ -166,6 +169,8 @@ function applyUiStrings() {
   if (navCraft) navCraft.textContent = t('nav.craft', 'Craft');
   const navCooking = el('navCooking');
   if (navCooking) navCooking.textContent = t('nav.cooking', 'Cooking');
+  const navFarming = el('navFarming');
+  if (navFarming) navFarming.textContent = t('nav.farming', 'Farming');
   const navCatalog = el('navCatalog');
   if (navCatalog) navCatalog.textContent = t('nav.catalog', 'Catalog');
   const label = el('labelModeLabel');
