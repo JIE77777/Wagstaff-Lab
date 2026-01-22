@@ -234,7 +234,15 @@ def _extract_test_return_expr(entry_body: str) -> Optional[str]:
 def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     """Best-effort extraction of common `names.*` / `tags.*` constraints from test-return expr."""
     expr = (expr or "").strip()
-    out: Dict[str, Any] = {"raw": expr, "tags": [], "names": [], "names_any": [], "names_sum": [], "unparsed": []}
+    out: Dict[str, Any] = {
+        "raw": expr,
+        "tags": [],
+        "tags_any": [],
+        "names": [],
+        "names_any": [],
+        "names_sum": [],
+        "unparsed": [],
+    }
     if not expr:
         return out
 
@@ -245,6 +253,130 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     sum_seen: Set[Tuple[str, str, int]] = set()
     or_names: Set[str] = set()
     or_spans: List[Tuple[int, int]] = []
+    tag_or_spans: List[Tuple[int, int]] = []
+
+    def _split_top_level_or(src: str) -> List[str]:
+        parts: List[str] = []
+        depth = 0
+        start = 0
+        i = 0
+        while i < len(src):
+            ch = src[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth = max(0, depth - 1)
+            if depth == 0 and src.startswith(" or ", i):
+                chunk = src[start:i].strip()
+                if chunk:
+                    parts.append(chunk)
+                i += 4
+                start = i
+                continue
+            i += 1
+        tail = src[start:].strip()
+        if tail:
+            parts.append(tail)
+        return parts
+
+    def _parse_tag_option(body: str) -> List[Dict[str, Any]]:
+        body = (body or "").strip()
+        if not body:
+            return []
+        option: List[Dict[str, Any]] = []
+        seen_opt: Set[Tuple[str, str, str]] = set()
+
+        cmp_pat = re.compile(
+            r"\btags\.(?P<key>[A-Za-z0-9_]+)\s*(?P<op>==|~=|<=|>=|<|>)\s*(?P<rhs>[^\s\)\]]+)"
+        )
+        for m in cmp_pat.finditer(body):
+            key = m.group("key")
+            op = m.group("op")
+            rhs = m.group("rhs").rstrip(",")
+            if rhs == "nil":
+                rhs_norm: Any = None
+            elif _NUM_RE.match(rhs):
+                try:
+                    rhs_norm = float(rhs)
+                    if isinstance(rhs_norm, float) and rhs_norm.is_integer():
+                        rhs_norm = int(rhs_norm)
+                except Exception:
+                    rhs_norm = rhs
+            else:
+                rhs_norm = rhs
+            rec = (key, op, str(rhs_norm))
+            if rec in seen_opt:
+                continue
+            seen_opt.add(rec)
+            option.append({"key": key, "op": op, "value": rhs_norm, "text": m.group(0)})
+
+        neg_pat = re.compile(r"\bnot\s+tags\.(?P<key>[A-Za-z0-9_]+)\b")
+        for m in neg_pat.finditer(body):
+            key = m.group("key")
+            rec = (key, "==", "0")
+            if rec in seen_opt:
+                continue
+            seen_opt.add(rec)
+            option.append({"key": key, "op": "==", "value": 0, "text": m.group(0)})
+
+        pres_pat = re.compile(r"\btags\.(?P<key>[A-Za-z0-9_]+)\b(?!\s*(==|~=|<=|>=|<|>))")
+        for m in pres_pat.finditer(body):
+            prefix = body[: m.start()].rstrip()
+            if prefix.endswith("not"):
+                continue
+            key = m.group("key")
+            rec = (key, ">", "0")
+            if rec in seen_opt:
+                continue
+            seen_opt.add(rec)
+            option.append({"key": key, "op": ">", "value": 0, "text": m.group(0)})
+
+        if option:
+            not_keys: Set[str] = set()
+            for c in option:
+                text = str(c.get("text") or "").strip().lower()
+                key = str(c.get("key") or "").strip().lower()
+                if key and text.startswith("not "):
+                    not_keys.add(key)
+            if not_keys:
+                filtered: List[Dict[str, Any]] = []
+                for c in option:
+                    key = str(c.get("key") or "").strip().lower()
+                    text = str(c.get("text") or "").strip().lower()
+                    op = str(c.get("op") or "").strip()
+                    if key in not_keys and not text.startswith("not ") and op in (">", ">="):
+                        continue
+                    filtered.append(c)
+                option = filtered
+
+        if option:
+            lowered: Dict[str, Dict[str, Any]] = {}
+            others: List[Dict[str, Any]] = []
+            for c in option:
+                key = str(c.get("key") or "").strip().lower()
+                op = str(c.get("op") or "").strip()
+                val = c.get("value")
+                if key and op in (">", ">=") and isinstance(val, (int, float)):
+                    cur = lowered.get(key)
+                    if cur is None:
+                        lowered[key] = c
+                        continue
+                    cur_val = cur.get("value")
+                    if not isinstance(cur_val, (int, float)):
+                        lowered[key] = c
+                        continue
+                    replace = val > cur_val or (val == cur_val and op == ">" and str(cur.get("op") or "").strip() != ">")
+                    if replace:
+                        lowered[key] = c
+                    continue
+                others.append(c)
+            if lowered:
+                option = others + list(lowered.values())
+
+        return option
+
+    def _in_tag_or(span: Tuple[int, int]) -> bool:
+        return any(span[0] >= s[0] and span[1] <= s[1] for s in tag_or_spans)
 
     def _add_name_constraint(key: str, op: str, value: Any, text: str) -> None:
         rec = ("names", key, op, str(value))
@@ -306,6 +438,39 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
         or_names.update(keys)
         or_spans.append(span)
 
+    # detect parenthesized OR groups for tags: (tags.a or tags.b) or ((tags.a and tags.a >= N) or tags.b)
+    paren_spans: List[Tuple[int, int]] = []
+    stack: List[int] = []
+    for idx, ch in enumerate(e):
+        if ch == "(":
+            stack.append(idx)
+        elif ch == ")" and stack:
+            start = stack.pop()
+            paren_spans.append((start, idx))
+
+    for start, end in paren_spans:
+        body = e[start + 1 : end].strip()
+        if " or " not in body or "tags." not in body:
+            continue
+        parts = _split_top_level_or(body)
+        if len(parts) < 2:
+            continue
+        options: List[List[Dict[str, Any]]] = []
+        valid = True
+        for part in parts:
+            if "tags." not in part or "names." in part:
+                valid = False
+                break
+            parsed = _parse_tag_option(part)
+            if not parsed:
+                valid = False
+                break
+            options.append(parsed)
+        if not valid:
+            continue
+        out["tags_any"].append({"options": options, "text": body.strip()})
+        tag_or_spans.append((start, end))
+
     # detect OR sum groups: ((names.a and names.a > 1) or (names.b and names.b > 1) or (names.a and names.b))
     sum_pat = re.compile(
         r"\(+\s*names\.(?P<a>[A-Za-z0-9_]+)\s+and\s+names\.(?P=a)\s*(?:>=|>)\s*(?P<n1>[0-9]+)\s*\)+\s+or\s+"
@@ -345,6 +510,8 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     )
     for m in cmp_pat.finditer(e):
         scope = m.group("scope")
+        if scope == "tags" and _in_tag_or(m.span()):
+            continue
         key = m.group("key")
         op = m.group("op")
         rhs = m.group("rhs").rstrip(",")
@@ -371,6 +538,8 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     pres_pat = re.compile(r"\b(?P<scope>tags|names)\.(?P<key>[A-Za-z0-9_]+)\b(?!\s*(==|~=|<=|>=|<|>))")
     for m in pres_pat.finditer(e):
         scope = m.group("scope")
+        if scope == "tags" and _in_tag_or(m.span()):
+            continue
         key = m.group("key")
         rec = (scope, key, ">", 0)
         if rec in seen:
@@ -382,6 +551,8 @@ def _parse_rule_constraints(expr: str) -> Dict[str, Any]:
     neg_pat = re.compile(r"\bnot\s+(?P<scope>tags|names)\.(?P<key>[A-Za-z0-9_]+)\b")
     for m in neg_pat.finditer(e):
         scope = m.group("scope")
+        if scope == "tags" and _in_tag_or(m.span()):
+            continue
         key = m.group("key")
         rec = (scope, key, "==", 0)
         if rec in seen:

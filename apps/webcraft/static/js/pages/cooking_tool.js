@@ -231,6 +231,33 @@ function formatConditions(row, context) {
         status: resolveStatus(cond, true, actual, ok),
       };
     }
+    if (tpe === 'tag_any') {
+      const options = Array.isArray(cond.options) ? cond.options : [];
+      let anyOk = false;
+      const labels = [];
+      for (const opt of options) {
+        const rows = Array.isArray(opt) ? opt : [];
+        if (!rows.length) continue;
+        const parts = rows.map((row) => {
+          const key = String(row.key || '').trim();
+          if (!key) return '';
+          const label = tagLabelPlain(key) || key;
+          const suffix = opLabel(String(row.op || '').trim(), row.required);
+          return suffix ? `${label} ${suffix}` : label;
+        }).filter(Boolean);
+        if (!parts.length) continue;
+        const ok = rows.every((row) => row && row.ok);
+        if (ok) anyOk = true;
+        labels.push(parts.join(' & '));
+      }
+      const text = labels.join(' / ');
+      return {
+        type: 'tag',
+        text: text || t('cooking.conditions.empty', 'No conditions'),
+        suffix: '',
+        status: anyOk || cond.ok ? 'ok' : 'miss',
+      };
+    }
     const key = String(cond.key || '').trim();
     if (!key) return null;
     const isName = tpe === 'name';

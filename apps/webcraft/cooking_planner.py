@@ -13,6 +13,7 @@ MAX_AVAILABLE_COMBOS = 15000
 FILLER_TAGS = {"inedible", "frozen", "dried"}
 FILLER_NAMES = {"twigs", "ice", "lightninggoathorn", "boneshard"}
 NEAR_TIER_ORDER = {"primary": 0, "secondary": 1, "filler": 2}
+_TAG_NUM_RE = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 def normalize_counts(inv: Dict[str, Any]) -> Dict[str, float]:
     """Normalize item->count mapping.
@@ -145,6 +146,19 @@ def _missing_is_filler(entry: Dict[str, Any], tags_by_item: Dict[str, Dict[str, 
     key = str(entry.get("key") or "").strip().lower()
     if mtype == "tag":
         return key in FILLER_TAGS
+    if mtype == "tag_any":
+        options = entry.get("options") or []
+        tags: List[str] = []
+        for opt in options:
+            if not isinstance(opt, list):
+                continue
+            for c in opt:
+                if not isinstance(c, dict):
+                    continue
+                k = str(c.get("key") or "").strip().lower()
+                if k:
+                    tags.append(k)
+        return bool(tags) and all(tag in FILLER_TAGS for tag in tags)
     if mtype == "name":
         return _is_filler_name(key, tags_by_item)
     if mtype == "name_any":
@@ -366,6 +380,193 @@ def _coerce_constraint_value(v: Any) -> Optional[float]:
         return None
 
 
+def _split_top_level_or(expr: str) -> List[str]:
+    parts: List[str] = []
+    depth = 0
+    start = 0
+    i = 0
+    while i < len(expr):
+        ch = expr[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if depth == 0 and expr.startswith(" or ", i):
+            chunk = expr[start:i].strip()
+            if chunk:
+                parts.append(chunk)
+            i += 4
+            start = i
+            continue
+        i += 1
+    tail = expr[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _parse_tag_option_constraints(body: str) -> List[Dict[str, Any]]:
+    body = (body or "").strip()
+    if not body:
+        return []
+    option: List[Dict[str, Any]] = []
+    seen: Set[Tuple[str, str, str]] = set()
+
+    cmp_pat = re.compile(r"\btags\.(?P<key>[A-Za-z0-9_]+)\s*(?P<op>==|~=|<=|>=|<|>)\s*(?P<rhs>[^\s\)\]]+)")
+    for m in cmp_pat.finditer(body):
+        key = m.group("key")
+        op = m.group("op")
+        rhs = m.group("rhs").rstrip(",")
+        if rhs == "nil":
+            rhs_norm: Any = None
+        elif _TAG_NUM_RE.match(rhs):
+            try:
+                rhs_norm = float(rhs)
+                if isinstance(rhs_norm, float) and rhs_norm.is_integer():
+                    rhs_norm = int(rhs_norm)
+            except Exception:
+                rhs_norm = rhs
+        else:
+            rhs_norm = rhs
+        rec = (key, op, str(rhs_norm))
+        if rec in seen:
+            continue
+        seen.add(rec)
+        option.append({"key": key, "op": op, "value": rhs_norm, "text": m.group(0)})
+
+    neg_pat = re.compile(r"\bnot\s+tags\.(?P<key>[A-Za-z0-9_]+)\b")
+    for m in neg_pat.finditer(body):
+        key = m.group("key")
+        rec = (key, "==", "0")
+        if rec in seen:
+            continue
+        seen.add(rec)
+        option.append({"key": key, "op": "==", "value": 0, "text": m.group(0)})
+
+    pres_pat = re.compile(r"\btags\.(?P<key>[A-Za-z0-9_]+)\b(?!\s*(==|~=|<=|>=|<|>))")
+    for m in pres_pat.finditer(body):
+        prefix = body[: m.start()].rstrip()
+        if prefix.endswith("not"):
+            continue
+        key = m.group("key")
+        rec = (key, ">", "0")
+        if rec in seen:
+            continue
+        seen.add(rec)
+        option.append({"key": key, "op": ">", "value": 0, "text": m.group(0)})
+
+    if option:
+        not_keys: Set[str] = set()
+        for c in option:
+            text = str(c.get("text") or "").strip().lower()
+            key = str(c.get("key") or "").strip().lower()
+            if key and text.startswith("not "):
+                not_keys.add(key)
+        if not_keys:
+            filtered: List[Dict[str, Any]] = []
+            for c in option:
+                key = str(c.get("key") or "").strip().lower()
+                text = str(c.get("text") or "").strip().lower()
+                op = str(c.get("op") or "").strip()
+                if key in not_keys and not text.startswith("not ") and op in (">", ">="):
+                    continue
+                filtered.append(c)
+            option = filtered
+
+    if option:
+        lowered: Dict[str, Dict[str, Any]] = {}
+        others: List[Dict[str, Any]] = []
+        for c in option:
+            key = str(c.get("key") or "").strip().lower()
+            op = str(c.get("op") or "").strip()
+            val = c.get("value")
+            if key and op in (">", ">=") and isinstance(val, (int, float)):
+                cur = lowered.get(key)
+                if cur is None:
+                    lowered[key] = c
+                    continue
+                cur_val = cur.get("value")
+                if not isinstance(cur_val, (int, float)):
+                    lowered[key] = c
+                    continue
+                replace = val > cur_val or (val == cur_val and op == ">" and str(cur.get("op") or "").strip() != ">")
+                if replace:
+                    lowered[key] = c
+                continue
+            others.append(c)
+        if lowered:
+            option = others + list(lowered.values())
+
+    return option
+
+
+def _derive_tag_any_from_raw(raw: str) -> Tuple[List[Dict[str, Any]], List[Tuple[int, int]], str]:
+    raw = (raw or "").strip()
+    if not raw:
+        return [], [], ""
+    expr = re.sub(r"\s+", " ", raw)
+    if " or " not in expr or "tags." not in expr:
+        return [], [], expr
+    spans: List[Tuple[int, int]] = []
+    stack: List[int] = []
+    for idx, ch in enumerate(expr):
+        if ch == "(":
+            stack.append(idx)
+        elif ch == ")" and stack:
+            start = stack.pop()
+            spans.append((start, idx))
+
+    groups: List[Dict[str, Any]] = []
+    or_spans: List[Tuple[int, int]] = []
+    for start, end in spans:
+        body = expr[start + 1 : end].strip()
+        if " or " not in body or "tags." not in body:
+            continue
+        parts = _split_top_level_or(body)
+        if len(parts) < 2:
+            continue
+        options: List[List[Dict[str, Any]]] = []
+        valid = True
+        for part in parts:
+            if "tags." not in part or "names." in part:
+                valid = False
+                break
+            parsed = _parse_tag_option_constraints(part)
+            if not parsed:
+                valid = False
+                break
+            options.append(parsed)
+        if not valid:
+            continue
+        groups.append({"options": options, "text": body})
+        or_spans.append((start, end))
+
+    return groups, or_spans, expr
+
+
+def _constraint_text_outside_or(expr: str, text: str, spans: List[Tuple[int, int]]) -> bool:
+    if not text or not spans:
+        return True
+    found_inside = False
+    found_outside = False
+    start = 0
+    while True:
+        idx = expr.find(text, start)
+        if idx == -1:
+            break
+        end = idx + len(text)
+        inside = any(idx >= s and end <= e for s, e in spans)
+        if inside:
+            found_inside = True
+        else:
+            found_outside = True
+            break
+        start = idx + 1
+    if found_inside and not found_outside:
+        return False
+    return True
+
+
 def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any]]]:
     rule = recipe.raw.get("rule") if isinstance(recipe.raw, dict) else None
     if not isinstance(rule, dict):
@@ -374,10 +575,26 @@ def _get_rule_constraints(recipe: CookingRecipe) -> Dict[str, List[Dict[str, Any
     if not isinstance(cons, dict):
         return {}
     out: Dict[str, List[Dict[str, Any]]] = {}
-    for key in ("tags", "names", "names_any", "names_sum", "unparsed"):
+    for key in ("tags", "tags_any", "names", "names_any", "names_sum", "unparsed"):
         rows = cons.get(key)
         if isinstance(rows, list):
             out[key] = [r for r in rows if isinstance(r, dict)]
+
+    raw = str(cons.get("raw") or "")
+    derived_tags_any, or_spans, raw_norm = _derive_tag_any_from_raw(raw)
+    if not out.get("tags_any") and derived_tags_any:
+        out["tags_any"] = derived_tags_any
+
+    if or_spans and out.get("tags"):
+        filtered: List[Dict[str, Any]] = []
+        for c in out.get("tags") or []:
+            text = str(c.get("text") or "").strip()
+            if not text:
+                filtered.append(c)
+                continue
+            if _constraint_text_outside_or(raw_norm, text, or_spans):
+                filtered.append(c)
+        out["tags"] = filtered
 
     sum_keys: Set[str] = set()
     for g in out.get("names_sum") or []:
@@ -473,6 +690,21 @@ def _extract_recipe_requirements(recipe: CookingRecipe) -> Dict[str, Any]:
         rhs = _coerce_constraint_value(c.get("value"))
         if key and _is_positive_requirement(op, rhs):
             req_tags.add(key)
+    for g in cons.get("tags_any") or []:
+        options = g.get("options") if isinstance(g, dict) else None
+        if not isinstance(options, list):
+            continue
+        for opt in options:
+            if not isinstance(opt, list):
+                continue
+            for c in opt:
+                if not isinstance(c, dict):
+                    continue
+                key = str(c.get("key") or "").strip().lower()
+                op = str(c.get("op") or "").strip()
+                rhs = _coerce_constraint_value(c.get("value"))
+                if key and _is_positive_requirement(op, rhs):
+                    req_tags.add(key)
 
     return {
         "req_names": sorted(req_names),
@@ -565,6 +797,75 @@ def _evaluate_constraints(
                     "text": g.get("text") or "",
                 }
             )
+
+    for g in constraints.get("tags_any") or []:
+        options = g.get("options") if isinstance(g, dict) else None
+        if not isinstance(options, list):
+            warnings.append(str(g.get("text") or "tags_any_unparsed"))
+            continue
+        best_delta: Optional[float] = None
+        best_direction = "under"
+        any_ok = False
+        option_rows: List[List[Dict[str, Any]]] = []
+        for opt in options:
+            if not isinstance(opt, list):
+                continue
+            opt_ok = True
+            opt_delta = 0.0
+            opt_direction: Optional[str] = None
+            rows: List[Dict[str, Any]] = []
+            for c in opt:
+                if not isinstance(c, dict):
+                    continue
+                key = str(c.get("key") or "").strip().lower()
+                op = str(c.get("op") or "").strip()
+                rhs = _coerce_constraint_value(c.get("value"))
+                if not key or rhs is None:
+                    continue
+                lhs = float(tags_total.get(key, 0.0))
+                ok = _compare(lhs, op, float(rhs))
+                rows.append(
+                    {
+                        "key": key,
+                        "op": op,
+                        "required": float(rhs),
+                        "actual": lhs,
+                        "ok": ok,
+                    }
+                )
+                if not ok:
+                    opt_ok = False
+                    delta, direction = _constraint_delta(lhs, op, float(rhs))
+                    opt_delta += delta
+                    if opt_direction is None:
+                        opt_direction = direction
+            if rows:
+                option_rows.append(rows)
+            if opt_ok and rows:
+                any_ok = True
+                break
+            if rows:
+                if best_delta is None or opt_delta < best_delta:
+                    best_delta = opt_delta
+                    if opt_direction is not None:
+                        best_direction = opt_direction
+        if any_ok:
+            continue
+        if option_rows:
+            missing.append(
+                {
+                    "type": "tag_any",
+                    "options": option_rows,
+                    "op": "any",
+                    "required": 1.0,
+                    "actual": 0.0,
+                    "delta": float(best_delta or 0.0),
+                    "direction": best_direction,
+                    "text": g.get("text") or "",
+                }
+            )
+        else:
+            warnings.append(str(g.get("text") or "tags_any_unparsed"))
 
     for c in constraints.get("tags") or []:
         key = str(c.get("key") or "").strip().lower()
@@ -671,6 +972,54 @@ def _build_conditions(
                 }
             )
 
+        for g in constraints.get("tags_any") or []:
+            options = g.get("options") if isinstance(g, dict) else None
+            if not isinstance(options, list):
+                continue
+            option_rows: List[List[Dict[str, Any]]] = []
+            group_ok = False
+            for opt in options:
+                if not isinstance(opt, list):
+                    continue
+                rows: List[Dict[str, Any]] = []
+                opt_ok = True
+                for c in opt:
+                    if not isinstance(c, dict):
+                        continue
+                    key = str(c.get("key") or "").strip().lower()
+                    op = str(c.get("op") or "").strip()
+                    rhs = _coerce_constraint_value(c.get("value"))
+                    if not key or rhs is None:
+                        continue
+                    actual = float(tags_total.get(key, 0.0))
+                    ok = _compare(actual, op, float(rhs))
+                    rows.append(
+                        {
+                            "key": key,
+                            "op": op,
+                            "required": float(rhs),
+                            "actual": actual,
+                            "ok": ok,
+                        }
+                    )
+                    if not ok:
+                        opt_ok = False
+                if rows:
+                    option_rows.append(rows)
+                if opt_ok and rows:
+                    group_ok = True
+            if option_rows:
+                conditions.append(
+                    {
+                        "type": "tag_any",
+                        "options": option_rows,
+                        "op": "any",
+                        "required": 1.0,
+                        "actual": 1.0 if group_ok else 0.0,
+                        "ok": group_ok,
+                    }
+                )
+
         for c in constraints.get("names") or []:
             key = str(c.get("key") or "").strip().lower()
             op = str(c.get("op") or "").strip()
@@ -739,7 +1088,7 @@ def _score_recipe(priority: float, weight: float, missing: List[Dict[str, Any]])
     penalty = 0.0
     for m in missing or []:
         delta = float(m.get("delta") or 0.0)
-        if m.get("type") == "tag":
+        if m.get("type") in ("tag", "tag_any"):
             penalty += delta * TAG_PENALTY
         elif m.get("type") in ("name", "name_any"):
             penalty += delta * NAME_PENALTY
@@ -852,6 +1201,44 @@ def _possible_with_remaining(
             return False
         max_possible = total + float(max(0, remaining))
         if max_possible + 1e-9 < float(min_val):
+            return False
+
+    for g in constraints.get("tags_any") or []:
+        options = g.get("options") if isinstance(g, dict) else None
+        if not isinstance(options, list):
+            continue
+        group_possible = False
+        for opt in options:
+            if not isinstance(opt, list):
+                continue
+            opt_possible = True
+            for c in opt:
+                if not isinstance(c, dict):
+                    continue
+                key = str(c.get("key") or "").strip().lower()
+                op = str(c.get("op") or "").strip()
+                rhs = _coerce_constraint_value(c.get("value"))
+                if not key or rhs is None:
+                    continue
+                lhs = float(tags_total.get(key, 0.0))
+                max_add = float(max_by_tag.get(key, 0.0)) * float(max(0, remaining))
+                max_possible = lhs + max_add
+                if op in (">", ">=") and max_possible + 1e-9 < float(rhs):
+                    opt_possible = False
+                    break
+                if op in ("<", "<=") and lhs > float(rhs) + 1e-9:
+                    opt_possible = False
+                    break
+                if op == "==" and (float(rhs) < lhs - 1e-9 or float(rhs) > max_possible + 1e-9):
+                    opt_possible = False
+                    break
+                if op == "~=" and abs(lhs - float(rhs)) <= 1e-9 and max_add <= 1e-9:
+                    opt_possible = False
+                    break
+            if opt_possible:
+                group_possible = True
+                break
+        if not group_possible:
             return False
 
     for c in constraints.get("tags") or []:

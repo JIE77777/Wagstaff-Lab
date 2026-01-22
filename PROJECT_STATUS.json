@@ -220,7 +220,8 @@
     "[2026-01-22 10:30] Docs: 整理 worldgen 机制讨论笔记与分阶段/断点分析。",
     "[2026-01-22 20:20] Docs: 输出 worldgen 解析工具设计文档（结构解析 + S3 骨架）。",
     "[2026-01-22 20:45] Worldgen: 落地结构解析与 S3 拓扑骨架工具链（core/devtools/cli）。",
-    "[2026-01-22 20:50] Docs: 更新 README/DEV_GUIDE/CLI_GUIDE 的 worldgen 工具与产物清单。"
+    "[2026-01-22 20:50] Docs: 更新 README/DEV_GUIDE/CLI_GUIDE 的 worldgen 工具与产物清单。",
+    "[2026-01-22 20:55] Cooking: 修复 tags OR 规则解析与模拟条件评估，火鸡正餐等支持标签 OR 条件。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",
