@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="app-root" content="__WAGSTAFF_APP_ROOT__" />
+  <title>Wagstaff WebCraft - Farming Tools</title>
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/base.css" />
+  <link rel="stylesheet" href="__WAGSTAFF_APP_ROOT__/static/app/css/farming.css" />
+  <script defer src="__WAGSTAFF_APP_ROOT__/static/app/js/app.js"></script>
+</head>
+<body class="page--farming" data-page="farming" data-role="tool" data-app-shell="1" data-layout="field">
+  <header class="header">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand">Wagstaff <span class="brand-sub">Field Manual</span></div>
+        <div class="nav-links">
+          <a id="navCraft" class="nav-link" href="#">Craft</a>
+          <a id="navCooking" class="nav-link" href="#">Cooking</a>
+          <a id="navFarming" class="nav-link active" href="#">Farming</a>
+          <a id="navCatalog" class="nav-link" href="#">Catalog</a>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="label-toggle">
+          <span class="muted" id="labelModeLabel">Label</span>
+          <select id="labelMode">
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+            <option value="id">ID</option>
+          </select>
+        </div>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <div class="subbar">
+      <div class="subbar-left">
+        <div class="page-title" id="pageTitle">Farming Matrix</div>
+        <div class="page-sub" id="pageSub">Mix crops to balance nutrients, water, and family clusters.</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="farming-shell">
+    <aside class="panel panel--seeds" id="seedPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="seedTitle">Seed Ledger</div>
+        <div class="panel-actions">
+          <button id="plantClear" class="btn ghost">Clear</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="legend" id="nutrientLegend">N1 / N2 / N3 are the three soil nutrient channels.</div>
+        <div class="plant-grid" id="plantGrid"></div>
+      </div>
+    </aside>
+
+    <section class="panel panel--controls" id="controlPanel">
+      <div class="panel-head">
+        <div class="panel-title" id="controlTitle">Planner Console</div>
+        <div class="panel-actions">
+          <div class="small muted" id="defsMeta">defs: --</div>
+        </div>
+      </div>
+      <div class="panel-body control-body">
+        <div class="control-row mode-row control-row--mode">
+          <div class="mode-switch" id="modeSwitch">
+            <button class="btn ghost mode-btn" data-mode="fixed" type="button">Nutrient Complement</button>
+            <button class="btn ghost mode-btn" data-mode="explore" type="button">Explore</button>
+            <button class="btn ghost mode-btn" data-mode="single" type="button">Single Nutrient</button>
+          </div>
+          <div class="small muted" id="modeNote"></div>
+        </div>
+
+        <div class="control-row control-row--plot">
+          <div class="plot-grid">
+            <div class="plot-config">
+              <div class="plot-config-grid">
+                <label class="field-group field-group--plot">
+                  <span class="field-label" id="plotLabel">Plot tiles</span>
+                  <div class="pair plot-size-inputs">
+                    <input id="plotW" class="field field--short" type="number" min="1" value="1" />
+                    <span class="pair-x">x</span>
+                    <input id="plotH" class="field field--short" type="number" min="1" value="2" />
+                  </div>
+                  <div class="preset-row" id="plotPresets">
+                    <button class="btn ghost preset-btn" data-w="1" data-h="1" data-fixed="1" type="button">1x1</button>
+                    <button class="btn ghost preset-btn" data-w="1" data-h="2" data-fixed="1" type="button">1x2</button>
+                    <button class="btn ghost preset-btn" data-w="2" data-h="2" type="button">2x2</button>
+                    <button class="btn ghost preset-btn" data-w="1" data-h="3" type="button">1x3</button>
+                    <button class="btn ghost preset-btn" data-w="2" data-h="3" type="button">2x3</button>
+                    <button class="btn ghost preset-btn" data-w="3" data-h="3" type="button">3x3</button>
+                  </div>
+                </label>
+                <label class="field-group field-group--pits">
+                  <span class="field-label" id="pitLabel">Pit pattern</span>
+                  <div class="pit-modes" id="pitModes">
+                    <label class="pit-chip"><input type="checkbox" value="8" />8</label>
+                    <label class="pit-chip"><input type="checkbox" value="9" checked />9</label>
+                    <label class="pit-chip"><input type="checkbox" value="10" checked />10</label>
+                  </div>
+                </label>
+                <label class="field-group field-group--season">
+                  <span class="field-label" id="seasonLabel">Season filter</span>
+                  <select id="season" class="field"></select>
+                </label>
+              </div>
+              <div class="plot-options">
+                <label class="field-group field-group--explore">
+                  <span class="field-label" id="maxKindsLabel">Max plant kinds</span>
+                  <select id="maxKinds" class="field">
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                    <option value="4">4</option>
+                  </select>
+                </label>
+                <label class="field-group field-group--explore">
+                  <span class="field-label" id="topNLabel">Top results</span>
+                  <input id="topN" class="field field--short" type="number" min="1" max="200" value="12" />
+                </label>
+              </div>
+              <div class="small muted" id="plotMeta"></div>
+              <div class="plot-actions">
+                <div class="field-group field-group--selected">
+                  <span class="field-label" id="selectedLabel">Selected plants</span>
+                  <div class="selected-list" id="selectionList"></div>
+                </div>
+                <div class="action-row" id="actionRow">
+                  <button id="btnGenerate" class="btn primary" type="button">Generate plans</button>
+                  <button id="btnReset" class="btn ghost" type="button">Reset</button>
+                  <div class="small muted" id="planSummary"></div>
+                </div>
+                <div class="small muted" id="plotHint"></div>
+              </div>
+            </div>
+            <div class="plot-preview">
+              <div class="plot-title">
+                <span id="plotPreviewLabel">Plot preview</span>
+                <span class="plot-pattern" id="plotPattern"></span>
+              </div>
+              <div class="plot-canvas" id="plotPreview"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel--results" id="resultPanel">
+      <div class="panel-head">
+        <div class="panel-title-row">
+          <div class="panel-title" id="resultTitle">Plan Results</div>
+          <div class="small muted" id="resultMeta"></div>
+        </div>
+      </div>
+      <div class="panel-actions panel-actions--inline">
+        <div class="ratio-filters" id="ratioFilters"></div>
+      </div>
+      <div class="panel-body">
+        <div class="plan-grid" id="results"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="app-nav" aria-label="Primary">
+    <a id="appNavCraft" class="app-nav__item" href="#"><span class="app-nav__label">Craft</span></a>
+    <a id="appNavCooking" class="app-nav__item" href="#"><span class="app-nav__label">Cooking</span></a>
+    <a id="appNavFarming" class="app-nav__item active" href="#"><span class="app-nav__label">Farming</span></a>
+    <a id="appNavCatalog" class="app-nav__item" href="#"><span class="app-nav__label">Catalog</span></a>
+  </nav>
+
+  <div class="err fixed" id="err"></div>
+</body>
+</html>

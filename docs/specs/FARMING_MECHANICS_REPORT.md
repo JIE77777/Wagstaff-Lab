@@ -107,6 +107,21 @@ soil_moisture = clamp(soil_moisture, world_wetness, SOIL_MAX_MOISTURE_VALUE)
 - `SEASONAL_WEED_SPAWN_CAHNCE`：季节性杂草生成概率（秋/春）
 - 生成窗口 = 当季剩余天数 * 0.25
 
+## 公式摘要（mechanics）
+
+- grow time 计算：
+  - `seed`：`rand(seed_min, seed_max) * season_multiplier`
+  - `sprout/small/med`：`calcGrowTime(checkpoint_stress_points, num_stressors+1, stage_min, stage_max) * season_multiplier`
+  - `calcGrowTime`：`min + step * (max - min) / num_steps + rand(0,1) * (max - min) / num_steps`
+  - `spoil`：`full/oversized`（若 `long_life` 则再乘 `FARM_PLANT_LONG_LIFE_MULT`）
+  - `regrow`：非巨型时 `rand(regrow_min, regrow_max)`
+- stress → 产出规则：
+  - `NONE/LOW`：`product + seed + seed`
+  - `MODERATE`：`product + seed`
+  - `HIGH`：`product`
+  - `oversized`：`product_oversized`（条件：`final_stress == NONE` 且非 `no_oversized`）
+  - `rotten`：默认 `spoiled_food`；巨型优先 `loot_oversized_rot`（缺省为 3×`spoiled_food` + `seed` + 2×`fruitfly`）
+
 ## 杂草扩散
 
 `weed_defs.lua` 定义扩散窗口与距离参数：
@@ -125,4 +140,11 @@ soil_moisture = clamp(soil_moisture, world_wetness, SOIL_MAX_MOISTURE_VALUE)
 
 - `data/index/wagstaff_farming_defs_v1.json`
 - 由 `devtools/build_farming_defs.py` 构建
-- 内容包含 `tuning`、`seed_weights`、`plants`、`weeds`、`fertilizers` 与统计信息
+- 内容包含 `tuning`、`seed_weights`、`mechanics`、`plants`、`weeds`、`fertilizers` 与统计信息
+- `mechanics` 汇总 stress 阈值/分类、产出规则、good season 成长倍率、grow time 公式摘要与季节杂草生成窗口比例
+
+## 工具显示约定（Farming UI）
+
+- 水分单位：`0.0035` 视作 `1` 单位。
+- 结果卡显示：以 **每块地平均总耗水** 为数值（`total_water / tile_count`）。
+- 水分进度条：最大值按「单块地 10 株高耗水作物」设定，即 `10 * 0.035 = 0.35`（对应 100 单位）。
