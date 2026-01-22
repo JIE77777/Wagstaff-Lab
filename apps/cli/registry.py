@@ -51,6 +51,14 @@ TOOLS = [
         "type": "CLI",
         "folder": "apps/cli/commands"
     },
+    {
+        "file": "worldgen.py",
+        "alias": "worldgen",
+        "desc": "Worldgen 工具（结构索引 + S3 拓扑骨架）",
+        "usage": "wagstaff worldgen <build|topo>",
+        "type": "CLI",
+        "folder": "apps/cli/commands"
+    },
 
     # --- 开发工具 (devtools/) ---
     {
@@ -130,6 +138,22 @@ TOOLS = [
         "alias": "mechanism-index",
         "desc": "生成机制索引（组件 + prefab 关系）",
         "usage": "wagstaff mechanism-index [build|validate|diff] ...",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "build_worldgen_index.py",
+        "alias": "worldgen-index",
+        "desc": "生成 worldgen 结构索引（presets/tasksets/tasks/rooms）",
+        "usage": "wagstaff worldgen-index [--dst-root PATH] [--out PATH]",
+        "type": "Dev",
+        "folder": "devtools"
+    },
+    {
+        "file": "worldgen_topology.py",
+        "alias": "worldgen-topo",
+        "desc": "生成 worldgen S3 拓扑骨架图（JSON/DOT）",
+        "usage": "wagstaff worldgen-topo [--index PATH] [--out-json PATH] [--out-dot PATH]",
         "type": "Dev",
         "folder": "devtools"
     },

@@ -41,6 +41,8 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
     - `wagstaff farming-defs` farming defs
     - `wagstaff mechanism-index build` mechanism index
     - `wagstaff behavior-graph` behavior graph index
+    - `wagstaff worldgen build` worldgen 结构索引
+    - `wagstaff worldgen topo` worldgen S3 拓扑骨架
     - Tip: `wagstaff mechanism-index validate` / `wagstaff mechanism-index diff`
     - `wagstaff index-manifest` index manifest
 
@@ -72,6 +74,7 @@ Install entrypoint (once per env): `python -m pip install -e ".[cli]"`.
 - Build
   - `wagstaff resindex` / `wagstaff catalog2` / `wagstaff catalog-sqlite` / `wagstaff catindex`
   - `wagstaff i18n` / `wagstaff icons` / `wagstaff farming-defs` / `wagstaff mechanism-index build` / `wagstaff behavior-graph`
+  - `wagstaff worldgen build` / `wagstaff worldgen topo`
   - `wagstaff index-manifest`
 - Quality
   - `wagstaff quality`

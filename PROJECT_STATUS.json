@@ -215,7 +215,12 @@
     "[2026-01-21 18:33] WebCraft: 新增 Farming 混种规划工具 UI 与 API。",
     "[2026-01-21 19:05] WebCraft: Farming 地块坑位选择 + 预览，支持 9/10/8 固定坑位与家族判定。",
     "[2026-01-21 19:42] WebCraft: Farming 固定互补解索引 + 模式切换（固定/探索/单一肥料）。",
-    "[2026-01-22 00:55] WebCraft: Farming 模拟 UI 调优与水分显示收敛，移除弃用 UI 字段与文案。"
+    "[2026-01-22 00:55] WebCraft: Farming 模拟 UI 调优与水分显示收敛，移除弃用 UI 字段与文案。",
+    "[2026-01-22 10:00] Docs: 新增世界生成机制卡片与 worldgen 索引规范草案。",
+    "[2026-01-22 10:30] Docs: 整理 worldgen 机制讨论笔记与分阶段/断点分析。",
+    "[2026-01-22 20:20] Docs: 输出 worldgen 解析工具设计文档（结构解析 + S3 骨架）。",
+    "[2026-01-22 20:45] Worldgen: 落地结构解析与 S3 拓扑骨架工具链（core/devtools/cli）。",
+    "[2026-01-22 20:50] Docs: 更新 README/DEV_GUIDE/CLI_GUIDE 的 worldgen 工具与产物清单。"
   ],
   "DEV_MANIFESTO": [
     "分层清晰：core 负责解析与索引，apps 负责交互与服务，devtools 提供流程工具",

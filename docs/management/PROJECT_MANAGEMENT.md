@@ -71,11 +71,34 @@
 ### 机制解析路线
 - **E17 静态机制解析（Static Mechanics）**：prefab/component/stats/recipes 等静态机制结构
 - **E18 行为图谱解析（Behavior Graph）**：stategraph/brain/event 结构化关系
+- **E19 地图生成机制（Worldgen/Mapgen）**：worldgen_main → levels/tasksets/tasks/rooms → storygen/topology → forest_map/worldsim → set_pieces/layouts + worldentities
+  - 机制卡片：`docs/management/MECHANISM_CARD_WORLDGEN.md`
+  - 产物规范：`docs/specs/WORLDGEN_INDEX_SPEC.md`
+  - 设计文档：`docs/management/WORLDGEN_PARSER_ARCH.md`
 
 ### 服务器运维
 - **E16 DST server 管理**（完成）
 
-## 4. L3 当前任务（Active）
+## 4. 机制理解路线与完成度标准
+
+**目标**：让解析能力的增长建立在对源码机制的系统理解上，并形成可量化的完成度判断。
+
+机制理解入口：`docs/management/MECHANISM_UNDERSTANDING_PLAYBOOK.md`
+
+**机制理解路线（循环）**
+1. 抽样：`devtools/sampler.py`（建议开启 `--coverage-focus auto/c1`）
+2. 机制卡片：记录入口文件、规则与字段清单
+3. 抽取规则：把“理解”转为可执行解析规则
+4. 实现与验证：结合 `catalog_quality` 与 `static_mechanics_coverage`
+5. 回填缺口：更新机制卡片与缺口说明
+
+**完成度标准（建议）**
+- 核心机制组件（combat/weapon/locomotor/armor 等）：C1 ≥ 0.90，C2 ≥ 0.80
+- 非核心机制组件：C1 ≥ 0.80
+- 每个 parser：Must-have 字段全覆盖 + 10–20 个样本人工验证
+- 未支持/不确定逻辑必须记录为 `raw/unknown`，避免静默缺失
+
+## 5. L3 当前任务（Active）
 
 - **T-101**：stats 覆盖扩展（组件属性/方法解析补全）
 - **T-102**：i18n 覆盖提升（names/desc/quotes + UI 文案）
@@ -90,7 +113,7 @@
 - **T-113**：Mechanism build 严格校验开关（--strict）
 - **T-114**：SQLite v4 schema 设计（DDL + 索引 + 迁移策略，见 `docs/specs/SQLITE_V4_SPEC.md`）
 
-## 5. 最近完成（摘要）
+## 6. 最近完成（摘要）
 
 - wagstaff server 接入，运维模块独立化
 - WebCraft UI 模块化：模板迁移至 `apps/webcraft/templates/`，CSS/JS 拆分到 `apps/webcraft/static/`
@@ -118,7 +141,7 @@
 - i18n: strings.lua 英文索引 + quotes_meta 记录台词角色来源
 - i18n: speech_*.lua 英文描述/台词补齐（EN 优先不回退 CN）
 
-## 6. 下一步建议（短期）
+## 7. 下一步建议（短期）
 
 1. 以 stats 解析覆盖为主线，补齐关键组件（equippable/rechargeable/heater 等）
 2. i18n 覆盖率提升，补齐 UI 词条并完善多语言元数据

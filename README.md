@@ -87,6 +87,7 @@ wagstaff web
 - `wagstaff catindex`：Catalog 紧凑索引构建
 - `wagstaff mechanism-index`：机制索引（build/validate/diff）
 - `wagstaff behavior-graph`：行为图谱索引
+- `wagstaff worldgen`：Worldgen 结构索引 + S3 拓扑骨架
 - `wagstaff farming-sim`：耕种轻量模拟（基于 farming defs）
 - `wagstaff quality`：质量/校验总入口
 - `wagstaff report`：报告中心（build/list/open）
@@ -122,6 +123,7 @@ data/index/wagstaff_farming_fixed_v1.json
 data/index/wagstaff_mechanism_index_v1.json
 data/index/wagstaff_mechanism_index_v1.sqlite
 data/index/wagstaff_behavior_graph_v1.json
+data/index/wagstaff_worldgen_index_v1.json
 data/index/wagstaff_i18n_v1.json
 data/index/wagstaff_icon_index_v1.json
 data/index/wagstaff_tuning_trace_v1.json
@@ -137,6 +139,8 @@ data/reports/catalog_quality_report.md
 data/reports/static_mechanics_coverage_report.md
 data/reports/static_mechanics_coverage_report.json
 data/reports/wagstaff_report_manifest.json
+data/reports/worldgen_topology_report.json
+data/reports/worldgen_topology_graph.dot
 data/reports/index.html
 data/reports/portal_index.html
 ```

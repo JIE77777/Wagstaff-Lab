@@ -73,6 +73,7 @@ dev_guide:
   - `data/index/wagstaff_mechanism_index_v1.json`
   - `data/index/wagstaff_mechanism_index_v1.sqlite`
   - `data/index/wagstaff_behavior_graph_v1.json`
+  - `data/index/wagstaff_worldgen_index_v1.json`
   - `data/index/wagstaff_index_manifest.json`
   - `data/reports/quality_gate_report.md`
   - `data/reports/catalog_quality_report.md`
@@ -81,6 +82,8 @@ dev_guide:
   - `data/reports/dst_raw_coverage.md`
   - `data/reports/mechanism_index_summary.md`
   - `data/reports/mechanism_crosscheck_report.md`
+  - `data/reports/worldgen_topology_report.json`
+  - `data/reports/worldgen_topology_graph.dot`
   - `data/reports/wagstaff_report_manifest.json`
   - `data/reports/index.html`
   - `data/reports/portal_index.html`

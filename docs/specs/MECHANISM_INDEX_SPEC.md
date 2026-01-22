@@ -88,6 +88,7 @@ target_id: "combat"
 
 - `stategraphs` / `stategraph_states` / `stategraph_events` / `stategraph_edges`
 - `brains` / `brain_nodes` / `brain_edges`
+- `worldgen_presets` / `worldgen_tasksets` / `worldgen_tasks` / `worldgen_rooms` / `worldgen_layouts` / `worldgen_links`
 
 ## 4. 一致性与校验
 

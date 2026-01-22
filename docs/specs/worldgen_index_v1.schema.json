@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Wagstaff Worldgen Index v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "meta",
+    "counts",
+    "presets",
+    "tasksets",
+    "tasks",
+    "rooms",
+    "layouts",
+    "set_pieces",
+    "start_locations"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer"
+    },
+    "meta": {
+      "type": "object"
+    },
+    "counts": {
+      "type": "object"
+    },
+    "presets": {
+      "type": "object"
+    },
+    "tasksets": {
+      "type": "object"
+    },
+    "tasks": {
+      "type": "object"
+    },
+    "rooms": {
+      "type": "object"
+    },
+    "layouts": {
+      "type": "object"
+    },
+    "set_pieces": {
+      "type": "object"
+    },
+    "start_locations": {
+      "type": "object"
+    },
+    "links": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
